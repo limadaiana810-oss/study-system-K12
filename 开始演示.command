@@ -182,7 +182,7 @@ wait_for_public_url() {
   fi
 
   echo "⏳ 等待公网域名生效..."
-  for _ in {1..60}; do
+  for _ in {1..20}; do
     if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
       echo "❌ Cloudflare Tunnel 启动失败，请查看：$LOG_TUNNEL_FILE"
       exit 1
@@ -277,6 +277,11 @@ if [ -n "$PUBLIC_URL" ]; then
 fi
 
 OPEN_URL=""
+LOCAL_URL="http://localhost:3000"
+if [ -n "$DEMO_TOKEN" ]; then
+  LOCAL_URL="$LOCAL_URL/?token=$DEMO_TOKEN"
+fi
+
 if [ -n "$PUBLIC_URL" ]; then
   if [ -n "$DEMO_TOKEN" ]; then
     OPEN_URL="$PUBLIC_URL/?token=$DEMO_TOKEN"
@@ -284,12 +289,12 @@ if [ -n "$PUBLIC_URL" ]; then
     OPEN_URL="$PUBLIC_URL"
   fi
 else
-  OPEN_URL="http://localhost:3000"
+  OPEN_URL="$LOCAL_URL"
 fi
 
 echo ""
 echo "✅ 服务已启动（请保持此窗口开启）"
-echo "   本地地址：http://localhost:3000"
+echo "   本地地址：$LOCAL_URL"
 if [ -n "$PUBLIC_URL" ]; then
   echo "   公网地址：$PUBLIC_URL"
   if [ -n "$DEMO_TOKEN" ] && [ "$DEMO_TOKEN" != "change-me" ]; then

@@ -21,3 +21,12 @@ test("launcher waits for the quick tunnel URL before opening the browser", () =>
   assert.match(script, /curl -I -L --max-time 8 "\$PUBLIC_URL"/)
   assert.match(script, /wait_for_public_url \|\| PUBLIC_URL=""/)
 })
+
+test("launcher includes the access token when falling back to localhost", () => {
+  const scriptPath = path.join(process.cwd(), "..", "开始演示.command")
+  const script = fs.readFileSync(scriptPath, "utf8")
+
+  assert.match(script, /LOCAL_URL="http:\/\/localhost:3000"/)
+  assert.match(script, /LOCAL_URL="\$LOCAL_URL\/\?token=\$DEMO_TOKEN"/)
+  assert.match(script, /OPEN_URL="\$LOCAL_URL"/)
+})
