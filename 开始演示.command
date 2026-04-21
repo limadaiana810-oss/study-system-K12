@@ -176,6 +176,31 @@ wait_for_local_port_3000() {
   exit 1
 }
 
+wait_for_public_url() {
+  if [ -z "$PUBLIC_URL" ]; then
+    return 1
+  fi
+
+  echo "⏳ 等待公网域名生效..."
+  for _ in {1..60}; do
+    if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
+      echo "❌ Cloudflare Tunnel 启动失败，请查看：$LOG_TUNNEL_FILE"
+      exit 1
+    fi
+
+    # 不使用 -f：启用 DEMO_ACCESS_TOKEN 时 401 也代表 DNS/TLS/隧道已可达。
+    if curl -I -L --max-time 8 "$PUBLIC_URL" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  echo "⚠️  公网域名暂时无法解析，将先打开本地地址"
+  echo "   可稍后重试公网地址，或查看：$LOG_TUNNEL_FILE"
+  return 1
+}
+
 cleanup() {
   local stopped=0
 
@@ -246,6 +271,10 @@ for i in {1..25}; do
   if [ -n "$PUBLIC_URL" ]; then break; fi
   sleep 1
 done
+
+if [ -n "$PUBLIC_URL" ]; then
+  wait_for_public_url || PUBLIC_URL=""
+fi
 
 OPEN_URL=""
 if [ -n "$PUBLIC_URL" ]; then
