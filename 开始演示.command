@@ -121,6 +121,61 @@ cleanup_recorded_process() {
   rm -f "$pid_file"
 }
 
+cleanup_project_port_processes() {
+  local port=3000
+  local pids=""
+  local pid=""
+  local cwd=""
+
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  for pid in $pids; do
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tail -n 1)"
+
+    if [ "$cwd" = "$PROJECT_DIR" ]; then
+      echo "ℹ️  清理当前项目占用 $port 端口的旧服务（PID $pid）"
+      kill "$pid" 2>/dev/null || true
+      for _ in {1..10}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+          break
+        fi
+        sleep 0.3
+      done
+    elif [ -n "$pid" ]; then
+      echo "❌ 端口 $port 已被其他进程占用（PID $pid）"
+      echo "   请先关闭该进程后重试。"
+      exit 1
+    fi
+  done
+}
+
+wait_for_local_port_3000() {
+  for _ in {1..30}; do
+    if ! kill -0 "$DEV_PID" 2>/dev/null; then
+      echo "❌ 本地服务启动失败，请查看：$LOG_DEV_FILE"
+      exit 1
+    fi
+
+    if grep -q "Another next dev server is already running" "$LOG_DEV_FILE" 2>/dev/null; then
+      echo "❌ 检测到已有 Next dev server，请查看：$LOG_DEV_FILE"
+      exit 1
+    fi
+
+    if grep -q "Port 3000 is in use" "$LOG_DEV_FILE" 2>/dev/null; then
+      echo "❌ 端口 3000 仍被占用，请查看：$LOG_DEV_FILE"
+      exit 1
+    fi
+
+    if grep -q "http://localhost:3000" "$LOG_DEV_FILE" 2>/dev/null && grep -q "Ready" "$LOG_DEV_FILE" 2>/dev/null; then
+      return
+    fi
+
+    sleep 1
+  done
+
+  echo "❌ 本地服务未能在 30 秒内监听 http://localhost:3000，请查看：$LOG_DEV_FILE"
+  exit 1
+}
+
 cleanup() {
   local stopped=0
 
@@ -155,6 +210,7 @@ trap cleanup EXIT HUP INT TERM
 
 cleanup_recorded_process "$PID_DEV_FILE" "next dev"
 cleanup_recorded_process "$PID_TUNNEL_FILE" "cloudflared tunnel"
+cleanup_project_port_processes
 
 : > "$LOG_DEV_FILE"
 : > "$LOG_TUNNEL_FILE"
@@ -167,8 +223,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 DEV_PID=$!
 echo "$DEV_PID" > "$PID_DEV_FILE"
 
-# 给 dev server 一点启动时间
-sleep 2
+# 等待 dev server 确认监听 3000，避免 Next 自动切到 3001 后 tunnel 指错端口
+wait_for_local_port_3000
 
 # 2) 启动 Cloudflare Tunnel（绑定到当前终端生命周期）
 "$CLOUDFLARED_CMD" tunnel --url http://localhost:3000 --no-autoupdate > "$LOG_TUNNEL_FILE" 2>&1 &
