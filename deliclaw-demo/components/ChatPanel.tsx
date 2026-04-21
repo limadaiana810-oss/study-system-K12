@@ -1,10 +1,21 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import type { DemoStage, FileCard, Message, MemoryEntry, UploadedFile, InferredCandidate } from "@/types"
+import type {
+  DemoStage,
+  FileCard,
+  InferredCandidate,
+  MemoryEntry,
+  MemoryExtractionResult,
+  Message,
+  TurnInsight,
+  UploadedFile,
+} from "@/types"
 import { QUICK_REPLIES } from "@/lib/demoScript"
 import { extractMemory, stripMemoryTags, mergeMemory, hasMemoryData } from "@/lib/memoryParser"
 import { extractFileResults, stripFileResultTags } from "@/lib/fileResultParser"
+import { buildFileResultQuery, pickResolvedSearchResult } from "@/lib/fileResultResolver"
+import { attachFileUnderstanding, buildTurnInsightFromMemory, markFileUnderstandingFailed } from "@/lib/turnInsight"
 import { AI_INTRO } from "@/lib/prompts"
 import MessageBubble from "./MessageBubble"
 import QuickReplyBar from "./QuickReplyBar"
@@ -14,10 +25,33 @@ interface Props {
   onMemoryUpdate: (m: MemoryEntry) => void
   pendingInferred: InferredCandidate[]
   onInferredCandidates: (cands: InferredCandidate[]) => void
+  onTurnInsightUpdate: (insight: TurnInsight) => void
   uploadedFiles: UploadedFile[]
   onFileUpload: (base64: string, mime: string, name: string) => void
   stage: DemoStage
   onStageChange: (s: DemoStage) => void
+}
+
+type SearchApiResult = {
+  fileName: string
+  title?: string | null
+  mimeType?: string
+  url?: string
+  uploadedAt?: string
+  tags?: {
+    subject?: string
+    questionType?: string
+    knowledgePoints?: string[]
+  }
+}
+
+type UploadIndexResponse = {
+  canonicalName?: string
+  description?: string
+  subject?: string
+  knowledgePoints?: string[]
+  questionType?: string
+  status?: "ready" | "partial"
 }
 
 function isRetrieveIntent(text: string) {
@@ -77,8 +111,8 @@ function buildQueryTerms(text: string, knownTags: string[]) {
   return [...out].filter(Boolean)
 }
 
-async function fillMissingBase64(cards: FileCard[]): Promise<FileCard[]> {
-  const missing = cards.filter((c) => !c.base64)
+async function fillMissingFileData(cards: FileCard[]): Promise<FileCard[]> {
+  const missing = cards.filter((c) => !c.base64 && !c.url)
   if (missing.length === 0) return cards
 
   const fetched = await Promise.all(
@@ -93,16 +127,73 @@ async function fillMissingBase64(cards: FileCard[]): Promise<FileCard[]> {
     )
   )
 
-  const nameToData: Record<string, { base64: string; mimeType: string }> = {}
+  const nameToData: Record<string, { base64?: string; mimeType?: string; url?: string }> = {}
   for (const json of fetched) {
     for (const r of json?.results ?? []) {
-      if (r.fileName && r.base64) nameToData[r.fileName] = { base64: r.base64, mimeType: r.mimeType }
+      if (r.fileName) {
+        nameToData[r.fileName] = {
+          base64: r.base64,
+          mimeType: r.mimeType,
+          url: r.url,
+        }
+      }
     }
   }
 
   return cards.map((c) =>
-    c.base64 ? c : { ...c, base64: nameToData[c.name]?.base64 ?? "", mimeType: nameToData[c.name]?.mimeType ?? c.mimeType }
+    c.base64 || c.url
+      ? c
+      : {
+          ...c,
+          base64: nameToData[c.name]?.base64 ?? "",
+          url: nameToData[c.name]?.url ?? c.url,
+          mimeType: nameToData[c.name]?.mimeType ?? c.mimeType,
+        }
   )
+}
+
+function mergeCardTags(result: SearchApiResult | undefined, fallback: string[] = []) {
+  return [
+    ...(result?.tags?.subject ? [result.tags.subject] : []),
+    ...(result?.tags?.questionType ? [result.tags.questionType] : []),
+    ...(Array.isArray(result?.tags?.knowledgePoints) ? result.tags.knowledgePoints : []),
+    ...fallback,
+  ].filter((value, index, array) => !!value && array.indexOf(value) === index)
+}
+
+async function resolveFileCardsFromRefs(refs: ReturnType<typeof extractFileResults>, localFiles: UploadedFile[]): Promise<FileCard[]> {
+  const resolved = await Promise.all(
+    refs.map(async (ref) => {
+      const localMatch = ref.fileName ? localFiles.find((file) => file.name === ref.fileName) : undefined
+      const query = buildFileResultQuery(ref)
+      let matched: SearchApiResult | undefined
+
+      if (query) {
+        const json = await fetch("/api/files/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, topK: 5 }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+
+        matched = pickResolvedSearchResult(ref, json?.results ?? [])
+      }
+
+      if (!matched && !localMatch) return null
+
+      return {
+        name: matched?.fileName || ref.fileName || ref.canonicalName || localMatch?.name || "已归档文件",
+        base64: localMatch?.base64 || "",
+        url: matched?.url,
+        mimeType: matched?.mimeType || localMatch?.mimeType || "image/jpeg",
+        tags: mergeCardTags(matched, ref.tags || []),
+        uploadedAt: new Date(matched?.uploadedAt || ref.uploadedAt || localMatch?.uploadedAt || new Date().toISOString()),
+      } satisfies FileCard
+    })
+  )
+
+  return resolved.filter(Boolean) as FileCard[]
 }
 
 function scoreFileForQuery(params: { queryTerms: string[]; fileName: string; tags: string[]; description?: string }) {
@@ -174,6 +265,7 @@ export default function ChatPanel({
   onMemoryUpdate,
   pendingInferred,
   onInferredCandidates,
+  onTurnInsightUpdate,
   uploadedFiles,
   onFileUpload,
   stage,
@@ -193,6 +285,7 @@ export default function ChatPanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<Message[]>(messages)
+  const activeTurnIdRef = useRef<string | null>(null)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => {
@@ -244,6 +337,7 @@ export default function ChatPanel({
               .map((r: any) => ({
                 name: r.fileName,
                 base64: r.base64,
+                url: r.url,
                 mimeType: r.mimeType || "image/jpeg",
                 tags: [
                   ...(r.tags?.subject ? [r.tags.subject] : []),
@@ -260,6 +354,7 @@ export default function ChatPanel({
               content: text,
               timestamp: new Date(),
             }
+            activeTurnIdRef.current = userMsg.id
             const aiMsg: Message = {
               id: crypto.randomUUID(),
               role: "assistant",
@@ -267,6 +362,11 @@ export default function ChatPanel({
               fileCards,
               timestamp: new Date(),
             }
+            onTurnInsightUpdate(buildTurnInsightFromMemory({
+              turnId: userMsg.id,
+              userText: userMsg.content,
+              extracted: { delta: {}, inferredCandidates: [] },
+            }))
             setMessages((prev) => {
               const next = [...prev, userMsg, aiMsg]
               messagesRef.current = next
@@ -313,7 +413,7 @@ export default function ChatPanel({
             })
             .filter(Boolean) as FileCard[]
 
-          fileCards = await fillMissingBase64(fileCards)
+          fileCards = await fillMissingFileData(fileCards)
 
           const userMsg: Message = {
             id: crypto.randomUUID(),
@@ -321,6 +421,7 @@ export default function ChatPanel({
             content: text,
             timestamp: new Date(),
           }
+          activeTurnIdRef.current = userMsg.id
           const aiMsg: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
@@ -328,6 +429,11 @@ export default function ChatPanel({
             fileCards: fileCards.length > 0 ? fileCards : undefined,
             timestamp: new Date(),
           }
+          onTurnInsightUpdate(buildTurnInsightFromMemory({
+            turnId: userMsg.id,
+            userText: userMsg.content,
+            extracted: { delta: {}, inferredCandidates: [] },
+          }))
           setMessages((prev) => {
             const next = [...prev, userMsg, aiMsg]
             messagesRef.current = next
@@ -361,6 +467,7 @@ export default function ChatPanel({
           attachmentUploadedAt: file?.uploadedAt ? file.uploadedAt.toISOString() : undefined,
           timestamp: new Date(),
         }
+        activeTurnIdRef.current = userMsg.id
         setMessages((prev) => {
           const next = [...prev, userMsg]
           messagesRef.current = next
@@ -376,6 +483,64 @@ export default function ChatPanel({
           messagesRef.current = next
           return next
         })
+
+        let latestInsight: TurnInsight | null = null
+        const publishTurnInsight = (extractedResult: MemoryExtractionResult) => {
+          latestInsight = buildTurnInsightFromMemory({
+            turnId: userMsg.id,
+            userText: userMsg.content,
+            extracted: extractedResult,
+          })
+          onTurnInsightUpdate(latestInsight)
+          return latestInsight
+        }
+        const ensureTurnInsight = () => {
+          if (latestInsight) return latestInsight
+          latestInsight = buildTurnInsightFromMemory({
+            turnId: userMsg.id,
+            userText: userMsg.content,
+            extracted: { delta: {}, inferredCandidates: [] },
+          })
+          onTurnInsightUpdate(latestInsight)
+          return latestInsight
+        }
+        const uploadFileForInsight = async (params: { description?: string; tagsHint?: string[] }) => {
+          if (!file?.name) return
+          const baseInsight = ensureTurnInsight()
+          const isStillActiveTurn = () => activeTurnIdRef.current === userMsg.id
+          try {
+            const res = await fetch("/api/files/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: file.id,
+                fileName: file.name,
+                mimeType: file.mimeType,
+                base64: file.base64,
+                uploadedAt: file.uploadedAt ? file.uploadedAt.toISOString() : new Date().toISOString(),
+                description: params.description || "",
+                tagsHint: params.tagsHint || [],
+              }),
+            })
+            if (!res.ok) throw new Error(await res.text())
+            const json = (await res.json()) as UploadIndexResponse
+            if (!isStillActiveTurn()) return
+            latestInsight = attachFileUnderstanding(baseInsight, {
+              originalName: file.name,
+              canonicalName: json.canonicalName,
+              description: json.description,
+              subject: json.subject,
+              knowledgePoints: json.knowledgePoints,
+              questionType: json.questionType,
+              status: json.status,
+            })
+            onTurnInsightUpdate(latestInsight)
+          } catch {
+            if (!isStillActiveTurn()) return
+            latestInsight = markFileUnderstandingFailed(baseInsight, file.name)
+            onTurnInsightUpdate(latestInsight)
+          }
+        }
 
         try {
           const allMsgs = [...messagesRef.current]
@@ -430,6 +595,7 @@ export default function ChatPanel({
                     const earlyMerged = mergeMemory(memorySnapshot, earlyExtracted.delta, earlyExtracted.emotionSnapshot)
                     memorySnapshot = earlyMerged
                     onMemoryUpdate(earlyMerged)
+                    publishTurnInsight(earlyExtracted)
                   }
                 }
               } catch { /* skip malformed SSE line */ }
@@ -439,6 +605,8 @@ export default function ChatPanel({
           // Parse tags after stream completes
           const extracted = extractMemory(fullContent)
           if (extracted) {
+            publishTurnInsight(extracted)
+
             // 1) 流中已实时更新，这里只补兜底 fileIndex（模型漏写时）
             {
               let merged = streamMemoryUpdated ? memorySnapshot : mergeMemory(memorySnapshot, extracted.delta, extracted.emotionSnapshot)
@@ -466,19 +634,10 @@ export default function ChatPanel({
               // 2) embedding（OpenRouter embeddings）
               // 3) SQLite 关联存储
               if (file?.name) {
-                void fetch("/api/files/upsert", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    id: file.id,
-                    fileName: file.name,
-                    mimeType: file.mimeType,
-                    base64: file.base64,
-                    uploadedAt: (file.uploadedAt ? file.uploadedAt.toISOString() : new Date().toISOString()),
-                    description: extracted.delta.fileDescription || "",
-                    tagsHint: extracted.delta.fileTags || [],
-                  }),
-                }).catch(() => {})
+                void uploadFileForInsight({
+                  description: extracted.delta.fileDescription || "",
+                  tagsHint: extracted.delta.fileTags || [],
+                })
               }
             }
 
@@ -491,22 +650,16 @@ export default function ChatPanel({
             if (stage === "intro" && (files.length > 0 || extracted.delta.fileTags?.length)) {
               onStageChange("uploaded")
             }
+          } else if (file?.name) {
+            void uploadFileForInsight({ description: "", tagsHint: [] })
+          } else {
+            ensureTurnInsight()
           }
 
           const fileResults = extractFileResults(fullContent)
           if (fileResults.length > 0) {
-            let fileCards: FileCard[] = fileResults.map((res) => {
-              const found = [...uploadedFiles, ...files].find((f) => f.name === res.fileName)
-              return {
-                name: res.fileName,
-                base64: found?.base64 || "",
-                mimeType: found?.mimeType || "image/jpeg",
-                tags: res.tags,
-                uploadedAt: new Date(res.uploadedAt),
-              }
-            })
-
-            fileCards = await fillMissingBase64(fileCards)
+            let fileCards = await resolveFileCardsFromRefs(fileResults, [...uploadedFiles, ...files])
+            fileCards = await fillMissingFileData(fileCards)
 
             setMessages((prev) => {
               const next = prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false, fileCards, rawContent: fullContent } : m))
@@ -534,7 +687,18 @@ export default function ChatPanel({
       setIsStreaming(false)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isStreaming, memory, stage, uploadedFiles, pendingInferred, onInferredCandidates]
+    [
+      isStreaming,
+      memory,
+      stage,
+      uploadedFiles,
+      pendingInferred,
+      onFileUpload,
+      onInferredCandidates,
+      onMemoryUpdate,
+      onStageChange,
+      onTurnInsightUpdate,
+    ]
   )
 
   const handleQuickReply = useCallback(

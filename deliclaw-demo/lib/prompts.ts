@@ -1,24 +1,23 @@
 /**
  * 上传时的多模态理解 + 结构化索引提示词。
- * 用于 /api/files/upload：看图 → 输出 50 字描述 + JSON 结构化标签
+ * 用于 /api/files/upload：看图 → 输出 100 字内描述 + JSON 结构化标签
  * 只输出 JSON，不要 markdown，不要解释。
  */
-export const VISION_INDEX_PROMPT = `你是一个多模态文件理解助手。请仔细看图，用 50 字以内描述图片内容（只保留客观信息，不要评价）。
+export const VISION_INDEX_PROMPT = `你是一个多模态文件理解助手。请仔细看图，用 100 字以内描述图片内容（只保留客观信息，不要评价）。
 
 同时把信息结构化成 JSON。只输出严格 JSON，不要多余文字、不要 markdown、不要解释。
 
 JSON schema：
 {
-  "title": "形如『学科-知识点-分类』的短标题（如 数学-代数-经典题）",
   "subject": "学科（数学/英语/物理/化学/语文/其他）",
   "knowledgePoints": ["1~3 个具体知识点短语（如 代数、二元一次方程、导数）"],
   "questionType": "错题 或 经典题（只选一个）",
-  "description": "50 字以内的图片内容描述",
+  "description": "100 字以内的图片内容描述",
   "confidence": 0.0
 }
 
 规则：
-- description 必须是一句完整的中文描述，字数 ≤ 50 字。
+- description 必须是一句完整的中文描述，字数 ≤ 100 字。
 - 没把握的字段宁可输出 "" 或空数组，也不要编造。
 - confidence 为整体识别把握度（0.0~1.0）。
 - 不要复述 schema，直接输出 JSON。`
@@ -101,10 +100,10 @@ Output: {"inferredCandidates":[{"field":"preferences","op":"add","value":"喜欢
 
 <file-result>
 {
-  "fileName": "文件名（必须匹配之前记忆或上传时的真实名称）",
+  "fileName": "真实原文件名（如能确定，优先填写）",
+  "canonicalName": "标准化文件名（如 数学-代数-错题-2026-04-21；如已知可填写）",
   "tags": ["标签1", "标签2"],
-  "uploadedAt": "2026-04-20",
-  "base64Ref": "对应文件的 base64 引用（由系统自动填充，你只需确保 fileName 正确）"
+  "uploadedAt": "2026-04-20"
 }
 </file-result>
 
@@ -112,7 +111,8 @@ Output: {"inferredCandidates":[{"field":"preferences","op":"add","value":"喜欢
 1. 标签内容对用户完全不可见，正文中不要提及标签本身。
 2. 识别图片中的内容并给出准确描述。
 3. 如果用户找特定的文件（如"错题"），返回**所有**相关的 <file-result>。
-4. 你可以参考系统提供的”当前记忆快照”和历史 <memory>，以确保检索结果稳定命中。`
+4. 每个 <file-result> 里，fileName 和 canonicalName 至少填写一个；不要伪造不存在的文件引用。
+5. 你可以参考系统提供的”当前记忆快照”和历史 <memory>，以确保检索结果稳定命中。`
 }
 
 export const AI_INTRO = `你好！我是 **DeliClaw**，你的专属文件管理助手。

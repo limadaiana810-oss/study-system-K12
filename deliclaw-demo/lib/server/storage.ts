@@ -36,6 +36,23 @@ function extFromMime(mime: string, fileName?: string) {
   return "bin"
 }
 
+export function guessMimeTypeFromName(name: string) {
+  const ext = (name.split(".").pop() || "").toLowerCase()
+  return ext === "jpg" || ext === "jpeg"
+    ? "image/jpeg"
+    : ext === "png"
+    ? "image/png"
+    : ext === "webp"
+    ? "image/webp"
+    : ext === "gif"
+    ? "image/gif"
+    : ext === "heic"
+    ? "image/heic"
+    : ext === "heif"
+    ? "image/heif"
+    : "application/octet-stream"
+}
+
 export function saveBase64ToDisk(params: {
   id: string
   base64: string
@@ -69,23 +86,7 @@ export function readUploadFile(nameOrRel: string): { buf: Buffer; mimeType: stri
   if (!abs.startsWith(root)) return null
   if (!fs.existsSync(abs)) return null
 
-  const ext = (fileName.split(".").pop() || "").toLowerCase()
-  const mime =
-    ext === "jpg" || ext === "jpeg"
-      ? "image/jpeg"
-      : ext === "png"
-      ? "image/png"
-      : ext === "webp"
-      ? "image/webp"
-      : ext === "gif"
-      ? "image/gif"
-      : ext === "heic"
-      ? "image/heic"
-      : ext === "heif"
-      ? "image/heif"
-      : "application/octet-stream"
-
-  return { buf: fs.readFileSync(abs), mimeType: mime }
+  return { buf: fs.readFileSync(abs), mimeType: guessMimeTypeFromName(fileName) }
 }
 
 export function uploadsUrlFromRelPath(relPath: string): string {

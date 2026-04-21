@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { DemoStage, MemoryEntry, UploadedFile, InferredCandidate } from "@/types"
+import type { DemoStage, MemoryEntry, UploadedFile, InferredCandidate, TurnInsight } from "@/types"
 import ChatPanel from "@/components/ChatPanel"
 import DatabaseHub from "@/components/DatabaseHub"
 import { applyInferredCandidate, dedupeCandidates } from "@/lib/memoryParser"
@@ -16,6 +16,7 @@ export default function Home() {
   const [stage, setStage] = useState<DemoStage>("intro")
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [pendingInferred, setPendingInferred] = useState<InferredCandidate[]>([])
+  const [turnInsight, setTurnInsight] = useState<TurnInsight | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
 
   /**
@@ -118,6 +119,7 @@ export default function Home() {
     setUploadedFiles([])
     setStage("intro")
     setPendingInferred([])
+    setTurnInsight(null)
     localStorage.removeItem(MEMORY_STORAGE_KEY)
     localStorage.removeItem(FILES_STORAGE_KEY)
     localStorage.removeItem(STAGE_STORAGE_KEY)
@@ -177,6 +179,7 @@ export default function Home() {
             onMemoryUpdate={setMemory}
             pendingInferred={pendingInferred}
             onInferredCandidates={handleAddInferredCandidates}
+            onTurnInsightUpdate={setTurnInsight}
             uploadedFiles={uploadedFiles}
             onFileUpload={handleFileUpload}
             stage={stage}
@@ -186,6 +189,7 @@ export default function Home() {
         <div className="w-72 flex-shrink-0">
           <DatabaseHub
             memory={memory}
+            turnInsight={turnInsight}
             pendingInferred={pendingInferred}
             onAcceptInferred={handleAcceptInferred}
             onRejectInferred={handleRejectInferred}

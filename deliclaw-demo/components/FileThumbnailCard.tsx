@@ -9,7 +9,7 @@ interface Props {
 
 export default function FileThumbnailCard({ file }: Props) {
   const [lightbox, setLightbox] = useState(false)
-  const src = `data:${file.mimeType};base64,${file.base64}`
+  const src = file.url || `data:${file.mimeType};base64,${file.base64}`
 
   return (
     <>

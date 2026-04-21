@@ -64,10 +64,10 @@ export interface FileIndexEntry {
 }
 
 export interface FileResultTag {
-  fileName: string
-  tags: string[]
-  uploadedAt: string
-  base64Ref: string
+  fileName?: string
+  canonicalName?: string
+  tags?: string[]
+  uploadedAt?: string
 }
 
 export type MessageRole = "user" | "assistant"
@@ -75,6 +75,7 @@ export type MessageRole = "user" | "assistant"
 export interface FileCard {
   name: string
   base64: string
+  url?: string
   mimeType: string
   tags: string[]
   uploadedAt: Date
@@ -102,6 +103,24 @@ export interface UploadedFile {
   base64: string
   mimeType: string
   uploadedAt: Date
+}
+
+export type TurnInsightFileStatus = "ready" | "partial" | "failed"
+
+export interface TurnInsight {
+  turnId: string
+  userText: string
+  factualAdded: Array<{ label: string; value: string }>
+  inferredPending: Array<{ label: string; value: string; evidence?: string }>
+  emotion?: { emotion: string; evidence?: string; weight?: number }
+  fileUnderstanding?: {
+    originalName: string
+    description: string
+    tags: string[]
+    canonicalName?: string
+    status?: TurnInsightFileStatus
+  }
+  updatedAt: string
 }
 
 export type DemoStage = "intro" | "uploaded" | "done"

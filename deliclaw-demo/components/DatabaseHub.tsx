@@ -1,14 +1,22 @@
 "use client"
 
-import type { InferredCandidate, MemoryEntry } from "@/types"
+import type { InferredCandidate, MemoryEntry, TurnInsight } from "@/types"
 import { EMOTION_COLOR } from "@/lib/memoryParser"
 import MemoryCard from "./MemoryCard"
 
 interface Props {
   memory: MemoryEntry
+  turnInsight: TurnInsight | null
   pendingInferred: InferredCandidate[]
   onAcceptInferred: (id: string) => void
   onRejectInferred: (id: string) => void
+}
+
+type FileSummary = {
+  fileName: string
+  tags: string[]
+  uploadedAt?: string
+  description?: string
 }
 
 function labelForField(field: string) {
@@ -26,18 +34,177 @@ function scoreColor(score: number): string {
   return "#34D399"
 }
 
-export default function DatabaseHub({ memory, pendingInferred, onAcceptInferred, onRejectInferred }: Props) {
-  const hasFactual = memory.factual && Object.values(memory.factual).some(Boolean)
-  const hasInferred = memory.inferred && Object.values(memory.inferred).some(v =>
-    v && (Array.isArray(v) ? v.length > 0 : true)
+function stringifyValue(value: string | string[]) {
+  return Array.isArray(value) ? value.join("，") : value
+}
+
+function hasInferredValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value.length > 0
+  return !!value
+}
+
+function hasTurnInsightDetail(turnInsight: TurnInsight | null) {
+  return !!(
+    turnInsight &&
+    (
+      turnInsight.factualAdded.length > 0 ||
+      turnInsight.inferredPending.length > 0 ||
+      turnInsight.emotion ||
+      turnInsight.fileUnderstanding
+    )
   )
-  const hasFileTags = memory.fileTags && memory.fileTags.length > 0
-  const hasActions = memory.actions && memory.actions.length > 0
-  const hasFileDesc = !!memory.fileDescription
+}
+
+function recentFiles(memory: MemoryEntry): FileSummary[] {
+  const indexed = memory.fileIndex || []
+  if (indexed.length > 0) {
+    return indexed.slice(-3).reverse().map((item) => ({
+      fileName: item.fileName,
+      tags: item.tags || [],
+      uploadedAt: item.uploadedAt,
+      description: item.description,
+    }))
+  }
+
+  if (memory.fileTags?.length || memory.fileDescription) {
+    return [
+      {
+        fileName: "最近解析文件",
+        tags: memory.fileTags || [],
+        description: memory.fileDescription,
+      },
+    ]
+  }
+
+  return []
+}
+
+function InsightChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "confirmed" | "pending" }) {
+  const styles = {
+    neutral: "bg-slate-100 text-slate-600",
+    confirmed: "bg-emerald-50 text-emerald-700",
+    pending: "bg-amber-50 text-amber-700",
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${styles[tone]}`}>
+      {label}
+    </span>
+  )
+}
+
+function TurnInsightPanel({ turnInsight }: { turnInsight: TurnInsight | null }) {
+  const hasDetail = hasTurnInsightDetail(turnInsight)
+  const file = turnInsight?.fileUnderstanding
+  const fileStatus =
+    file?.status === "failed" ? "文件未入库" :
+    file?.status === "ready" ? "文件已入库" :
+    file ? "部分入库" : ""
+
+  return (
+    <section className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-3.5 shadow-sm animate-[pulse_0.8s_ease-out_1]">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">本轮理解</p>
+          <p className="mt-0.5 text-sm font-bold text-slate-900">我刚刚理解到</p>
+        </div>
+        <InsightChip label={turnInsight ? "刚刚更新" : "等待输入"} tone={turnInsight ? "confirmed" : "neutral"} />
+      </div>
+
+      {turnInsight?.userText && (
+        <div className="mt-3 rounded-xl bg-white/80 p-2.5 ring-1 ring-slate-100">
+          <p className="text-[10px] font-semibold text-slate-400">你刚刚说了</p>
+          <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-slate-700">「{turnInsight.userText}」</p>
+        </div>
+      )}
+
+      {!turnInsight && (
+        <p className="mt-3 rounded-xl bg-white/80 p-2.5 text-[12px] leading-relaxed text-slate-500 ring-1 ring-slate-100">
+          先发送一句话或上传一个文件，我会在这里展示理解过程。
+        </p>
+      )}
+
+      {turnInsight && !hasDetail && (
+        <p className="mt-3 rounded-xl bg-white/80 p-2.5 text-[12px] leading-relaxed text-slate-500 ring-1 ring-slate-100">
+          这一轮没有新增记忆，但对话上下文已参与理解。
+        </p>
+      )}
+
+      {turnInsight?.factualAdded.length ? (
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <InsightChip label="已确认" tone="confirmed" />
+            <p className="text-[11px] font-bold text-slate-700">我确认的事实</p>
+          </div>
+          {turnInsight.factualAdded.map((fact) => (
+            <div key={`${fact.label}-${fact.value}`} className="flex items-center justify-between rounded-lg bg-white/80 px-2.5 py-2 ring-1 ring-emerald-100">
+              <span className="text-[11px] text-slate-400">{fact.label}</span>
+              <span className="text-[12px] font-semibold text-slate-800">{fact.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {turnInsight?.emotion && (
+        <div className="mt-3 rounded-xl bg-white/80 p-2.5 ring-1 ring-slate-100">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold text-slate-700">我感知到的状态</p>
+            <span className="text-[12px] font-bold" style={{ color: EMOTION_COLOR[turnInsight.emotion.emotion] ?? "#64748B" }}>
+              {turnInsight.emotion.emotion}
+            </span>
+          </div>
+          {turnInsight.emotion.evidence && (
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">依据：{turnInsight.emotion.evidence}</p>
+          )}
+        </div>
+      )}
+
+      {turnInsight?.inferredPending.length ? (
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <InsightChip label="待确认" tone="pending" />
+            <p className="text-[11px] font-bold text-slate-700">我准备记住的内容</p>
+          </div>
+          {turnInsight.inferredPending.map((item) => (
+            <div key={`${item.label}-${item.value}`} className="rounded-lg bg-white/80 px-2.5 py-2 ring-1 ring-amber-100">
+              <p className="text-[12px] font-semibold text-slate-800">{item.label}：{item.value}</p>
+              {item.evidence && <p className="mt-1 text-[11px] leading-relaxed text-slate-400">依据：{item.evidence}</p>}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {file && (
+        <div className="mt-3 rounded-xl bg-white/85 p-2.5 ring-1 ring-sky-100">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-bold text-slate-700">我如何理解这个文件</p>
+            <InsightChip label={fileStatus} tone={file.status === "failed" ? "pending" : "confirmed"} />
+          </div>
+          <p className="mt-1 text-[12px] font-semibold text-slate-800">{file.originalName}</p>
+          {file.canonicalName && <p className="mt-1 text-[11px] text-slate-400">标准名：{file.canonicalName}</p>}
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{file.description}</p>
+          {file.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {file.tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default function DatabaseHub({ memory, turnInsight, pendingInferred, onAcceptInferred, onRejectInferred }: Props) {
+  const hasFactual = memory.factual && Object.values(memory.factual).some(Boolean)
+  const hasInferred = memory.inferred && Object.values(memory.inferred).some(hasInferredValue)
   const hasPending = pendingInferred && pendingInferred.length > 0
   const hasPsychState = memory.psychState && memory.psychState.snapshots.length > 0
-
-  const isEmpty = !hasFactual && !hasInferred && !hasPending && !hasFileTags && !hasActions && !hasFileDesc && !hasPsychState
+  const files = recentFiles(memory)
+  const hasFiles = files.length > 0
+  const isEmpty = !hasFactual && !hasInferred && !hasPending && !hasPsychState && !hasFiles
 
   const psych = memory.psychState
   const dominantColor = psych ? (EMOTION_COLOR[psych.dominant] ?? "#94A3B8") : "#94A3B8"
@@ -54,23 +221,25 @@ export default function DatabaseHub({ memory, pendingInferred, onAcceptInferred,
           </div>
           <div>
             <p className="text-xs font-bold text-gray-800 leading-tight">记忆中心</p>
-            <p className="text-[10px] text-gray-400">实时记忆</p>
+            <p className="text-[10px] text-gray-400">理解过程 + 长期记忆</p>
           </div>
         </div>
       </div>
 
       {/* Memory cards */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <TurnInsightPanel key={turnInsight?.turnId ?? "empty-turn-insight"} turnInsight={turnInsight} />
+
         {isEmpty ? (
           /* 冷启动引导 */
           <div className="space-y-3">
-            <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3.5">
-              <p className="text-xs font-bold text-indigo-700 mb-2">我能记住什么？</p>
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3.5">
+              <p className="text-xs font-bold text-slate-700 mb-2">长期记忆会沉淀到这里</p>
               <div className="space-y-2">
                 {[
                   { color: "#3B82F6", label: "事实记忆", desc: "姓名、年级、学校等你告诉我的信息" },
-                  { color: "#8B5CF6", label: "习惯推测", desc: "作息、偏好——需要你来确认" },
-                  { color: "#EC4899", label: "情绪状态", desc: "每轮对话自动感知你的情绪" },
+                  { color: "#F59E0B", label: "待确认推测", desc: "作息、偏好，需要你确认后才写入" },
+                  { color: "#EC4899", label: "情绪趋势", desc: "每轮对话感知状态并形成趋势" },
                   { color: "#06B6D4", label: "文件索引", desc: "上传文件自动分类，一句话找回" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-2">
@@ -86,117 +255,9 @@ export default function DatabaseHub({ memory, pendingInferred, onAcceptInferred,
           </div>
         ) : (
           <>
-            {/* 情绪追踪区域 */}
-            {hasPsychState && psych && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 rounded-full" style={{ backgroundColor: dominantColor }} />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">情绪追踪</p>
-                </div>
-
-                <div
-                  className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
-                  style={{ borderLeftWidth: 3, borderLeftColor: dominantColor }}
-                >
-                  <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">当前情绪</p>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-bold text-gray-800">{psych.dominant}</span>
-                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${psych.compositeScore * 100}%`,
-                          backgroundColor: scoreColor(psych.compositeScore),
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-gray-400">{(psych.compositeScore * 100).toFixed(0)}%</span>
-                  </div>
-
-                  {/* 10轮历史迷你柱状图 */}
-                  {psych.snapshots.length > 1 && (
-                    <div className="flex items-end gap-0.5 h-5 mt-1">
-                      {psych.snapshots.map((s, i) => (
-                        <div
-                          key={s.timestamp}
-                          className="flex-1 rounded-sm transition-all duration-300"
-                          title={`${s.emotion} (${(s.weight * 100).toFixed(0)}%)`}
-                          style={{
-                            height: `${Math.max(15, s.weight * 100)}%`,
-                            backgroundColor: EMOTION_COLOR[s.emotion] ?? "#94A3B8",
-                            opacity: 0.4 + (i / psych.snapshots.length) * 0.6,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {psych.snapshots.length > 0 && psych.snapshots[psych.snapshots.length - 1].evidence && (
-                    <p className="text-[10px] text-gray-400 mt-1.5 truncate">
-                      「{psych.snapshots[psych.snapshots.length - 1].evidence}」
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 待确认推测区域 */}
-            {hasPending && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-amber-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">待确认推测（{pendingInferred.length}）</p>
-                </div>
-
-                {pendingInferred.map((c, idx) => (
-                  <div
-                    key={c.id}
-                    className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
-                    style={{
-                      borderLeftWidth: 3,
-                      borderLeftColor: "#F59E0B",
-                      opacity: 1,
-                      transform: "translateX(0)",
-                      transition: "opacity 0.35s ease-out, transform 0.35s ease-out",
-                    }}
-                  >
-                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
-                      {labelForField(c.field)}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {Array.isArray(c.value) ? c.value.join("，") : c.value}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                      依据：{c.evidence}
-                      {typeof c.confidence === "number" ? `（置信度 ${(c.confidence * 100).toFixed(0)}%）` : ""}
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={() => onAcceptInferred(c.id)}
-                        className="text-[11px] px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 font-semibold hover:bg-emerald-100 transition-colors"
-                      >
-                        接受
-                      </button>
-                      <button
-                        onClick={() => onRejectInferred(c.id)}
-                        className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100 transition-colors"
-                      >
-                        拒绝
-                      </button>
-                      {idx === 0 && (
-                        <span className="ml-auto text-[10px] text-gray-300">
-                          仅在你确认后才会写入长期记忆
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* 事实记忆区域 */}
             {hasFactual && (
-              <div className="space-y-2">
+              <section className="space-y-2">
                 <div className="flex items-center gap-1.5 px-1">
                   <div className="w-1 h-3 bg-blue-500 rounded-full" />
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">事实记忆</p>
@@ -246,77 +307,159 @@ export default function DatabaseHub({ memory, pendingInferred, onAcceptInferred,
                     accent="#3B82F6"
                   />
                 )}
-              </div>
+              </section>
             )}
 
-            {/* 推测记忆区域 */}
-            {hasInferred && (
-              <div className="space-y-2">
+            {/* 待确认推测区域 */}
+            {(hasPending || hasInferred) && (
+              <section className="space-y-2">
                 <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-purple-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">推测记忆</p>
+                  <div className="w-1 h-3 bg-amber-500 rounded-full" />
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                    待确认推测{hasPending ? `（${pendingInferred.length}）` : ""}
+                  </p>
                 </div>
+
+                {pendingInferred.map((c, idx) => (
+                  <div
+                    key={c.id}
+                    className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
+                    style={{
+                      borderLeftWidth: 3,
+                      borderLeftColor: "#F59E0B",
+                      opacity: 1,
+                      transform: "translateX(0)",
+                      transition: "opacity 0.35s ease-out, transform 0.35s ease-out",
+                    }}
+                  >
+                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
+                      {labelForField(c.field)}
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {stringifyValue(c.value)}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                      依据：{c.evidence}
+                      {typeof c.confidence === "number" ? `（置信度 ${(c.confidence * 100).toFixed(0)}%）` : ""}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => onAcceptInferred(c.id)}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 font-semibold hover:bg-emerald-100 transition-colors"
+                      >
+                        接受
+                      </button>
+                      <button
+                        onClick={() => onRejectInferred(c.id)}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100 transition-colors"
+                      >
+                        拒绝
+                      </button>
+                      {idx === 0 && (
+                        <span className="ml-auto text-[10px] text-gray-300">
+                          确认后写入长期记忆
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {hasInferred && !hasPending && (
+                  <p className="rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-relaxed text-emerald-700">
+                    之前的推测已由你确认，并沉淀为长期理解。
+                  </p>
+                )}
                 {memory.inferred?.sleepPattern && (
-                  <MemoryCard
-                    key={`sleep-${memory.inferred.sleepPattern}`}
-                    label="作息习惯"
-                    value={memory.inferred.sleepPattern}
-                    delay={0}
-                    accent="#8B5CF6"
-                  />
+                  <MemoryCard label="已确认作息" value={memory.inferred.sleepPattern} accent="#10B981" />
                 )}
                 {memory.inferred?.mood && (
-                  <MemoryCard
-                    key={`mood-${memory.inferred.mood}`}
-                    label="情绪状态"
-                    value={memory.inferred.mood}
-                    delay={50}
-                    accent="#8B5CF6"
-                  />
+                  <MemoryCard label="已确认状态" value={memory.inferred.mood} accent="#10B981" />
                 )}
                 {memory.inferred?.preferences && memory.inferred.preferences.length > 0 && (
-                  <MemoryCard
-                    key={`pref-${memory.inferred.preferences.join(",")}`}
-                    label="偏好"
-                    tags={memory.inferred.preferences}
-                    delay={100}
-                    accent="#8B5CF6"
-                  />
+                  <MemoryCard label="已确认偏好" tags={memory.inferred.preferences} accent="#10B981" />
                 )}
-              </div>
+              </section>
             )}
 
-            {/* 文件标签 */}
-            {hasFileTags && (
-              <MemoryCard
-                key={`tags-${memory.fileTags!.join(",")}`}
-                label="文件标签"
-                tags={memory.fileTags}
-                delay={200}
-                accent="#06B6D4"
-              />
+            {/* 情绪趋势区域 */}
+            {hasPsychState && psych && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <div className="w-1 h-3 rounded-full" style={{ backgroundColor: dominantColor }} />
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">情绪趋势</p>
+                </div>
+
+                <div
+                  className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
+                  style={{ borderLeftWidth: 3, borderLeftColor: dominantColor }}
+                >
+                  <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">当前趋势</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-bold text-gray-800">{psych.dominant}</span>
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${psych.compositeScore * 100}%`,
+                          backgroundColor: scoreColor(psych.compositeScore),
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-400">{(psych.compositeScore * 100).toFixed(0)}%</span>
+                  </div>
+
+                  {psych.snapshots.length > 1 && (
+                    <div className="flex items-end gap-0.5 h-5 mt-1">
+                      {psych.snapshots.map((s, i) => (
+                        <div
+                          key={s.timestamp}
+                          className="flex-1 rounded-sm transition-all duration-300"
+                          title={`${s.emotion} (${(s.weight * 100).toFixed(0)}%)`}
+                          style={{
+                            height: `${Math.max(15, s.weight * 100)}%`,
+                            backgroundColor: EMOTION_COLOR[s.emotion] ?? "#94A3B8",
+                            opacity: 0.4 + (i / psych.snapshots.length) * 0.6,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {psych.snapshots.length > 0 && psych.snapshots[psych.snapshots.length - 1].evidence && (
+                    <p className="text-[10px] text-gray-400 mt-1.5 truncate">
+                      最近依据：「{psych.snapshots[psych.snapshots.length - 1].evidence}」
+                    </p>
+                  )}
+                </div>
+              </section>
             )}
 
-            {/* 操作记录 */}
-            {hasActions && (
-              <MemoryCard
-                key={`actions-${memory.actions!.join(",")}`}
-                label="操作"
-                tags={memory.actions}
-                delay={250}
-                accent="#10B981"
-              />
-            )}
-
-            {/* 文件描述 */}
-            {hasFileDesc && (
-              <MemoryCard
-                key={`desc-${memory.fileDescription!.slice(0, 20)}`}
-                label="文件描述"
-                value={memory.fileDescription}
-                delay={300}
-                accent="#F59E0B"
-              />
+            {/* 文件索引区域 */}
+            {hasFiles && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <div className="w-1 h-3 bg-cyan-500 rounded-full" />
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">文件索引</p>
+                </div>
+                {files.map((file) => (
+                  <div key={`${file.fileName}-${file.uploadedAt || file.description || ""}`} className="rounded-xl bg-white p-3 shadow-sm border border-gray-100 border-l-[3px] border-l-cyan-500">
+                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
+                      {file.uploadedAt ? `入库 ${file.uploadedAt}` : "最近文件"}
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">{file.fileName}</p>
+                    {file.description && <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{file.description}</p>}
+                    {file.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {file.tags.map((tag) => (
+                          <span key={tag} className="rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </section>
             )}
           </>
         )}

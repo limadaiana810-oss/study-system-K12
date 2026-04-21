@@ -138,7 +138,7 @@ OPENROUTER_EMBED_MODEL=qwen/qwen3-embedding-0.6b
 
 ## One-click launcher
 
-`开始演示.command` (in repo root) — double-click on Mac to start the dev server, launch Cloudflare Tunnel, and open the browser. Checks for Node.js, installs deps on first run, checks for unconfigured API key, prints the public tunnel URL and access token.
+`开始演示.command` (in repo root) — double-click on Mac to start the dev server, launch Cloudflare Tunnel, and open the public browser URL. The Terminal window stays attached to the session; closing that window stops both the dev server and the tunnel. Checks for Node.js, installs deps on first run, checks for unconfigured API key, and prints the public tunnel URL and access token.
 
 ## Public access (Cloudflare Tunnel)
 

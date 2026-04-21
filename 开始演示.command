@@ -1,5 +1,11 @@
 #!/bin/bash
 # DeliClaw Demo 一键启动脚本 — 双击即可运行
+# 行为约定：
+# - 自动打开公网演示地址
+# - 当前终端窗口保持运行
+# - 关闭当前窗口后，Next dev 和 Cloudflare Tunnel 一起停止
+
+set -u
 
 # 找到脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -89,44 +95,123 @@ PID_TUNNEL_FILE="$SCRIPT_DIR/.deliclaw-tunnel.pid"
 LOG_DEV_FILE="$SCRIPT_DIR/.deliclaw-dev.log"
 LOG_TUNNEL_FILE="$SCRIPT_DIR/.deliclaw-tunnel.log"
 
-# 若已在运行，先提示用户使用“停止演示.command”
-if [ -f "$PID_DEV_FILE" ] || [ -f "$PID_TUNNEL_FILE" ]; then
-  echo "⚠️  检测到可能已有演示进程在运行（存在 pid 文件）。"
-  echo "   如需重启，请先双击运行：停止演示.command"
-fi
+DEV_PID=""
+TUNNEL_PID=""
 
-echo "🌐 启动本地服务（后台运行）..."
+cleanup_recorded_process() {
+  local pid_file="$1"
+  local expected="$2"
+  local pid=""
+  local cmd=""
+
+  if [ ! -f "$pid_file" ]; then
+    return
+  fi
+
+  pid="$(tr -d '[:space:]' < "$pid_file" 2>/dev/null)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    if echo "$cmd" | grep -Fq "$expected"; then
+      echo "ℹ️  清理上次遗留进程：$expected"
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+    fi
+  fi
+
+  rm -f "$pid_file"
+}
+
+cleanup() {
+  local stopped=0
+
+  trap - EXIT HUP INT TERM
+
+  if [ -n "${TUNNEL_PID:-}" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    stopped=1
+    kill "$TUNNEL_PID" 2>/dev/null || true
+  fi
+
+  if [ -n "${DEV_PID:-}" ] && kill -0 "$DEV_PID" 2>/dev/null; then
+    stopped=1
+    kill "$DEV_PID" 2>/dev/null || true
+  fi
+
+  if [ -n "${TUNNEL_PID:-}" ]; then
+    wait "$TUNNEL_PID" 2>/dev/null || true
+  fi
+  if [ -n "${DEV_PID:-}" ]; then
+    wait "$DEV_PID" 2>/dev/null || true
+  fi
+
+  rm -f "$PID_DEV_FILE" "$PID_TUNNEL_FILE"
+
+  if [ "$stopped" -eq 1 ]; then
+    echo ""
+    echo "🛑 演示服务已停止"
+  fi
+}
+
+trap cleanup EXIT HUP INT TERM
+
+cleanup_recorded_process "$PID_DEV_FILE" "next dev"
+cleanup_recorded_process "$PID_TUNNEL_FILE" "cloudflared tunnel"
+
+: > "$LOG_DEV_FILE"
+: > "$LOG_TUNNEL_FILE"
+
+echo "🌐 启动本地服务（关闭此窗口将自动停止）..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 1) 启动 Next dev（后台运行：关闭终端不会中断）
-nohup "$NPM_CMD" run dev > "$LOG_DEV_FILE" 2>&1 &
-echo $! > "$PID_DEV_FILE"
+# 1) 启动 Next dev（绑定到当前终端生命周期）
+"$NPM_CMD" run dev > "$LOG_DEV_FILE" 2>&1 &
+DEV_PID=$!
+echo "$DEV_PID" > "$PID_DEV_FILE"
 
 # 给 dev server 一点启动时间
 sleep 2
 
-# 2) 启动 Cloudflare Tunnel（后台运行：关闭终端不会中断）
-nohup "$CLOUDFLARED_CMD" tunnel --url http://localhost:3000 --no-autoupdate > "$LOG_TUNNEL_FILE" 2>&1 &
-echo $! > "$PID_TUNNEL_FILE"
+# 2) 启动 Cloudflare Tunnel（绑定到当前终端生命周期）
+"$CLOUDFLARED_CMD" tunnel --url http://localhost:3000 --no-autoupdate > "$LOG_TUNNEL_FILE" 2>&1 &
+TUNNEL_PID=$!
+echo "$TUNNEL_PID" > "$PID_TUNNEL_FILE"
 
 # 3) 从日志里解析公网域名
 PUBLIC_URL=""
 for i in {1..25}; do
+  if ! kill -0 "$DEV_PID" 2>/dev/null; then
+    echo "❌ 本地服务启动失败，请查看：$LOG_DEV_FILE"
+    exit 1
+  fi
+  if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    echo "❌ Cloudflare Tunnel 启动失败，请查看：$LOG_TUNNEL_FILE"
+    exit 1
+  fi
   PUBLIC_URL="$(grep -oE 'https://[-0-9a-z]+\.trycloudflare\.com' "$LOG_TUNNEL_FILE" 2>/dev/null | tail -n 1)"
   if [ -n "$PUBLIC_URL" ]; then break; fi
   sleep 1
 done
 
+OPEN_URL=""
+if [ -n "$PUBLIC_URL" ]; then
+  if [ -n "$DEMO_TOKEN" ]; then
+    OPEN_URL="$PUBLIC_URL/?token=$DEMO_TOKEN"
+  else
+    OPEN_URL="$PUBLIC_URL"
+  fi
+else
+  OPEN_URL="http://localhost:3000"
+fi
+
 echo ""
-echo "✅ 服务已在后台启动（关闭此窗口不会中断）"
+echo "✅ 服务已启动（请保持此窗口开启）"
 echo "   本地地址：http://localhost:3000"
 if [ -n "$PUBLIC_URL" ]; then
   echo "   公网地址：$PUBLIC_URL"
   if [ -n "$DEMO_TOKEN" ] && [ "$DEMO_TOKEN" != "change-me" ]; then
-    echo "   （已启用口令）访问请加：$PUBLIC_URL/?token=$DEMO_TOKEN"
+    echo "   （已启用口令）访问地址：$OPEN_URL"
   elif [ -n "$DEMO_TOKEN" ] && [ "$DEMO_TOKEN" = "change-me" ]; then
     echo "   ⚠️  检测到 DEMO_ACCESS_TOKEN=change-me（建议改成自定义口令）"
-    echo "   访问示例：$PUBLIC_URL/?token=$DEMO_TOKEN"
+    echo "   访问示例：$OPEN_URL"
   else
     echo "   ⚠️  未启用口令保护（建议在 .env.local 设置 DEMO_ACCESS_TOKEN）"
   fi
@@ -135,18 +220,27 @@ else
 fi
 
 echo ""
-echo "🛑 如需停止演示，请双击运行：停止演示.command"
+echo "🛑 关闭此窗口后，Next dev 和公网隧道会自动停止"
+echo "   日志文件：$LOG_DEV_FILE"
+echo "   Tunnel 日志：$LOG_TUNNEL_FILE"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # 自动打开浏览器（优先公网地址）
-if [ -n "$PUBLIC_URL" ]; then
-  if [ -n "$DEMO_TOKEN" ]; then
-    open "$PUBLIC_URL/?token=$DEMO_TOKEN" >/dev/null 2>&1
-  else
-    open "$PUBLIC_URL" >/dev/null 2>&1
-  fi
-else
-  open "http://localhost:3000" >/dev/null 2>&1
-fi
+open "$OPEN_URL" >/dev/null 2>&1 || true
 
-exit 0
+# 保持窗口存活；任一服务退出后结束脚本并清理另一侧
+while true; do
+  if ! kill -0 "$DEV_PID" 2>/dev/null; then
+    echo ""
+    echo "❌ 本地服务已退出，请查看：$LOG_DEV_FILE"
+    exit 1
+  fi
+
+  if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    echo ""
+    echo "❌ Cloudflare Tunnel 已退出，请查看：$LOG_TUNNEL_FILE"
+    exit 1
+  fi
+
+  sleep 1
+done

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { openrouterVisionJson, openrouterEmbedding, normalizeVector } from "@/lib/server/openrouter"
+import { normalizeStructuredFileIndex, upsertFileIndexEntry } from "@/lib/server/fileIndex"
 import { saveBase64ToDisk, uploadsUrlFromRelPath } from "@/lib/server/storage"
 import { upsertFile } from "@/lib/server/sqlite"
 import { VISION_INDEX_PROMPT } from "@/lib/prompts"
@@ -7,7 +8,6 @@ import { VISION_INDEX_PROMPT } from "@/lib/prompts"
 export const runtime = "nodejs"
 
 type VisionResult = {
-  title?: string
   subject?: string
   knowledgePoints?: string[]
   questionType?: string
@@ -18,10 +18,11 @@ type VisionResult = {
 /**
  * 文件上传 & 索引一次到位：
  * 1. base64 落盘到 data/uploads/<id>.<ext>
- * 2. 多模态模型读图 → 输出 JSON（title / subject / knowledgePoints / questionType / description）
+ * 2. 多模态模型读图 → 输出 JSON（subject / knowledgePoints / questionType / description）
  * 3. 描述 + 标签拼成 embed 文本 → embedding
- * 4. SQLite 写入一行（只存 file_path，不存 base64）
- * 5. 返回 { id, url, title, description, tags }
+ * 4. 写入本地 file-index.json（快速精确查）
+ * 5. SQLite 写入一行（只存 file_path，不存 base64）
+ * 6. 返回结构化索引结果 + 文件 URL
  *
  * 说明：
  * - vision 调用可能失败或超时；失败时仍保留文件和最小索引，走词法兜底
@@ -57,16 +58,26 @@ export async function POST(req: NextRequest) {
       vision = { description: "（暂未解析）" }
     }
 
-    const description = (vision.description || "").trim() || "（暂未解析）"
-    const title = vision.title?.trim() || undefined
+    const indexed = normalizeStructuredFileIndex({
+      id,
+      originalName: fileName,
+      storedPath: relPath,
+      subject: vision.subject,
+      knowledgePoints: vision.knowledgePoints,
+      questionType: vision.questionType,
+      indexedAt: uploadedAt,
+      description: vision.description,
+    })
+
+    upsertFileIndexEntry(indexed)
 
     // 3) embedding（失败降级为 null，检索走词法）
     const embedText =
-      `标题：${title || ""}\n` +
-      `学科：${vision.subject || ""}\n` +
-      `题型：${vision.questionType || ""}\n` +
-      `知识点：${(vision.knowledgePoints || []).join("，")}\n` +
-      `描述：${description}\n`
+      `文件名：${indexed.canonicalName}\n` +
+      `学科：${indexed.subject}\n` +
+      `题型：${indexed.questionType}\n` +
+      `知识点：${indexed.knowledgePoints.join("，")}\n` +
+      `描述：${indexed.description}\n`
 
     let embedding: number[] | undefined
     try {
@@ -79,20 +90,22 @@ export async function POST(req: NextRequest) {
       // ignore
     }
 
-    // 4) 入库
+    // 5) 入库
     upsertFile({
       id,
       fileName,
-      title,
+      title: indexed.canonicalName,
       mimeType,
       filePath: relPath,
-      uploadedAt,
-      description,
+      uploadedAt: indexed.indexedAt,
+      description: indexed.description,
       tags: {
-        subject: vision.subject,
-        questionType: vision.questionType,
-        knowledgePoints: vision.knowledgePoints,
+        subject: indexed.subject,
+        questionType: indexed.questionType,
+        knowledgePoints: indexed.knowledgePoints,
+        date: indexed.indexedAt,
       },
+      tagsRaw: [indexed.canonicalName, indexed.subject, indexed.questionType, ...indexed.knowledgePoints],
       embedding,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -102,13 +115,13 @@ export async function POST(req: NextRequest) {
       ok: true,
       id,
       url: uploadsUrlFromRelPath(relPath),
-      title,
-      description,
-      tags: {
-        subject: vision.subject,
-        questionType: vision.questionType,
-        knowledgePoints: vision.knowledgePoints,
-      },
+      canonicalName: indexed.canonicalName,
+      description: indexed.description,
+      subject: indexed.subject,
+      knowledgePoints: indexed.knowledgePoints,
+      questionType: indexed.questionType,
+      indexedAt: indexed.indexedAt,
+      status: indexed.status,
       sizeBytes,
     })
   } catch (e) {
