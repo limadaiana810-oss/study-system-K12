@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from "next/server"
 const COOKIE_NAME = "deliclaw_token"
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 天
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const expected = process.env.DEMO_ACCESS_TOKEN
   if (!expected) return NextResponse.next()
 
