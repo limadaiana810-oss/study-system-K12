@@ -15,10 +15,13 @@ import { QUICK_REPLIES } from "@/lib/demoScript"
 import { extractMemory, stripMemoryTags, mergeMemory, hasMemoryData } from "@/lib/memoryParser"
 import { extractFileResults, stripFileResultTags } from "@/lib/fileResultParser"
 import { buildFileResultQuery, pickResolvedSearchResult } from "@/lib/fileResultResolver"
+import { buildCurrentTurnMessageState } from "@/lib/chatTurnState"
 import { attachFileUnderstanding, buildTurnInsightFromMemory, markFileUnderstandingFailed } from "@/lib/turnInsight"
 import {
+  buildUploadClassificationReply,
   buildFileMemoryDeltaFromUpload,
   buildProcessingFileUnderstanding,
+  isFileClassificationOnlyRequest,
   type UploadIndexResponse,
 } from "@/lib/fileUploadFeedback"
 import { AI_INTRO } from "@/lib/prompts"
@@ -474,34 +477,75 @@ export default function ChatPanel({
           attachmentUploadedAt: file?.uploadedAt ? file.uploadedAt.toISOString() : undefined,
           timestamp: new Date(),
         }
+        const previousMessages = messagesRef.current
+        const messagesWithUser = [...previousMessages, userMsg]
         activeTurnIdRef.current = userMsg.id
-        setMessages((prev) => {
-          const next = [...prev, userMsg]
-          messagesRef.current = next
-          return next
-        })
+        messagesRef.current = messagesWithUser
+        setMessages(messagesWithUser)
 
         // 立即基于用户输入生成本轮理解（不等待 AI 响应）
         const capturedItems = parseUserInputCapture(userMsg.content)
+
+        // 把用户输入中提取的 fact/emotion 提前合并进 memory，
+        // 让 LLM 基于本轮理解回复，而不是上一轮记忆
+        const factLabelToKey: Record<string, string> = {
+          "姓名": "name",
+          "年级": "grade",
+          "学校": "school",
+          "年龄": "age",
+          "职位": "position",
+        }
+        const userFactual: Record<string, string> = {}
+        for (const item of capturedItems) {
+          if (item.type !== "fact") continue
+          const key = factLabelToKey[item.label]
+          if (key) userFactual[key] = item.value
+        }
+        const emotionItem = capturedItems.find((c) => c.type === "emotion")
+        const userEmotionSnapshot = emotionItem
+          ? {
+              emotion: emotionItem.value,
+              weight: 0.6,
+              evidence: emotionItem.evidence,
+              timestamp: new Date().toISOString(),
+            }
+          : undefined
+        if (Object.keys(userFactual).length > 0 || userEmotionSnapshot) {
+          memorySnapshot = mergeMemory(
+            memorySnapshot,
+            { factual: Object.keys(userFactual).length > 0 ? userFactual : undefined },
+            userEmotionSnapshot
+          )
+          onMemoryUpdate(memorySnapshot)
+        }
+
         const initialInsight: TurnInsight = {
           turnId: userMsg.id,
           userText: userMsg.content,
           capturedItems,
-          factualAdded: [],
+          factualAdded: capturedItems
+            .filter((c) => c.type === "fact" || c.type === "emotion")
+            .map((c) => ({ label: c.label, value: c.value })),
           inferredPending: [],
           updatedAt: new Date().toISOString(),
         }
         onTurnInsightUpdate(initialInsight)
 
         const aiMsgId = crypto.randomUUID()
-        setMessages((prev) => {
-          const next = [
-            ...prev,
-            { id: aiMsgId, role: "assistant" as const, content: "", timestamp: new Date(), isStreaming: true },
-          ]
-          messagesRef.current = next
-          return next
-        })
+        const assistantPlaceholder: Message = {
+          id: aiMsgId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          isStreaming: true,
+        }
+        const { messagesForApi, messagesForUi } = buildCurrentTurnMessageState(
+          previousMessages,
+          userMsg,
+          assistantPlaceholder
+        )
+        messagesRef.current = messagesForUi
+        setMessages(messagesForUi)
 
         let latestInsight: TurnInsight | null = initialInsight
         const publishTurnInsight = (extractedResult: MemoryExtractionResult) => {
@@ -530,7 +574,7 @@ export default function ChatPanel({
           return latestInsight
         }
         const uploadFileForInsight = async (params: { description?: string; tagsHint?: string[] }) => {
-          if (!file?.name) return
+          if (!file?.name) return null
           const baseInsight = ensureTurnInsight()
           latestInsight = attachFileUnderstanding(baseInsight, buildProcessingFileUnderstanding(file.name))
           onTurnInsightUpdate(latestInsight)
@@ -551,7 +595,7 @@ export default function ChatPanel({
             })
             if (!res.ok) throw new Error(await res.text())
             const json = (await res.json()) as UploadIndexResponse
-            if (!isStillActiveTurn()) return
+            if (!isStillActiveTurn()) return null
             latestInsight = attachFileUnderstanding(latestInsight ?? baseInsight, {
               originalName: file.name,
               canonicalName: json.canonicalName,
@@ -565,13 +609,15 @@ export default function ChatPanel({
             memorySnapshot = mergeMemory(memorySnapshot, buildFileMemoryDeltaFromUpload(file.name, json))
             onMemoryUpdate(memorySnapshot)
             onStageChange("uploaded")
+            return json
           } catch {
-            if (!isStillActiveTurn()) return
+            if (!isStillActiveTurn()) return null
             latestInsight = markFileUnderstandingFailed(latestInsight ?? baseInsight, file.name)
             onTurnInsightUpdate(latestInsight)
+            return null
           }
         }
-        let uploadPromise: Promise<void> | null = null
+        let uploadPromise: Promise<UploadIndexResponse | null> | null = null
         const ensureUploadStarted = () => {
           if (!file?.name) return null
           if (!uploadPromise) uploadPromise = uploadFileForInsight({ description: "", tagsHint: [] })
@@ -579,8 +625,23 @@ export default function ChatPanel({
         }
 
         try {
-          void ensureUploadStarted()
-          const allMsgs = [...messagesRef.current]
+          const startedUpload = ensureUploadStarted()
+
+          if (file?.name && isFileClassificationOnlyRequest(userMsg.content)) {
+            const uploadResult = await startedUpload
+            const reply = uploadResult
+              ? buildUploadClassificationReply(file.name, uploadResult)
+              : `我已收到「${file.name}」，但这次没有识别出稳定分类。请换一张更清晰的图片，或稍后重试。`
+
+            setMessages((prev) => {
+              const next = prev.map((m) => (m.id === aiMsgId ? { ...m, content: reply, rawContent: reply, isStreaming: false } : m))
+              messagesRef.current = next
+              return next
+            })
+            continue
+          }
+
+          const allMsgs = messagesForApi
           // Strip psychState before sending — model doesn't need emotion history for retrieval
           const { psychState: _ps, ...memoryForApi } = (memorySnapshot ?? {}) as any
           const response = await fetch("/api/chat", {
