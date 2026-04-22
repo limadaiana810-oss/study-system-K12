@@ -1,5 +1,7 @@
 import path from "path"
 import fs from "fs"
+import { createRequire } from "module"
+import { execFileSync, spawnSync } from "child_process"
 
 export type StoredFile = {
   id: string
@@ -24,14 +26,94 @@ export type StoredFile = {
 type BetterSqlite3 = any
 
 let _db: any | null = null
+const requireFromHere = createRequire(import.meta.url)
+const SQLITE_BIN = "sqlite3"
 
-function getBetterSqlite3(): BetterSqlite3 {
+function hasSqliteCli() {
+  const result = spawnSync(SQLITE_BIN, ["-version"], { stdio: "ignore" })
+  return result.status === 0
+}
+
+function sqlLiteral(value: unknown) {
+  if (value === null || value === undefined) return "NULL"
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "NULL"
+  if (typeof value === "boolean") return value ? "1" : "0"
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
+function renderSql(sql: string, params?: unknown) {
+  if (!params) return sql
+
+  if (Array.isArray(params)) {
+    let i = 0
+    return sql.replace(/\?/g, () => sqlLiteral(params[i++]))
+  }
+
+  if (typeof params === "object") {
+    const record = params as Record<string, unknown>
+    return sql.replace(/[@:$][A-Za-z_][A-Za-z0-9_]*/g, (token) => {
+      const key = token.slice(1)
+      return sqlLiteral(record[key] ?? record[token])
+    })
+  }
+
+  return sql.replace(/\?/, sqlLiteral(params))
+}
+
+class SqliteCliStatement {
+  private dbPath: string
+  private sql: string
+
+  constructor(dbPath: string, sql: string) {
+    this.dbPath = dbPath
+    this.sql = sql
+  }
+
+  run(params?: unknown) {
+    execFileSync(SQLITE_BIN, [this.dbPath, renderSql(this.sql, params)], { encoding: "utf8" })
+  }
+
+  all(...params: unknown[]) {
+    const normalizedParams = params.length <= 1 ? params[0] : params
+    const out = execFileSync(SQLITE_BIN, ["-json", this.dbPath, renderSql(this.sql, normalizedParams)], {
+      encoding: "utf8",
+    }).trim()
+    return out ? JSON.parse(out) : []
+  }
+
+  get(...params: unknown[]) {
+    return this.all(...params)[0]
+  }
+}
+
+class SqliteCliCompat {
+  private dbPath: string
+
+  constructor(dbPath: string) {
+    this.dbPath = dbPath
+  }
+
+  pragma(sql: string) {
+    this.exec(`PRAGMA ${sql}`)
+  }
+
+  exec(sql: string) {
+    return execFileSync(SQLITE_BIN, [this.dbPath, sql], { encoding: "utf8" })
+  }
+
+  prepare(sql: string) {
+    return new SqliteCliStatement(this.dbPath, sql)
+  }
+}
+
+function getSqliteBackend(): BetterSqlite3 {
+  if (hasSqliteCli()) return SqliteCliCompat
+
   try {
-    // eslint-disable-next-line no-new-func
-    const req = new Function("m", "return require(m)") as (m: string) => any
-    return req("better-sqlite3")
+    const optionalPackage = ["better", "sqlite3"].join("-")
+    return requireFromHere(optionalPackage)
   } catch {
-    throw new Error('未安装 SQLite 依赖：请在 deliclaw-demo 下执行 `npm i better-sqlite3`')
+    throw new Error("未找到可用 SQLite 后端：请确认系统 sqlite3 命令可用，或在 deliclaw-demo 下执行 `npm i better-sqlite3`")
   }
 }
 
@@ -41,7 +123,7 @@ function ensureDir(p: string) {
 
 export function getDb() {
   if (_db) return _db
-  const BetterSqlite3Ctor = getBetterSqlite3()
+  const BetterSqlite3Ctor = getSqliteBackend()
 
   const dataDir = path.join(process.cwd(), "data")
   ensureDir(dataDir)
@@ -128,6 +210,16 @@ export function upsertFile(record: StoredFile) {
   })
 }
 
+export function tryUpsertFile(record: StoredFile): { ok: true } | { ok: false; error: string } {
+  try {
+    upsertFile(record)
+    return { ok: true }
+  } catch (e) {
+    const error = e instanceof Error ? e.message : "SQLite write failed"
+    return { ok: false, error }
+  }
+}
+
 export function listFiles(): Array<{
   id: string
   fileName: string
@@ -167,4 +259,14 @@ export function getFileById(id: string):
        WHERE id = ?`
     )
     .get(id)
+}
+
+export function deleteFile(id: string): boolean {
+  const db = getDb()
+  try {
+    db.prepare("DELETE FROM files WHERE id = ?").run(id)
+    return true
+  } catch {
+    return false
+  }
 }

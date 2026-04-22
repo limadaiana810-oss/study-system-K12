@@ -41,12 +41,13 @@ function stringifyValue(value: string | string[]) {
   return Array.isArray(value) ? value.join("，") : value
 }
 
-export function buildTurnInsightFromMemory(input: BuildTurnInsightInput): TurnInsight {
+export function buildTurnInsightFromMemory(input: BuildTurnInsightInput, existing?: TurnInsight): TurnInsight {
   const factual = input.extracted.delta.factual || {}
 
   return {
     turnId: input.turnId,
     userText: input.userText,
+    capturedItems: existing?.capturedItems,
     factualAdded: Object.entries(factual)
       .filter(([, value]) => !!value)
       .map(([key, value]) => ({
@@ -54,9 +55,12 @@ export function buildTurnInsightFromMemory(input: BuildTurnInsightInput): TurnIn
         value: String(value),
       })),
     inferredPending: input.extracted.inferredCandidates.map((candidate) => ({
+      id: candidate.id,
+      field: candidate.field,
       label: INFERRED_LABELS[candidate.field] || candidate.field,
       value: stringifyValue(candidate.value),
       evidence: candidate.evidence,
+      status: "pending" as const,
     })),
     emotion: input.extracted.emotionSnapshot
       ? {
@@ -64,7 +68,8 @@ export function buildTurnInsightFromMemory(input: BuildTurnInsightInput): TurnIn
           evidence: input.extracted.emotionSnapshot.evidence,
           weight: input.extracted.emotionSnapshot.weight,
         }
-      : undefined,
+      : existing?.emotion,
+    fileUnderstanding: existing?.fileUnderstanding,
     updatedAt: input.updatedAt || new Date().toISOString(),
   }
 }

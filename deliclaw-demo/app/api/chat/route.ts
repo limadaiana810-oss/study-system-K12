@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
     ? (process.env.OPENROUTER_CHAT_MODEL_VISION || "qwen/qwen3-vl-8b-instruct")
     : (process.env.OPENROUTER_CHAT_MODEL_TEXT || "qwen/qwen3.6-plus")
 
+  const SYSTEM_PROMPT = buildSystemPrompt()
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {

@@ -16,7 +16,13 @@ import { extractMemory, stripMemoryTags, mergeMemory, hasMemoryData } from "@/li
 import { extractFileResults, stripFileResultTags } from "@/lib/fileResultParser"
 import { buildFileResultQuery, pickResolvedSearchResult } from "@/lib/fileResultResolver"
 import { attachFileUnderstanding, buildTurnInsightFromMemory, markFileUnderstandingFailed } from "@/lib/turnInsight"
+import {
+  buildFileMemoryDeltaFromUpload,
+  buildProcessingFileUnderstanding,
+  type UploadIndexResponse,
+} from "@/lib/fileUploadFeedback"
 import { AI_INTRO } from "@/lib/prompts"
+import { parseUserInputCapture } from "@/lib/userInputParser"
 import MessageBubble from "./MessageBubble"
 import QuickReplyBar from "./QuickReplyBar"
 
@@ -43,15 +49,6 @@ type SearchApiResult = {
     questionType?: string
     knowledgePoints?: string[]
   }
-}
-
-type UploadIndexResponse = {
-  canonicalName?: string
-  description?: string
-  subject?: string
-  knowledgePoints?: string[]
-  questionType?: string
-  status?: "ready" | "partial"
 }
 
 function isRetrieveIntent(text: string) {
@@ -231,16 +228,18 @@ function buildApiMessages(msgs: Message[]) {
   const MAX_HISTORY = 10
   const history = msgs.slice(-MAX_HISTORY)
 
-  return history
-    .filter((m) => !m.isStreaming)
-    .map((m, idx) => {
-      const contentForModel =
-        m.role === "assistant"
-          ? (m.rawContent ?? m.content) // 助手消息回传 rawContent，保留 <memory>/<file-result>
-          : m.content
+  // 先过滤掉 streaming 占位消息，确保 idx 与过滤后数组对齐
+  const filtered = history.filter((m) => !m.isStreaming)
+  const lastIdx = filtered.length - 1
 
-      // 只有最后一条用户消息才携带图片 base64，减少重复传输
-      const isLastUserMessage = idx === history.length - 1 && m.role === "user"
+  return filtered.map((m, idx) => {
+    const contentForModel =
+      m.role === "assistant"
+        ? (m.rawContent ?? m.content) // 助手消息回传 rawContent，保留 <memory>/<file-result>
+        : m.content
+
+    // 只有最后一条用户消息才携带图片 base64，减少重复传输
+    const isLastUserMessage = idx === lastIdx && m.role === "user"
 
       if (m.imageBase64 && isLastUserMessage) {
         const attachmentInfo = m.attachmentName
@@ -362,11 +361,15 @@ export default function ChatPanel({
               fileCards,
               timestamp: new Date(),
             }
-            onTurnInsightUpdate(buildTurnInsightFromMemory({
+            const capturedItems = parseUserInputCapture(userMsg.content)
+            onTurnInsightUpdate({
               turnId: userMsg.id,
               userText: userMsg.content,
-              extracted: { delta: {}, inferredCandidates: [] },
-            }))
+              capturedItems,
+              factualAdded: [],
+              inferredPending: [],
+              updatedAt: new Date().toISOString(),
+            })
             setMessages((prev) => {
               const next = [...prev, userMsg, aiMsg]
               messagesRef.current = next
@@ -429,11 +432,15 @@ export default function ChatPanel({
             fileCards: fileCards.length > 0 ? fileCards : undefined,
             timestamp: new Date(),
           }
-          onTurnInsightUpdate(buildTurnInsightFromMemory({
+          const capturedItems2 = parseUserInputCapture(userMsg.content)
+          onTurnInsightUpdate({
             turnId: userMsg.id,
             userText: userMsg.content,
-            extracted: { delta: {}, inferredCandidates: [] },
-          }))
+            capturedItems: capturedItems2,
+            factualAdded: [],
+            inferredPending: [],
+            updatedAt: new Date().toISOString(),
+          })
           setMessages((prev) => {
             const next = [...prev, userMsg, aiMsg]
             messagesRef.current = next
@@ -474,6 +481,18 @@ export default function ChatPanel({
           return next
         })
 
+        // 立即基于用户输入生成本轮理解（不等待 AI 响应）
+        const capturedItems = parseUserInputCapture(userMsg.content)
+        const initialInsight: TurnInsight = {
+          turnId: userMsg.id,
+          userText: userMsg.content,
+          capturedItems,
+          factualAdded: [],
+          inferredPending: [],
+          updatedAt: new Date().toISOString(),
+        }
+        onTurnInsightUpdate(initialInsight)
+
         const aiMsgId = crypto.randomUUID()
         setMessages((prev) => {
           const next = [
@@ -484,29 +503,37 @@ export default function ChatPanel({
           return next
         })
 
-        let latestInsight: TurnInsight | null = null
+        let latestInsight: TurnInsight | null = initialInsight
         const publishTurnInsight = (extractedResult: MemoryExtractionResult) => {
-          latestInsight = buildTurnInsightFromMemory({
-            turnId: userMsg.id,
-            userText: userMsg.content,
-            extracted: extractedResult,
-          })
+          latestInsight = buildTurnInsightFromMemory(
+            {
+              turnId: userMsg.id,
+              userText: userMsg.content,
+              extracted: extractedResult,
+            },
+            latestInsight ?? undefined
+          )
           onTurnInsightUpdate(latestInsight)
           return latestInsight
         }
         const ensureTurnInsight = () => {
           if (latestInsight) return latestInsight
-          latestInsight = buildTurnInsightFromMemory({
-            turnId: userMsg.id,
-            userText: userMsg.content,
-            extracted: { delta: {}, inferredCandidates: [] },
-          })
+          latestInsight = buildTurnInsightFromMemory(
+            {
+              turnId: userMsg.id,
+              userText: userMsg.content,
+              extracted: { delta: {}, inferredCandidates: [] },
+            },
+            initialInsight
+          )
           onTurnInsightUpdate(latestInsight)
           return latestInsight
         }
         const uploadFileForInsight = async (params: { description?: string; tagsHint?: string[] }) => {
           if (!file?.name) return
           const baseInsight = ensureTurnInsight()
+          latestInsight = attachFileUnderstanding(baseInsight, buildProcessingFileUnderstanding(file.name))
+          onTurnInsightUpdate(latestInsight)
           const isStillActiveTurn = () => activeTurnIdRef.current === userMsg.id
           try {
             const res = await fetch("/api/files/upload", {
@@ -525,7 +552,7 @@ export default function ChatPanel({
             if (!res.ok) throw new Error(await res.text())
             const json = (await res.json()) as UploadIndexResponse
             if (!isStillActiveTurn()) return
-            latestInsight = attachFileUnderstanding(baseInsight, {
+            latestInsight = attachFileUnderstanding(latestInsight ?? baseInsight, {
               originalName: file.name,
               canonicalName: json.canonicalName,
               description: json.description,
@@ -535,14 +562,24 @@ export default function ChatPanel({
               status: json.status,
             })
             onTurnInsightUpdate(latestInsight)
+            memorySnapshot = mergeMemory(memorySnapshot, buildFileMemoryDeltaFromUpload(file.name, json))
+            onMemoryUpdate(memorySnapshot)
+            onStageChange("uploaded")
           } catch {
             if (!isStillActiveTurn()) return
-            latestInsight = markFileUnderstandingFailed(baseInsight, file.name)
+            latestInsight = markFileUnderstandingFailed(latestInsight ?? baseInsight, file.name)
             onTurnInsightUpdate(latestInsight)
           }
         }
+        let uploadPromise: Promise<void> | null = null
+        const ensureUploadStarted = () => {
+          if (!file?.name) return null
+          if (!uploadPromise) uploadPromise = uploadFileForInsight({ description: "", tagsHint: [] })
+          return uploadPromise
+        }
 
         try {
+          void ensureUploadStarted()
           const allMsgs = [...messagesRef.current]
           // Strip psychState before sending — model doesn't need emotion history for retrieval
           const { psychState: _ps, ...memoryForApi } = (memorySnapshot ?? {}) as any
@@ -628,30 +665,39 @@ export default function ChatPanel({
               memorySnapshot = merged
               onMemoryUpdate(merged)
 
-              // 方案 B（SQLite 服务端索引）：
-              // 上传完成后，把“原图 + 描述 + tagsHint”交给服务端做：
-              // 1) 结构化 tags 抽取（学科/题型/知识点/日期）
-              // 2) embedding（OpenRouter embeddings）
-              // 3) SQLite 关联存储
-              if (file?.name) {
-                void uploadFileForInsight({
-                  description: extracted.delta.fileDescription || "",
-                  tagsHint: extracted.delta.fileTags || [],
-                })
-              }
+              // 文件入库由 /api/files/upload 独立完成；这里仅合并模型额外抽取的对话记忆。
             }
 
-            // 2) 隐式记忆：只进入待确认队列
+            // 2) 隐式记忆：进入待确认队列，并设置 5 秒自动确认
             if (extracted.inferredCandidates.length > 0) {
-              onInferredCandidates(extracted.inferredCandidates)
+              const withTimer = extracted.inferredCandidates.map((c) => ({
+                ...c,
+                autoConfirmAt: Date.now() + 5000,
+              }))
+              onInferredCandidates(withTimer)
+              // 同步更新 turnInsight 的 inferredPending，让右侧面板立即展示候选
+              if (latestInsight) {
+                latestInsight = {
+                  ...latestInsight,
+                  inferredPending: withTimer.map((c) => ({
+                    id: c.id,
+                    field: c.field,
+                    label: c.field,
+                    value: Array.isArray(c.value) ? c.value.join("，") : c.value,
+                    evidence: c.evidence,
+                    status: "pending" as const,
+                    autoConfirmAt: c.autoConfirmAt,
+                  })),
+                  updatedAt: new Date().toISOString(),
+                }
+                onTurnInsightUpdate(latestInsight)
+              }
             }
 
             // State machine: only advance to "uploaded" when a file was actually uploaded
             if (stage === "intro" && (files.length > 0 || extracted.delta.fileTags?.length)) {
               onStageChange("uploaded")
             }
-          } else if (file?.name) {
-            void uploadFileForInsight({ description: "", tagsHint: [] })
           } else {
             ensureTurnInsight()
           }
@@ -681,6 +727,8 @@ export default function ChatPanel({
             messagesRef.current = next
             return next
           })
+        } finally {
+          if (uploadPromise) await uploadPromise
         }
       }
 

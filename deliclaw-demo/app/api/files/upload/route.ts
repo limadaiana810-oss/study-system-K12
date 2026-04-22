@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { openrouterVisionJson, openrouterEmbedding, normalizeVector } from "@/lib/server/openrouter"
 import { normalizeStructuredFileIndex, upsertFileIndexEntry } from "@/lib/server/fileIndex"
 import { saveBase64ToDisk, uploadsUrlFromRelPath } from "@/lib/server/storage"
-import { upsertFile } from "@/lib/server/sqlite"
+import { tryUpsertFile } from "@/lib/server/sqlite"
 import { VISION_INDEX_PROMPT } from "@/lib/prompts"
 
 export const runtime = "nodejs"
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5) 入库
-    upsertFile({
+    const sqliteResult = tryUpsertFile({
       id,
       fileName,
       title: indexed.canonicalName,
@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
       indexedAt: indexed.indexedAt,
       status: indexed.status,
       sizeBytes,
+      sqliteStored: sqliteResult.ok,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "upload failed"

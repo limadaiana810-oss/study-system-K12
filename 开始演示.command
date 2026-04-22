@@ -127,29 +127,50 @@ cleanup_project_port_processes() {
   local pid=""
   local cwd=""
 
-  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | grep -oE '[0-9]+' | tr '\n' ' ' || true)"
+  if [ -z "$pids" ] || [ "$pids" = " " ]; then
+    return
+  fi
   for pid in $pids; do
+    [ -n "$pid" ] || continue
     cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tail -n 1)"
 
     if [ "$cwd" = "$PROJECT_DIR" ]; then
-      echo "ℹ️  清理当前项目占用 $port 端口的旧服务（PID $pid）"
+      echo "ℹ️  清理当前项目占用 $port 端口的旧服务（PID ${pid}）"
       kill "$pid" 2>/dev/null || true
-      for _ in {1..10}; do
+      local i
+      for i in $(seq 1 10); do
         if ! kill -0 "$pid" 2>/dev/null; then
           break
         fi
         sleep 0.3
       done
     elif [ -n "$pid" ]; then
-      echo "❌ 端口 $port 已被其他进程占用（PID $pid）"
+      echo "❌ 端口 $port 已被其他进程占用（PID ${pid}）"
       echo "   请先关闭该进程后重试。"
       exit 1
     fi
   done
 }
 
+cleanup_next_dev_lock() {
+  local lock_file="$PROJECT_DIR/.next/dev/lock"
+  local lock_pid=""
+
+  if [ ! -f "$lock_file" ]; then
+    return
+  fi
+
+  lock_pid="$(sed -n 's/.*"pid":\([0-9][0-9]*\).*/\1/p' "$lock_file" 2>/dev/null | head -n 1)"
+  if [ -z "$lock_pid" ] || ! kill -0 "$lock_pid" 2>/dev/null; then
+    echo "ℹ️  清理 Next dev stale lock：.next/dev/lock"
+    rm -f "$lock_file"
+  fi
+}
+
 wait_for_local_port_3000() {
-  for _ in {1..30}; do
+  local i
+  for i in $(seq 1 30); do
     if ! kill -0 "$DEV_PID" 2>/dev/null; then
       echo "❌ 本地服务启动失败，请查看：$LOG_DEV_FILE"
       exit 1
@@ -165,7 +186,7 @@ wait_for_local_port_3000() {
       exit 1
     fi
 
-    if grep -q "http://localhost:3000" "$LOG_DEV_FILE" 2>/dev/null && grep -q "Ready" "$LOG_DEV_FILE" 2>/dev/null; then
+    if grep -qE "http://(localhost|127\.0\.0\.1):3000" "$LOG_DEV_FILE" 2>/dev/null && grep -q "Ready" "$LOG_DEV_FILE" 2>/dev/null; then
       return
     fi
 
@@ -182,7 +203,8 @@ wait_for_public_url() {
   fi
 
   echo "⏳ 等待公网域名生效..."
-  for _ in {1..20}; do
+  local j
+  for j in $(seq 1 20); do
     if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
       echo "❌ Cloudflare Tunnel 启动失败，请查看：$LOG_TUNNEL_FILE"
       exit 1
@@ -190,14 +212,14 @@ wait_for_public_url() {
 
     # 不使用 -f：启用 DEMO_ACCESS_TOKEN 时 401 也代表 DNS/TLS/隧道已可达。
     if curl -I -L --max-time 8 "$PUBLIC_URL" >/dev/null 2>&1; then
+      echo "✅ 公网域名已就绪"
       return 0
     fi
 
     sleep 1
   done
 
-  echo "⚠️  公网域名暂时无法解析，将先打开本地地址"
-  echo "   可稍后重试公网地址，或查看：$LOG_TUNNEL_FILE"
+  echo "⚠️  公网域名暂时无法解析，浏览器打开后可能需要刷新几次"
   return 1
 }
 
@@ -236,6 +258,7 @@ trap cleanup EXIT HUP INT TERM
 cleanup_recorded_process "$PID_DEV_FILE" "next dev"
 cleanup_recorded_process "$PID_TUNNEL_FILE" "cloudflared tunnel"
 cleanup_project_port_processes
+cleanup_next_dev_lock
 
 : > "$LOG_DEV_FILE"
 : > "$LOG_TUNNEL_FILE"
@@ -243,22 +266,22 @@ cleanup_project_port_processes
 echo "🌐 启动本地服务（关闭此窗口将自动停止）..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 1) 启动 Next dev（绑定到当前终端生命周期）
-"$NPM_CMD" run dev > "$LOG_DEV_FILE" 2>&1 &
+# 1) 启动 Next dev（绑定到当前终端生命周期，强制 IPv4 避免 tunnel 连 [::1] 失败）
+"$NPM_CMD" run dev -- --hostname 127.0.0.1 > "$LOG_DEV_FILE" 2>&1 &
 DEV_PID=$!
 echo "$DEV_PID" > "$PID_DEV_FILE"
 
 # 等待 dev server 确认监听 3000，避免 Next 自动切到 3001 后 tunnel 指错端口
 wait_for_local_port_3000
 
-# 2) 启动 Cloudflare Tunnel（绑定到当前终端生命周期）
-"$CLOUDFLARED_CMD" tunnel --url http://localhost:3000 --no-autoupdate > "$LOG_TUNNEL_FILE" 2>&1 &
+# 2) 启动 Cloudflare Tunnel（绑定到当前终端生命周期，明确指向 IPv4 避免 IPv6 连通问题）
+"$CLOUDFLARED_CMD" tunnel --url http://127.0.0.1:3000 --no-autoupdate > "$LOG_TUNNEL_FILE" 2>&1 &
 TUNNEL_PID=$!
 echo "$TUNNEL_PID" > "$PID_TUNNEL_FILE"
 
 # 3) 从日志里解析公网域名
 PUBLIC_URL=""
-for i in {1..25}; do
+for k in $(seq 1 25); do
   if ! kill -0 "$DEV_PID" 2>/dev/null; then
     echo "❌ 本地服务启动失败，请查看：$LOG_DEV_FILE"
     exit 1
@@ -276,47 +299,54 @@ if [ -n "$PUBLIC_URL" ]; then
   wait_for_public_url || PUBLIC_URL=""
 fi
 
-OPEN_URL=""
-LOCAL_URL="http://localhost:3000"
+LOCAL_URL="http://127.0.0.1:3000"
 if [ -n "$DEMO_TOKEN" ]; then
   LOCAL_URL="$LOCAL_URL/?token=$DEMO_TOKEN"
 fi
 
-if [ -n "$PUBLIC_URL" ]; then
-  if [ -n "$DEMO_TOKEN" ]; then
-    OPEN_URL="$PUBLIC_URL/?token=$DEMO_TOKEN"
-  else
-    OPEN_URL="$PUBLIC_URL"
-  fi
-else
-  OPEN_URL="$LOCAL_URL"
+if [ -n "$PUBLIC_URL" ] && [ -n "$DEMO_TOKEN" ]; then
+  PUBLIC_URL="$PUBLIC_URL/?token=$DEMO_TOKEN"
 fi
 
 echo ""
-echo "✅ 服务已启动（请保持此窗口开启）"
-echo "   本地地址：$LOCAL_URL"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ✅ 演示服务已启动（请保持此窗口开启）"
+echo ""
+
 if [ -n "$PUBLIC_URL" ]; then
-  echo "   公网地址：$PUBLIC_URL"
+  echo "   🌐 公网访问地址："
+  echo "      $PUBLIC_URL"
+  echo ""
+  echo "   💻 本地访问地址："
+  echo "      $LOCAL_URL"
+  echo ""
   if [ -n "$DEMO_TOKEN" ] && [ "$DEMO_TOKEN" != "change-me" ]; then
-    echo "   （已启用口令）访问地址：$OPEN_URL"
+    echo "   🔐 已启用口令保护（token=${DEMO_TOKEN}）"
   elif [ -n "$DEMO_TOKEN" ] && [ "$DEMO_TOKEN" = "change-me" ]; then
-    echo "   ⚠️  检测到 DEMO_ACCESS_TOKEN=change-me（建议改成自定义口令）"
-    echo "   访问示例：$OPEN_URL"
+    echo "   ⚠️  检测到 DEMO_ACCESS_TOKEN=change-me（建议修改）"
   else
     echo "   ⚠️  未启用口令保护（建议在 .env.local 设置 DEMO_ACCESS_TOKEN）"
   fi
+  echo ""
+  echo "   📋 复制公网地址发给朋友即可访问"
 else
-  echo "   ⚠️  未能解析到公网域名，请查看：$LOG_TUNNEL_FILE"
+  echo "   ⚠️  未能获取公网域名，仅本地可用"
+  echo "   本地地址：$LOCAL_URL"
+  echo "   可查看日志排查：$LOG_TUNNEL_FILE"
 fi
 
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "🛑 关闭此窗口后，Next dev 和公网隧道会自动停止"
-echo "   日志文件：$LOG_DEV_FILE"
+echo "   本地日志：$LOG_DEV_FILE"
 echo "   Tunnel 日志：$LOG_TUNNEL_FILE"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 自动打开浏览器（优先公网地址）
-open "$OPEN_URL" >/dev/null 2>&1 || true
+# 自动打开浏览器：本地 + 公网（如获取成功）
+open "$LOCAL_URL" >/dev/null 2>&1 || true
+if [ -n "$PUBLIC_URL" ]; then
+  sleep 1
+  open "$PUBLIC_URL" >/dev/null 2>&1 || true
+fi
 
 # 保持窗口存活；任一服务退出后结束脚本并清理另一侧
 while true; do

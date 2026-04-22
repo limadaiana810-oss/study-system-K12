@@ -239,22 +239,23 @@ export function dedupeCandidates(existing: InferredCandidate[], incoming: Inferr
 
 export function applyInferredCandidate(memory: MemoryEntry, c: InferredCandidate): MemoryEntry {
   const inferred: InferredMemory = { ...(memory.inferred || {}) }
+  const effectiveValue = c.editedValue ?? c.value
 
   if (c.field === "preferences") {
-    const items = Array.isArray(c.value) ? c.value : [c.value]
+    const items = Array.isArray(effectiveValue) ? effectiveValue : [effectiveValue]
     const merged = [...new Set([...(inferred.preferences || []), ...items])]
     inferred.preferences = merged
     return { ...memory, inferred }
   }
 
-  if (typeof c.value === "string") {
-    ;(inferred as any)[c.field] = c.value
+  if (typeof effectiveValue === "string") {
+    ;(inferred as any)[c.field] = effectiveValue
     return { ...memory, inferred }
   }
 
   const prev = (inferred as any)[c.field]
   const prevArr = Array.isArray(prev) ? prev : []
-  const merged = [...new Set([...prevArr, ...c.value])]
+  const merged = [...new Set([...prevArr, ...effectiveValue])]
   ;(inferred as any)[c.field] = merged
   return { ...memory, inferred }
 }

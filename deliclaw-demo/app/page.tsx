@@ -22,7 +22,7 @@ export default function Home() {
   /**
    * 注意：不要把 Base64 原图写入 localStorage。
    * localStorage 通常只有 5~10MB 配额，几张图片就会触发 QuotaExceededError。
-   * 这里仅持久化“文件元信息”（用于 UI 展示/兼容），文件内容由服务端 SQLite 方案存储与检索。
+   * 这里仅持久化"文件元信息"（用于 UI 展示/兼容），文件内容由服务端 SQLite 方案存储与检索。
    */
   function toPersistedFileMeta(files: UploadedFile[]) {
     // 控制数量，避免 localStorage 膨胀（只存最近 50 条元信息）
@@ -44,16 +44,21 @@ export default function Home() {
 
       if (savedMemory) {
         try {
-          setMemory(JSON.parse(savedMemory))
-        } catch {
-          localStorage.removeItem(MEMORY_STORAGE_KEY)
+          const parsed = JSON.parse(savedMemory)
+          // 保护：确保解析结果是对象，不是 null/undefined
+          if (parsed && typeof parsed === "object") {
+            setMemory(parsed)
+          }
+        } catch (err) {
+          console.error("[DeliClaw] 记忆加载失败:", err)
+          // 解析失败时不删除数据，保留给用户手动修复的机会
         }
       }
 
       // 保护：如果之前把 base64 写入了 localStorage，这里会非常大且解析慢/失败
       if (savedFiles) {
         if (savedFiles.length > 200_000) {
-          // 超过约 200KB 直接丢弃，避免卡死在“加载记忆中...”
+          // 超过约 200KB 直接丢弃，避免卡死在"加载记忆中..."
           localStorage.removeItem(FILES_STORAGE_KEY)
         } else {
           try {
@@ -97,11 +102,28 @@ export default function Home() {
       localStorage.setItem(FILES_STORAGE_KEY, JSON.stringify(toPersistedFileMeta(uploadedFiles)))
       localStorage.setItem(STAGE_STORAGE_KEY, stage)
       localStorage.setItem(PENDING_INFERRED_STORAGE_KEY, JSON.stringify(pendingInferred))
-    } catch {
+    } catch (err) {
+      console.error("[DeliClaw] 记忆保存失败:", err)
       // 如果用户浏览器空间不足，降级：至少保证内存态可继续跑 demo
       // 不抛错，避免页面功能被中断
     }
   }, [memory, uploadedFiles, stage, pendingInferred, isLoaded])
+
+  // 页面关闭/刷新前强制保存，防止状态未同步到 localStorage
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem(MEMORY_STORAGE_KEY, JSON.stringify(memory))
+        localStorage.setItem(FILES_STORAGE_KEY, JSON.stringify(toPersistedFileMeta(uploadedFiles)))
+        localStorage.setItem(STAGE_STORAGE_KEY, stage)
+        localStorage.setItem(PENDING_INFERRED_STORAGE_KEY, JSON.stringify(pendingInferred))
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [memory, uploadedFiles, stage, pendingInferred])
 
   const handleFileUpload = (base64: string, mime: string, name: string) => {
     const newFile: UploadedFile = {
@@ -115,6 +137,9 @@ export default function Home() {
   }
 
   const handleClearMemory = () => {
+    if (!window.confirm("确定要重置会话吗？所有记忆和对话历史将被清除。")) {
+      return
+    }
     setMemory({})
     setUploadedFiles([])
     setStage("intro")
@@ -139,10 +164,57 @@ export default function Home() {
       setMemory((m) => applyInferredCandidate(m, cand))
       return prev.filter((c) => c.id !== id)
     })
+    // 同步更新 turnInsight，移除已接受的候选
+    setTurnInsight((prev) => {
+      if (!prev?.inferredPending) return prev
+      return {
+        ...prev,
+        inferredPending: prev.inferredPending.filter((c) => c.id !== id),
+        updatedAt: new Date().toISOString(),
+      }
+    })
   }
 
   const handleRejectInferred = (id: string) => {
     setPendingInferred((prev) => prev.filter((c) => c.id !== id))
+    setTurnInsight((prev) => {
+      if (!prev?.inferredPending) return prev
+      return {
+        ...prev,
+        inferredPending: prev.inferredPending.filter((c) => c.id !== id),
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  const handleEditAcceptInferred = (id: string, editedValue: string | string[]) => {
+    setPendingInferred((prev) => {
+      const idx = prev.findIndex((c) => c.id === id)
+      if (idx === -1) return prev
+      const cand = { ...prev[idx], editedValue, status: "edited_then_accepted" as const, autoConfirmAt: undefined }
+      setMemory((m) => applyInferredCandidate(m, cand))
+      return prev.filter((c) => c.id !== id)
+    })
+    setTurnInsight((prev) => {
+      if (!prev?.inferredPending) return prev
+      return {
+        ...prev,
+        inferredPending: prev.inferredPending.filter((c) => c.id !== id),
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  const handleIgnoreInferred = (id: string) => {
+    setPendingInferred((prev) => prev.filter((c) => c.id !== id))
+    setTurnInsight((prev) => {
+      if (!prev?.inferredPending) return prev
+      return {
+        ...prev,
+        inferredPending: prev.inferredPending.filter((c) => c.id !== id),
+        updatedAt: new Date().toISOString(),
+      }
+    })
   }
 
   if (!isLoaded) {
@@ -193,6 +265,8 @@ export default function Home() {
             pendingInferred={pendingInferred}
             onAcceptInferred={handleAcceptInferred}
             onRejectInferred={handleRejectInferred}
+            onEditAcceptInferred={handleEditAcceptInferred}
+            onIgnoreInferred={handleIgnoreInferred}
           />
         </div>
       </div>

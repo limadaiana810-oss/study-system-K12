@@ -93,3 +93,21 @@ export function uploadsUrlFromRelPath(relPath: string): string {
   const name = relPath.startsWith("uploads/") ? relPath.slice("uploads/".length) : relPath
   return `/api/uploads/${name}`
 }
+
+export function removeUploadFile(nameOrRel: string): boolean {
+  if (!nameOrRel) return false
+  const fileName = nameOrRel.startsWith("uploads/") ? nameOrRel.slice("uploads/".length) : nameOrRel
+  if (!fileName || fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) return false
+
+  const root = path.normalize(uploadsRoot())
+  const abs = path.normalize(path.join(root, fileName))
+  if (!abs.startsWith(root)) return false
+  if (!fs.existsSync(abs)) return false
+
+  try {
+    fs.unlinkSync(abs)
+    return true
+  } catch {
+    return false
+  }
+}

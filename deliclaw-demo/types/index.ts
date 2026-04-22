@@ -25,6 +25,9 @@ export interface InferredCandidate {
   confidence?: number
   createdAt: string
   source?: "llm"
+  status?: "pending" | "accepted" | "edited_then_accepted" | "ignored"
+  editedValue?: string | string[]
+  autoConfirmAt?: number
 }
 
 export interface EmotionSnapshot {
@@ -105,13 +108,29 @@ export interface UploadedFile {
   uploadedAt: Date
 }
 
-export type TurnInsightFileStatus = "ready" | "partial" | "failed"
+export type TurnInsightFileStatus = "indexing" | "ready" | "partial" | "failed"
 
 export interface TurnInsight {
   turnId: string
   userText: string
+  /** 客户端基于用户输入实时解析的捕捉信息 */
+  capturedItems?: Array<{
+    type: "task_progress" | "emotion" | "fact" | "file_intent"
+    label: string
+    value: string
+    evidence: string
+  }>
   factualAdded: Array<{ label: string; value: string }>
-  inferredPending: Array<{ label: string; value: string; evidence?: string }>
+  inferredPending: Array<{
+    id: string
+    field: string
+    label: string
+    value: string
+    evidence: string
+    status?: "pending" | "accepted" | "edited_then_accepted" | "ignored"
+    editedValue?: string
+    autoConfirmAt?: number
+  }>
   emotion?: { emotion: string; evidence?: string; weight?: number }
   fileUnderstanding?: {
     originalName: string
@@ -124,3 +143,16 @@ export interface TurnInsight {
 }
 
 export type DemoStage = "intro" | "uploaded" | "done"
+
+export interface ManagedFile {
+  id: string
+  fileName: string
+  title: string | null
+  mimeType: string
+  url: string
+  uploadedAt: string
+  description: string
+  subject: string
+  questionType: string
+  knowledgePoints: string[]
+}

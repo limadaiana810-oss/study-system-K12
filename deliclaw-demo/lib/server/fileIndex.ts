@@ -153,3 +153,16 @@ export function upsertFileIndexEntry(entry: LocalFileIndexEntry, rootDir = proce
   fs.writeFileSync(fileIndexPath(rootDir), JSON.stringify(nextDoc, null, 2) + "\n", "utf8")
   return nextDoc
 }
+
+export function removeFileIndexEntry(id: string, rootDir = process.cwd()): LocalFileIndexDocument {
+  const doc = readFileIndex(rootDir)
+  const nextFiles = doc.files.filter((item) => item.id !== id)
+
+  const nextDoc: LocalFileIndexDocument = {
+    version: 1,
+    files: nextFiles,
+  }
+
+  fs.writeFileSync(fileIndexPath(rootDir), JSON.stringify(nextDoc, null, 2) + "\n", "utf8")
+  return nextDoc
+}
