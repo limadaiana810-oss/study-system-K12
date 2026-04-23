@@ -66,7 +66,7 @@ function LongTermMemoryCards({ memory }: { memory: MemoryEntry }) {
       <section className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
         <p className="text-xs font-bold text-slate-700">长期记忆会沉淀到这里</p>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-          告诉我姓名、年级、学校或近期目标后，这里会生成稳定记忆卡片。
+          告诉我姓名、年级、学校、近期目标或爱好后，这里会生成稳定记忆卡片。
         </p>
       </section>
     )
@@ -104,7 +104,7 @@ function LongTermMemoryCards({ memory }: { memory: MemoryEntry }) {
         <MemoryCard key={`mood-${inferred.mood}`} label="已确认状态" value={inferred.mood} delay={350} accent="#10B981" />
       )}
       {inferred.preferences && inferred.preferences.length > 0 && (
-        <MemoryCard key={`preferences-${inferred.preferences.join("|")}`} label="已确认偏好" tags={inferred.preferences} delay={400} accent="#10B981" />
+        <MemoryCard key={`preferences-${inferred.preferences.join("|")}`} label="爱好" tags={inferred.preferences} delay={400} accent="#10B981" />
       )}
     </section>
   )

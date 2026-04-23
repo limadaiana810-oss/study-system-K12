@@ -27,6 +27,8 @@ import {
 import { nextQuickReplyInput } from "@/lib/quickReplyBehavior"
 import { AI_INTRO } from "@/lib/prompts"
 import { parseUserInputCapture } from "@/lib/userInputParser"
+import { FILE_CENTER_ONBOARDING_STORAGE_KEY } from "@/lib/onboardingStorage"
+import FileCenterOnboarding, { type OnboardingTarget } from "./FileCenterOnboarding"
 import FileManagerPanel from "./FileManagerPanel"
 import MessageBubble from "./MessageBubble"
 import QuickReplyBar from "./QuickReplyBar"
@@ -41,7 +43,11 @@ interface Props {
   onFileUpload: (base64: string, mime: string, name: string) => void
   stage: DemoStage
   onStageChange: (s: DemoStage) => void
+  activeView: "chat" | "files"
+  onActiveViewChange: (view: "chat" | "files") => void
 }
+
+const FILE_CENTER_VIEW = "files"
 
 type SearchApiResult = {
   fileName: string
@@ -274,6 +280,8 @@ export default function ChatPanel({
   onFileUpload,
   stage,
   onStageChange,
+  activeView,
+  onActiveViewChange,
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -287,12 +295,35 @@ export default function ChatPanel({
   const [isStreaming, setIsStreaming] = useState(false)
   const [pendingUploads, setPendingUploads] = useState<UploadedFile[]>([])
   const [hasFilledUploadPreset, setHasFilledUploadPreset] = useState(false)
-  const [activeView, setActiveView] = useState<"chat" | "files">("chat")
+  const [showFileOnboarding, setShowFileOnboarding] = useState(false)
+  const [fileOnboardingTarget, setFileOnboardingTarget] = useState<OnboardingTarget | null>(null)
+  const fileThumbnailBadgeMode = fileOnboardingTarget === "photo-grid" ? "scene" : "default"
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<Message[]>(messages)
   const hasMountedMessagesRef = useRef(false)
   const activeTurnIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FILE_CENTER_ONBOARDING_STORAGE_KEY) !== "1") {
+        onActiveViewChange(FILE_CENTER_VIEW)
+        setShowFileOnboarding(true)
+      }
+    } catch {
+      onActiveViewChange(FILE_CENTER_VIEW)
+      setShowFileOnboarding(true)
+    }
+  }, [onActiveViewChange])
+
+  const handleFileOnboardingFinish = useCallback(() => {
+    try {
+      localStorage.setItem(FILE_CENTER_ONBOARDING_STORAGE_KEY, "1")
+    } catch {
+      // ignore storage failures; the guide can still close for this session
+    }
+    setShowFileOnboarding(false)
+  }, [])
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => {
@@ -875,7 +906,7 @@ export default function ChatPanel({
         <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-1 shadow-sm">
           <button
             type="button"
-            onClick={() => setActiveView("chat")}
+            onClick={() => onActiveViewChange("chat")}
             className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
               activeView === "chat"
                 ? "bg-white text-indigo-700 shadow-sm"
@@ -886,7 +917,7 @@ export default function ChatPanel({
           </button>
           <button
             type="button"
-            onClick={() => setActiveView("files")}
+            onClick={() => onActiveViewChange("files")}
             className={`rounded-xl px-4 py-1.5 text-left transition-all ${
               activeView === "files"
                 ? "bg-white text-indigo-700 shadow-sm"
@@ -974,9 +1005,11 @@ export default function ChatPanel({
         </>
       ) : (
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <FileManagerPanel />
+          <FileManagerPanel thumbnailBadgeMode={fileThumbnailBadgeMode} />
         </div>
       )}
+
+      <FileCenterOnboarding active={showFileOnboarding && activeView === "files"} onFinish={handleFileOnboardingFinish} onStepTargetChange={setFileOnboardingTarget} />
     </div>
   )
 }

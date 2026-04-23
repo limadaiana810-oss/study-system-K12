@@ -46,6 +46,32 @@ test("builds latest turn insight from confirmed facts, inferred candidates, and 
   assert.equal(insight.emotion?.evidence, "有点焦虑")
 })
 
+test("labels inferred preferences as hobbies in turn insight", () => {
+  const insight = buildTurnInsightFromMemory({
+    turnId: "turn-hobby",
+    userText: "我喜欢打篮球",
+    extracted: {
+      delta: {},
+      inferredCandidates: [
+        {
+          id: "cand-hobby",
+          field: "preferences",
+          op: "add",
+          value: "打篮球",
+          evidence: "我喜欢打篮球",
+          confidence: 0.84,
+          createdAt: "2026-04-23T00:00:00.000Z",
+          source: "llm",
+        },
+      ],
+    },
+    updatedAt: "2026-04-23T00:00:00.000Z",
+  })
+
+  assert.equal(insight.inferredPending[0].label, "爱好")
+  assert.equal(insight.inferredPending[0].value, "打篮球")
+})
+
 test("returns an empty insight when the turn has no memory signal", () => {
   const insight = buildTurnInsightFromMemory({
     turnId: "turn-2",

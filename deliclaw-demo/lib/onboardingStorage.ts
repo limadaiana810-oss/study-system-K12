@@ -1,0 +1,1 @@
+export const FILE_CENTER_ONBOARDING_STORAGE_KEY = "deliclaw_file_onboarding_done"

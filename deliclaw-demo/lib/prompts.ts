@@ -89,7 +89,7 @@ JSON schema（字段可省略，emotionSnapshot 除外）：
 - 只输出你有明确证据的推测；evidence 必填；confidence 0~1。
 - 推测内容不会自动写入长期记忆，系统会让用户确认（5 秒倒计时后自动接受）。
 - 不要输出重复或低置信度的候选。
-- 当用户提到爱好、习惯、偏好时，输出为 inferredCandidates（field=preferences）。
+- 当用户提到爱好（如喜欢篮球、爱看科幻）、习惯、偏好时，输出为 inferredCandidates（field=preferences）。
 
 【情绪感知规则】
 - 每轮必须输出 emotionSnapshot，即使情绪很平静。

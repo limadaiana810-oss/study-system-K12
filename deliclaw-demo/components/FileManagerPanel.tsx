@@ -8,6 +8,7 @@ import { SOURCE_CHANNELS, type SourceChannelLabel } from "@/lib/fileSourceChanne
 interface Props {
   onFileDeleted?: (id: string) => void
   onFilesCleared?: () => void
+  thumbnailBadgeMode?: "default" | "scene"
 }
 
 type FileSearchApiResult = {
@@ -46,6 +47,12 @@ type SceneVisualTone = {
   icon: string
   count: string
   badge: string
+}
+
+type AIToolboxGroup = {
+  label: string
+  tone: string
+  tools: string[]
 }
 
 const SOURCE_VISUAL_TONES: Record<SourceChannelLabel, SourceVisualTone> = {
@@ -188,6 +195,19 @@ const SCENE_VISUAL_TONES: Record<BusinessSceneLabel | "全部", SceneVisualTone>
   },
 }
 
+const AI_TOOLBOX_GROUPS: AIToolboxGroup[] = [
+  {
+    label: "图片处理类",
+    tone: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    tools: ["去背景", "去笔迹", "试卷切割", "试卷切题"],
+  },
+  {
+    label: "文档处理类",
+    tone: "bg-sky-50 text-sky-700 border-sky-200",
+    tools: ["PDF转word", "word转PDF"],
+  },
+]
+
 function getSourceVisualTone(sourceChannel?: string) {
   if (sourceChannel && sourceChannel in SOURCE_VISUAL_TONES) {
     return SOURCE_VISUAL_TONES[sourceChannel as SourceChannelLabel]
@@ -272,6 +292,10 @@ function searchResultToManagedFile(result: FileSearchApiResult, existing?: Manag
   })
 }
 
+function isWrongQuestionCandidate(file: ManagedFile) {
+  return file.mimeType.startsWith("image/") && file.questionType === "错题" && getDemoBusinessScenes(file).includes("最近错题")
+}
+
 function SourceChips({ files }: { files: ManagedFile[] }) {
   const counts = new Map<string, number>()
   for (const file of files) {
@@ -280,7 +304,7 @@ function SourceChips({ files }: { files: ManagedFile[] }) {
   }
 
   return (
-    <div className="min-w-0 flex-1 space-y-2">
+    <div data-onboarding-target="source-rail" className="min-w-0 flex-1 space-y-3">
       <div className="min-w-0">
         <p className="text-xs font-black text-slate-950">多渠道汇总</p>
       </div>
@@ -304,6 +328,35 @@ function SourceChips({ files }: { files: ManagedFile[] }) {
           )
         })}
       </div>
+
+      <section className="rounded-[24px] border border-slate-200/70 bg-white/75 p-3 shadow-[0_12px_32px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-black text-white">
+            AI
+          </span>
+          <p className="text-xs font-black text-slate-950">AI 工具箱</p>
+        </div>
+
+        <div className="mt-3 space-y-2.5">
+          {AI_TOOLBOX_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col gap-2 md:flex-row md:items-center">
+              <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${group.tone}`}>
+                {group.label}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {group.tools.map((tool) => (
+                  <span
+                    key={tool}
+                    className="rounded-full border border-slate-200 bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-[0_4px_12px_rgba(15,23,42,0.04)]"
+                  >
+                    {tool}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
@@ -352,18 +405,24 @@ function SceneTabs({
 function ThumbnailTile({
   file,
   activeScene,
+  thumbnailBadgeMode,
+  isOnboardingWrongQuestion,
   onDelete,
 }: {
   file: ManagedFile
   activeScene: BusinessSceneLabel | "全部"
+  thumbnailBadgeMode: "default" | "scene"
+  isOnboardingWrongQuestion: boolean
   onDelete: (id: string) => void
 }) {
   const [confirming, setConfirming] = useState(false)
   const signals = memorySignals(file)
   const sourceChannel = file.sourceChannel || "微信"
   const tone = getSourceVisualTone(sourceChannel)
-  const badgeLabel = activeScene === "全部" ? sourceChannel : activeScene
-  const badgeTone = activeScene === "全部" ? tone.badge : getSceneVisualTone(activeScene).badge
+  const shouldShowSceneBadge = thumbnailBadgeMode === "scene" || activeScene !== "全部"
+  const badgeScene = activeScene === "全部" ? getDemoBusinessScenes(file)[0] : activeScene
+  const badgeLabel = shouldShowSceneBadge ? badgeScene ?? "已分类" : sourceChannel
+  const badgeTone = shouldShowSceneBadge ? getSceneVisualTone(badgeScene ?? "全部").badge : tone.badge
 
   const handleDeleteClick = () => {
     if (confirming) {
@@ -376,7 +435,10 @@ function ThumbnailTile({
   }
 
   return (
-    <div className={`group relative aspect-square overflow-hidden rounded-xl ring-1 transition-all hover:z-10 hover:scale-[1.025] ${tone.tile}`}>
+    <div
+      data-onboarding-photo-origin={isOnboardingWrongQuestion ? "wrong-question" : undefined}
+      className={`group relative aspect-square overflow-hidden rounded-xl ring-1 transition-all hover:z-10 hover:scale-[1.025] ${tone.tile}`}
+    >
       {file.mimeType.startsWith("image/") ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={file.url} alt={file.fileName} className="h-full w-full object-cover" loading="lazy" />
@@ -415,7 +477,7 @@ function ThumbnailTile({
   )
 }
 
-export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Props) {
+export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbnailBadgeMode = "default" }: Props) {
   const [files, setFiles] = useState<ManagedFile[]>([])
   const [loading, setLoading] = useState(true)
   const [draftQuery, setDraftQuery] = useState("")
@@ -450,6 +512,10 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Prop
     if (activeScene === "全部") return baseFiles
     return baseFiles.filter((file) => getDemoBusinessScenes(file).includes(activeScene))
   }, [activeScene, files, searchResults, submittedQuery])
+  const onboardingWrongQuestionId = useMemo(
+    () => visibleFiles.find((file) => isWrongQuestionCandidate(file))?.id ?? null,
+    [visibleFiles]
+  )
 
   const handleQuerySubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -532,15 +598,15 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Prop
     <div className="mx-auto max-w-7xl space-y-5 text-slate-950">
       <SourceChips files={files} />
 
-      <section className="commandSurface mx-auto max-w-3xl pt-2 text-center">
+      <section data-onboarding-target="ai-search" className="commandSurface mx-auto max-w-3xl pt-2 text-center">
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">AI 文件系统</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">用你的记忆片段找到文件</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">想找哪份文件？</h2>
         <form onSubmit={handleQuerySubmit} className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition-shadow focus-within:shadow-md">
           <label className="min-w-0 flex-1">
             <input
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="帮我找到 最近的错题和草原的旅游照片"
+              placeholder="例如：找上周的英语错题，或者草原旅行照片"
               className="w-full bg-transparent px-2 py-2 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
             />
           </label>
@@ -549,7 +615,7 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Prop
             disabled={querying || files.length === 0}
             className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {querying ? "检索中" : "发送"}
+            {querying ? "查找中" : "查找"}
           </button>
           <button
             type="button"
@@ -562,12 +628,13 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Prop
             {clearConfirming ? "再次确认" : "清空"}
           </button>
         </form>
+        <p className="mt-2 text-xs font-medium text-slate-400">可以说时间、来源、内容或场景</p>
         {querying && (
           <div className="mt-3 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
             <div className="dot-pulse flex gap-1">
               <span /><span /><span />
             </div>
-            <span>AI 正在根据记忆片段检索…</span>
+            <span>正在查找相关文件…</span>
           </div>
         )}
       </section>
@@ -586,21 +653,35 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared }: Prop
 
       </div>
 
-      {files.length === 0 ? (
-        <p className="py-10 text-center text-sm font-medium text-slate-400">
-          上传文件后，AI 会把来源、时间和内容线索放进这里。
-        </p>
-      ) : visibleFiles.length === 0 ? (
-        <p className="py-10 text-center text-sm font-medium text-slate-400">
-          {activeScene === "全部" ? "没有匹配文件，换一个记忆片段试试。" : "这个场景下暂时没有匹配文件。"}
-        </p>
-      ) : (
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10">
-          {visibleFiles.map((file) => (
-            <ThumbnailTile key={file.id} file={file} activeScene={activeScene} onDelete={handleDelete} />
-          ))}
-        </div>
-      )}
+      <div data-onboarding-target="photo-grid" className="min-h-32">
+        {files.length === 0 ? (
+          <p className="py-10 text-center text-sm font-medium text-slate-400">
+            上传文件后，AI 会把来源、时间和内容线索放进这里。
+          </p>
+        ) : visibleFiles.length === 0 ? (
+          <p className="py-10 text-center text-sm font-medium text-slate-400">
+            {activeScene === "全部" ? "没找到相关文件。可以换个时间、来源或内容再试。" : "这个场景下暂时没有匹配文件。"}
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10">
+            {visibleFiles.map((file) => {
+              const shouldMarkOnboardingWrongQuestion = onboardingWrongQuestionId === file.id
+              const isOnboardingWrongQuestion = shouldMarkOnboardingWrongQuestion && isWrongQuestionCandidate(file)
+
+              return (
+                <ThumbnailTile
+                  key={file.id}
+                  file={file}
+                  activeScene={activeScene}
+                  thumbnailBadgeMode={thumbnailBadgeMode}
+                  isOnboardingWrongQuestion={isOnboardingWrongQuestion}
+                  onDelete={handleDelete}
+                />
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

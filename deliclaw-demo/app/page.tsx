@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { DemoStage, MemoryEntry, UploadedFile, InferredCandidate, TurnInsight } from "@/types"
 import ChatPanel from "@/components/ChatPanel"
 import DatabaseHub from "@/components/DatabaseHub"
 import { applyInferredCandidate, dedupeCandidates } from "@/lib/memoryParser"
+import { FILE_CENTER_ONBOARDING_STORAGE_KEY } from "@/lib/onboardingStorage"
+import { acceptDueInferredCandidates, getNextAutoConfirmDelay } from "@/lib/pendingInferred"
 
 const MEMORY_STORAGE_KEY = "deliclaw_memory"
 const FILES_STORAGE_KEY = "deliclaw_files"
@@ -17,7 +19,12 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [pendingInferred, setPendingInferred] = useState<InferredCandidate[]>([])
   const [turnInsight, setTurnInsight] = useState<TurnInsight | null>(null)
+  const [activeView, setActiveView] = useState<"chat" | "files">("chat")
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const isResettingRef = useRef(false)
+  const memoryRef = useRef(memory)
+  const pendingInferredRef = useRef(pendingInferred)
 
   /**
    * 注意：不要把 Base64 原图写入 localStorage。
@@ -95,7 +102,7 @@ export default function Home() {
 
   // Save to localStorage whenever state changes
   useEffect(() => {
-    if (!isLoaded) return
+    if (!isLoaded || isResetting) return
     try {
       localStorage.setItem(MEMORY_STORAGE_KEY, JSON.stringify(memory))
       // 只存元信息，避免 QuotaExceededError
@@ -107,11 +114,12 @@ export default function Home() {
       // 如果用户浏览器空间不足，降级：至少保证内存态可继续跑 demo
       // 不抛错，避免页面功能被中断
     }
-  }, [memory, uploadedFiles, stage, pendingInferred, isLoaded])
+  }, [memory, uploadedFiles, stage, pendingInferred, isLoaded, isResetting])
 
   // 页面关闭/刷新前强制保存，防止状态未同步到 localStorage
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (isResettingRef.current) return
       try {
         localStorage.setItem(MEMORY_STORAGE_KEY, JSON.stringify(memory))
         localStorage.setItem(FILES_STORAGE_KEY, JSON.stringify(toPersistedFileMeta(uploadedFiles)))
@@ -124,6 +132,45 @@ export default function Home() {
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [memory, uploadedFiles, stage, pendingInferred])
+
+  useEffect(() => {
+    memoryRef.current = memory
+  }, [memory])
+
+  useEffect(() => {
+    pendingInferredRef.current = pendingInferred
+  }, [pendingInferred])
+
+  useEffect(() => {
+    if (!isLoaded || isResetting) return
+
+    const delay = getNextAutoConfirmDelay(pendingInferred)
+    if (delay === null) return
+
+    const timerId = window.setTimeout(() => {
+      const { memory: nextMemory, pendingInferred: nextPendingInferred, acceptedIds } = acceptDueInferredCandidates({
+        memory: memoryRef.current,
+        pendingInferred: pendingInferredRef.current,
+      })
+
+      if (acceptedIds.length === 0) return
+
+      memoryRef.current = nextMemory
+      pendingInferredRef.current = nextPendingInferred
+      setMemory(nextMemory)
+      setPendingInferred(nextPendingInferred)
+      setTurnInsight((prev) => {
+        if (!prev?.inferredPending?.length) return prev
+        return {
+          ...prev,
+          inferredPending: prev.inferredPending.filter((candidate) => !acceptedIds.includes(candidate.id)),
+          updatedAt: new Date().toISOString(),
+        }
+      })
+    }, delay)
+
+    return () => window.clearTimeout(timerId)
+  }, [pendingInferred, isLoaded, isResetting])
 
   const handleFileUpload = (base64: string, mime: string, name: string) => {
     const newFile: UploadedFile = {
@@ -140,16 +187,17 @@ export default function Home() {
     if (!window.confirm("确定要重置会话吗？所有记忆和对话历史将被清除。")) {
       return
     }
-    setMemory({})
-    setUploadedFiles([])
-    setStage("intro")
-    setPendingInferred([])
-    setTurnInsight(null)
+
+    isResettingRef.current = true
+    setIsResetting(true)
     localStorage.removeItem(MEMORY_STORAGE_KEY)
     localStorage.removeItem(FILES_STORAGE_KEY)
     localStorage.removeItem(STAGE_STORAGE_KEY)
     localStorage.removeItem(PENDING_INFERRED_STORAGE_KEY)
-    window.location.reload() // Reload to clear chat messages
+    localStorage.removeItem(FILE_CENTER_ONBOARDING_STORAGE_KEY)
+    window.requestAnimationFrame(() => {
+      window.location.replace(window.location.pathname + window.location.search)
+    })
   }
 
   const handleAddInferredCandidates = (cands: InferredCandidate[]) => {
@@ -217,6 +265,10 @@ export default function Home() {
     })
   }
 
+  if (isResetting) {
+    return <div className="h-screen bg-[#FAFAFA] flex items-center justify-center text-gray-400 text-sm">正在重新开始会话…</div>
+  }
+
   if (!isLoaded) {
     return <div className="h-screen bg-[#FAFAFA] flex items-center justify-center text-gray-400 text-sm">正在加载记忆...</div>
   }
@@ -256,19 +308,23 @@ export default function Home() {
             onFileUpload={handleFileUpload}
             stage={stage}
             onStageChange={setStage}
+            activeView={activeView}
+            onActiveViewChange={setActiveView}
           />
         </div>
-        <div className="w-72 flex-shrink-0">
-          <DatabaseHub
-            memory={memory}
-            turnInsight={turnInsight}
-            pendingInferred={pendingInferred}
-            onAcceptInferred={handleAcceptInferred}
-            onRejectInferred={handleRejectInferred}
-            onEditAcceptInferred={handleEditAcceptInferred}
-            onIgnoreInferred={handleIgnoreInferred}
-          />
-        </div>
+        {activeView === "chat" && (
+          <div className="w-72 flex-shrink-0">
+            <DatabaseHub
+              memory={memory}
+              turnInsight={turnInsight}
+              pendingInferred={pendingInferred}
+              onAcceptInferred={handleAcceptInferred}
+              onRejectInferred={handleRejectInferred}
+              onEditAcceptInferred={handleEditAcceptInferred}
+              onIgnoreInferred={handleIgnoreInferred}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

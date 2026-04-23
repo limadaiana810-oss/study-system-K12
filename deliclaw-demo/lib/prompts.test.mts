@@ -20,6 +20,13 @@ test("system prompt keeps agent responses natural and does not assign local stor
   assert.doesNotMatch(prompt, /emotionSnapshot（情绪评估）：\*\*每轮必须输出/)
 })
 
+test("system prompt asks the model to infer hobbies into preferences", () => {
+  const prompt = buildSystemPrompt()
+
+  assert.match(prompt, /爱好（如喜欢篮球、爱看科幻）/)
+  assert.match(prompt, /field=preferences/)
+})
+
 test("vision index prompt supports personal profile and travel file categories", () => {
   assert.match(VISION_INDEX_PROMPT, /个人资料/)
   assert.match(VISION_INDEX_PROMPT, /旅游/)

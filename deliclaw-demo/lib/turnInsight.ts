@@ -29,7 +29,7 @@ const FACT_LABELS: Record<string, string> = {
 const INFERRED_LABELS: Record<string, string> = {
   sleepPattern: "作息习惯",
   mood: "情绪状态",
-  preferences: "偏好",
+  preferences: "爱好",
 }
 
 function uniqueStrings(values: Array<string | undefined>) {

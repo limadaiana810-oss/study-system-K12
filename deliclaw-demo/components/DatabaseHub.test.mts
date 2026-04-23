@@ -39,3 +39,11 @@ test("student state card exposes only the user-facing state label", () => {
   assert.ok(componentSource.includes('alt={`${state.title}状态的Q版学生`}'))
   assert.doesNotMatch(componentSource, /\{state\.emotion\}/)
 })
+
+test("long-term memory labels confirmed preferences as hobbies", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "components", "DatabaseHub.tsx"), "utf8")
+
+  assert.match(source, /label="爱好"/)
+  assert.match(source, /姓名、年级、学校、近期目标或爱好/)
+  assert.doesNotMatch(source, /label="已确认偏好"/)
+})

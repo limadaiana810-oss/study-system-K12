@@ -7,11 +7,13 @@ test("file manager presents an AI-native command surface instead of large module
   const source = fs.readFileSync(path.join(process.cwd(), "components", "FileManagerPanel.tsx"), "utf8")
 
   assert.match(source, /AI 文件系统/)
-  assert.match(source, /AI 正在根据记忆片段检索/)
+  assert.match(source, /正在查找相关文件/)
   assert.match(source, /commandSurface/)
   assert.match(source, /多渠道汇总/)
-  assert.match(source, /记忆片段/)
+  assert.match(source, /可以说时间、来源、内容或场景/)
   assert.match(source, /sourceChannel/)
+  assert.doesNotMatch(source, /AI 正在根据记忆片段检索/)
+  assert.doesNotMatch(source, /记忆片段/)
   assert.doesNotMatch(source, /rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm/)
   assert.doesNotMatch(source, /rounded-2xl border border-slate-100 bg-white p-3 shadow-sm/)
   assert.doesNotMatch(source, /自动分类/)
@@ -45,6 +47,37 @@ test("file manager renders source channels as compact inline chips", () => {
   assert.doesNotMatch(source, /家庭常用入口/)
   assert.doesNotMatch(source, /家长转发、班级群、作业平台、相册资料会汇总到这里/)
   assert.doesNotMatch(source, /rounded-xl border px-2 py-2/)
+})
+
+test("file manager adds an AI toolbox under multichannel summary", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "components", "FileManagerPanel.tsx"), "utf8")
+  const sourceSummaryIndex = source.indexOf("多渠道汇总")
+  const toolboxIndex = source.indexOf("AI 工具箱")
+  const aiSearchIndex = source.indexOf("AI 文件系统")
+
+  assert.match(source, /AI 工具箱/)
+  assert.match(source, /图片处理类/)
+  assert.match(source, /去背景/)
+  assert.match(source, /去笔迹/)
+  assert.match(source, /试卷切割/)
+  assert.match(source, /试卷切题/)
+  assert.match(source, /文档处理类/)
+  assert.match(source, /PDF转word/)
+  assert.match(source, /word转PDF/)
+  assert.ok(sourceSummaryIndex >= 0)
+  assert.ok(toolboxIndex > sourceSummaryIndex)
+  assert.ok(aiSearchIndex > toolboxIndex)
+})
+
+test("file manager exposes stable onboarding targets for first-open guidance", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "components", "FileManagerPanel.tsx"), "utf8")
+
+  assert.match(source, /data-onboarding-target="source-rail"/)
+  assert.match(source, /data-onboarding-target="ai-search"/)
+  assert.match(source, /data-onboarding-target="photo-grid"/)
+  assert.match(source, /data-onboarding-photo-origin=\{isOnboardingWrongQuestion \? "wrong-question" : undefined\}/)
+  assert.match(source, /const isOnboardingWrongQuestion = shouldMarkOnboardingWrongQuestion && isWrongQuestionCandidate\(file\)/)
+  assert.match(source, /getDemoBusinessScenes\(file\)\.includes\("最近错题"\)/)
 })
 
 test("file manager places source rail above the AI title and keeps the lower rail scene-only", () => {
@@ -86,9 +119,26 @@ test("file manager switches thumbnail badges from source to active scene", () =>
   const source = fs.readFileSync(path.join(process.cwd(), "components", "FileManagerPanel.tsx"), "utf8")
 
   assert.match(source, /activeScene: BusinessSceneLabel \| "全部"/)
-  assert.match(source, /const badgeLabel = activeScene === "全部" \? sourceChannel : activeScene/)
-  assert.match(source, /const badgeTone = activeScene === "全部" \? tone\.badge : getSceneVisualTone\(activeScene\)\.badge/)
-  assert.match(source, /<ThumbnailTile key=\{file\.id\} file=\{file\} activeScene=\{activeScene\} onDelete=\{handleDelete\} \/>/)
+  assert.match(source, /const shouldShowSceneBadge = thumbnailBadgeMode === "scene" \|\| activeScene !== "全部"/)
+  assert.match(source, /const badgeScene = activeScene === "全部" \? getDemoBusinessScenes\(file\)\[0\] : activeScene/)
+  assert.match(source, /const badgeLabel = shouldShowSceneBadge \? badgeScene \?\? "已分类" : sourceChannel/)
+  assert.match(source, /const badgeTone = shouldShowSceneBadge \? getSceneVisualTone\(badgeScene \?\? "全部"\)\.badge : tone\.badge/)
+  assert.match(source, /<ThumbnailTile/)
+  assert.match(source, /thumbnailBadgeMode=\{thumbnailBadgeMode\}/)
+  assert.match(source, /isOnboardingWrongQuestion=\{isOnboardingWrongQuestion\}/)
+  assert.match(source, /onDelete=\{handleDelete\}/)
+})
+
+test("file manager accepts an onboarding-only scene badge mode without changing the default view", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "components", "FileManagerPanel.tsx"), "utf8")
+
+  assert.match(source, /thumbnailBadgeMode\?: "default" \| "scene"/)
+  assert.match(source, /thumbnailBadgeMode = "default"/)
+  assert.match(source, /thumbnailBadgeMode=\{thumbnailBadgeMode\}/)
+  assert.match(source, /thumbnailBadgeMode: "default" \| "scene"/)
+  assert.match(source, /shouldShowSceneBadge/)
+  assert.match(source, /sourceChannel/)
+  assert.match(source, /已分类/)
 })
 
 test("file manager makes multichannel summary the colorful iOS visual layer", () => {
@@ -132,12 +182,16 @@ test("file manager submits natural language file queries instead of live filter 
 
   assert.match(source, /handleQuerySubmit/)
   assert.match(source, /\/api\/files\/search/)
-  assert.match(source, /帮我找到 最近的错题和草原的旅游照片/)
-  assert.match(source, /用你的记忆片段找到文件/)
+  assert.match(source, /找上周的英语错题，或者草原旅行照片/)
+  assert.match(source, /想找哪份文件？/)
+  assert.match(source, /可以说时间、来源、内容或场景/)
   assert.match(source, /type="submit"/)
-  assert.match(source, /发送/)
+  assert.match(source, /查找/)
   assert.match(source, /submittedQuery/)
   assert.doesNotMatch(source, /placeholder="搜索文件"/)
+  assert.doesNotMatch(source, /用你的记忆片段找到文件/)
+  assert.doesNotMatch(source, /发送/)
+  assert.match(source, /没找到相关文件。可以换个时间、来源或内容再试。/)
 })
 
 test("file manager keeps classification labels out of the default thumbnail surface", () => {
