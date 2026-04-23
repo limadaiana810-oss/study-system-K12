@@ -4,6 +4,7 @@ export interface FactualMemory {
   grade?: string       // 年级
   school?: string      // 学校
   position?: string    // 职位
+  recentGoal?: string  // 近期目标
   [key: string]: string | undefined  // 可扩展
 }
 
@@ -31,7 +32,7 @@ export interface InferredCandidate {
 }
 
 export interface EmotionSnapshot {
-  emotion: string      // 平静|好奇|愉悦|满足|焦虑|疲惫|沮丧
+  emotion: string      // 平静|好奇|高兴|愉悦|满足|焦虑|生气|疲惫|沮丧
   weight: number       // 0-1 intensity
   evidence?: string    // brief user quote
   timestamp: string    // ISO string
@@ -152,6 +153,7 @@ export interface ManagedFile {
   url: string
   uploadedAt: string
   description: string
+  sourceChannel?: string
   subject: string
   questionType: string
   knowledgePoints: string[]

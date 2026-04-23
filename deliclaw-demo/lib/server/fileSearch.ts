@@ -1,4 +1,4 @@
-import type { LocalFileIndexEntry } from "./fileIndex.ts"
+import { normalizeFileClassification, type LocalFileIndexEntry } from "./fileIndex.ts"
 import { guessMimeTypeFromName, uploadsUrlFromRelPath } from "./storage.ts"
 
 export type SearchResult = {
@@ -60,10 +60,19 @@ function scoreField(query: string, value: string, strongWeight: number, weakWeig
   return 0
 }
 
+function isRecentQuery(query: string) {
+  return /最近|最新|近期|刚刚|新上传/.test(query)
+}
+
+function timeValue(value: string) {
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? 0 : time
+}
+
 function scoreLocalEntry(query: string, entry: LocalFileIndexEntry) {
   let score = 0
   score += scoreField(query, entry.subject, 2.2, 2.0)
-  score += scoreField(query, entry.questionType, 1.2, 1.0)
+  score += scoreField(query, entry.questionType, 2.2, 2.0)
   score += scoreField(query, entry.canonicalName, 1.8, 1.4)
   score += scoreField(query, entry.originalName, 1.4, 1.0)
   score += scoreField(query, entry.description, 0.9, 0.6)
@@ -97,10 +106,22 @@ function buildLocalResult(entry: LocalFileIndexEntry, score: number): SearchResu
 }
 
 export function searchLocalFileIndex(query: string, entries: LocalFileIndexEntry[], topK = 6): SearchResult[] {
-  return entries
+  const wantsRecent = isRecentQuery(query)
+  const scored = entries
     .map((entry) => ({ entry, score: scoreLocalEntry(query, entry) }))
     .filter((item) => item.score >= 2)
-    .sort((a, b) => b.score - a.score)
+
+  const maxScore = Math.max(0, ...scored.map((item) => item.score))
+  const minimumScore = Math.max(2, maxScore * 0.5)
+
+  return scored
+    .filter((item) => item.score >= minimumScore)
+    .sort((a, b) => {
+      const scoreDiff = b.score - a.score
+      if (scoreDiff !== 0) return scoreDiff
+      if (wantsRecent) return timeValue(b.entry.indexedAt) - timeValue(a.entry.indexedAt)
+      return 0
+    })
     .slice(0, topK)
     .map((item) => buildLocalResult(item.entry, item.score))
 }
@@ -123,6 +144,20 @@ export function scoreSqliteSearchRows(params: {
         knowledgePoints?: string[]
         date?: string
       }
+      const classification = normalizeFileClassification({
+        originalName: row.fileName,
+        storedPath: row.filePath,
+        subject: tags.subject,
+        questionType: tags.questionType,
+        knowledgePoints: tags.knowledgePoints,
+        indexedAt: tags.date || row.uploadedAt,
+      })
+      const normalizedTags = {
+        ...tags,
+        subject: classification.subject,
+        questionType: classification.questionType,
+        knowledgePoints: classification.knowledgePoints,
+      }
       const tagsRaw: string[] = row.tags_raw_json ? JSON.parse(row.tags_raw_json) : []
       const embedding: number[] | null = row.embedding_json ? JSON.parse(row.embedding_json) : null
 
@@ -130,10 +165,9 @@ export function scoreSqliteSearchRows(params: {
         (includesLoose(row.fileName, query) ? 1.2 : 0) +
         (row.title && includesLoose(row.title, query) ? 1.2 : 0) +
         (includesLoose(row.description, query) ? 0.9 : 0) +
-        (tags.subject && includesLoose(tags.subject, query) ? 1.0 : 0) +
-        (tags.questionType && includesLoose(tags.questionType, query) ? 1.0 : 0) +
-        (Array.isArray(tags.knowledgePoints) &&
-        tags.knowledgePoints.some((item) => includesLoose(query, item) || includesLoose(item, query))
+        (normalizedTags.subject && includesLoose(normalizedTags.subject, query) ? 1.0 : 0) +
+        (normalizedTags.questionType && includesLoose(normalizedTags.questionType, query) ? 1.0 : 0) +
+        (normalizedTags.knowledgePoints.some((item) => includesLoose(query, item) || includesLoose(item, query))
           ? 1.0
           : 0) +
         (tagsRaw.some((item) => includesLoose(query, item) || includesLoose(item, query)) ? 0.6 : 0)
@@ -149,7 +183,7 @@ export function scoreSqliteSearchRows(params: {
         url: uploadsUrlFromRelPath(row.filePath),
         uploadedAt: row.uploadedAt,
         description: row.description,
-        tags,
+        tags: normalizedTags,
         tagsRaw,
         score,
         source: "semantic" as const,

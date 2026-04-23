@@ -10,14 +10,17 @@ import type {
 } from "@/types"
 
 // Backtick strings avoid smart-quote encoding issues with Chinese content.
-// \u5e73\u9759=平静  \u597d\u5947=好奇  \u6109\u60a6=愉悦  \u6ee1\u8db3=满足
-// \u7126\u8651=焦虑  \u75b2\u60eb=疲惫  \u6cae\u4e27=沮丧
+// \u5e73\u9759=平静  \u597d\u5947=好奇  \u9ad8\u5174=高兴
+// \u6109\u60a6=愉悦  \u6ee1\u8db3=满足  \u7126\u8651=焦虑
+// \u751f\u6c14=生气  \u75b2\u60eb=疲惫  \u6cae\u4e27=沮丧
 const EMOTION_DATA: ReadonlyArray<{ name: string; valence: number; color: string }> = [
   { name: `\u5e73\u9759`, valence:  0.3, color: `#60A5FA` },
   { name: `\u597d\u5947`, valence:  0.6, color: `#8B5CF6` },
+  { name: `\u9ad8\u5174`, valence:  0.8, color: `#34D399` },
   { name: `\u6109\u60a6`, valence:  0.8, color: `#34D399` },
   { name: `\u6ee1\u8db3`, valence:  1.0, color: `#14B8A6` },
   { name: `\u7126\u8651`, valence: -0.7, color: `#F59E0B` },
+  { name: `\u751f\u6c14`, valence: -0.8, color: `#F97316` },
   { name: `\u75b2\u60eb`, valence: -0.4, color: `#94A3B8` },
   { name: `\u6cae\u4e27`, valence: -1.0, color: `#EF4444` },
 ]

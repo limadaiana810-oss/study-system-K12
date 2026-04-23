@@ -31,6 +31,20 @@ describe("parseUserInputCapture", () => {
     assert.strictEqual(emotion.value, "疲惫")
   })
 
+  it("extracts emotion from 生气", () => {
+    const items = parseUserInputCapture("我有点生气，不想写了")
+    const emotion = items.find((i) => i.type === "emotion")
+    assert.ok(emotion)
+    assert.strictEqual(emotion.value, "生气")
+  })
+
+  it("keeps worried language mapped to 焦虑", () => {
+    const items = parseUserInputCapture("我很担心这次考试")
+    const emotion = items.find((i) => i.type === "emotion")
+    assert.ok(emotion)
+    assert.strictEqual(emotion.value, "焦虑")
+  })
+
   it("extracts fact: name", () => {
     const items = parseUserInputCapture("我叫小明")
     const fact = items.find((i) => i.type === "fact")
@@ -53,6 +67,13 @@ describe("parseUserInputCapture", () => {
     assert.ok(fact)
     assert.strictEqual(fact.label, "学校")
     assert.strictEqual(fact.value, "北京大学")
+  })
+
+  it("extracts fact: recent goal", () => {
+    const items = parseUserInputCapture("我叫凯伦，初一，想提升综合成绩，你能帮我吗？")
+    const goal = items.find((i) => i.type === "fact" && i.label === "近期目标")
+    assert.ok(goal)
+    assert.strictEqual(goal.value, "提升综合成绩")
   })
 
   it("extracts file_intent when mentioning images", () => {

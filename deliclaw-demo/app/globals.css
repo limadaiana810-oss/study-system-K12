@@ -58,6 +58,31 @@ body {
   animation: glow-pulse 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes student-avatar-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+
+@keyframes student-avatar-enter {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.student-avatar-float {
+  animation: student-avatar-float 2.2s ease-in-out infinite;
+}
+
+.student-avatar-enter {
+  animation: student-avatar-enter 0.26s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-avatar-float,
+  .student-avatar-enter {
+    animation: none;
+  }
+}
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }

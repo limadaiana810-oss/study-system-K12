@@ -24,8 +24,10 @@ import {
   isFileClassificationOnlyRequest,
   type UploadIndexResponse,
 } from "@/lib/fileUploadFeedback"
+import { nextQuickReplyInput } from "@/lib/quickReplyBehavior"
 import { AI_INTRO } from "@/lib/prompts"
 import { parseUserInputCapture } from "@/lib/userInputParser"
+import FileManagerPanel from "./FileManagerPanel"
 import MessageBubble from "./MessageBubble"
 import QuickReplyBar from "./QuickReplyBar"
 
@@ -284,13 +286,20 @@ export default function ChatPanel({
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [pendingUploads, setPendingUploads] = useState<UploadedFile[]>([])
+  const [hasFilledUploadPreset, setHasFilledUploadPreset] = useState(false)
+  const [activeView, setActiveView] = useState<"chat" | "files">("chat")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<Message[]>(messages)
+  const hasMountedMessagesRef = useRef(false)
   const activeTurnIdRef = useRef<string | null>(null)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => {
+    if (!hasMountedMessagesRef.current) {
+      hasMountedMessagesRef.current = true
+      return
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
@@ -494,6 +503,7 @@ export default function ChatPanel({
           "学校": "school",
           "年龄": "age",
           "职位": "position",
+          "近期目标": "recentGoal",
         }
         const userFactual: Record<string, string> = {}
         for (const item of capturedItems) {
@@ -816,12 +826,21 @@ export default function ChatPanel({
       if (!reply) return
       if (reply.triggerUpload) {
         fileInputRef.current?.click()
-        setInput(reply.message)
+        setInput((currentInput) =>
+          nextQuickReplyInput({
+            currentInput,
+            presetMessage: reply.message,
+            hasFilledPreset: hasFilledUploadPreset,
+          })
+        )
+        if (!hasFilledUploadPreset) {
+          setHasFilledUploadPreset(true)
+        }
       } else {
         sendMessage(reply.message)
       }
     },
-    [sendMessage]
+    [hasFilledUploadPreset, sendMessage]
   )
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -836,96 +855,128 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#F8F9FA]">
-      {/* Header */}
-      <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shadow-sm">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-bold text-gray-900">DeliClaw</p>
-          <p className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-            在线
-          </p>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Quick replies */}
-      <QuickReplyBar stage={stage} disabled={isStreaming} onSelect={handleQuickReply} />
-
-      {/* Input */}
-      <div className="px-4 pb-4">
-        <form onSubmit={handleSubmit} className="flex items-end gap-2 bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="说点什么…"
-            disabled={isStreaming}
-            className="flex-1 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-300 disabled:opacity-50"
-          />
-          <label className="cursor-pointer text-gray-400 hover:text-indigo-500 transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+    <div className="flex h-full flex-col bg-[#F8F9FA]">
+      <div className="relative flex items-center border-b border-gray-100 bg-white px-6 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 shadow-sm">
+            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900">DeliClaw</p>
+            <p className="flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              在线
+            </p>
+          </div>
+        </div>
+
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-1 shadow-sm">
           <button
-            type="submit"
-            disabled={isStreaming || (!input.trim() && pendingUploads.length === 0)}
-            className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => setActiveView("chat")}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+              activeView === "chat"
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-slate-500 hover:text-indigo-700"
+            }`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+            对话
           </button>
-        </form>
-        {pendingUploads.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {pendingUploads.map((file) => (
-              <div key={file.id} className="group relative">
-                <div className="w-12 h-12 rounded-lg border border-indigo-100 overflow-hidden shadow-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`data:${file.mimeType};base64,${file.base64}`}
-                    alt="preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <button
-                  onClick={() => removePendingUpload(file.id)}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <button
+            type="button"
+            onClick={() => setActiveView("files")}
+            className={`rounded-xl px-4 py-1.5 text-left transition-all ${
+              activeView === "files"
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-indigo-600 hover:bg-white/70"
+            }`}
+          >
+            <span className="block text-xs font-black">文件中心</span>
+            <span className="block text-[9px] font-semibold opacity-70">点我找文件</span>
+          </button>
+        </div>
+      </div>
+
+      {activeView === "chat" ? (
+        <>
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
             ))}
-            <div className="h-12 flex items-center px-1">
-               <span className="text-[10px] text-indigo-500 font-medium">准备上传 {pendingUploads.length} 个文件</span>
-             </div>
-           </div>
-         )}
-       </div>
+            <div ref={bottomRef} />
+          </div>
+
+          <QuickReplyBar stage={stage} disabled={isStreaming} onSelect={handleQuickReply} />
+
+          <div className="px-4 pb-4">
+            <form onSubmit={handleSubmit} className="flex items-end gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="说点什么…"
+                disabled={isStreaming}
+                className="flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-300 disabled:opacity-50"
+              />
+              <label className="cursor-pointer text-gray-400 transition-colors hover:text-indigo-500">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isStreaming || (!input.trim() && pendingUploads.length === 0)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </form>
+            {pendingUploads.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {pendingUploads.map((file) => (
+                  <div key={file.id} className="group relative">
+                    <div className="h-12 w-12 overflow-hidden rounded-lg border border-indigo-100 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`data:${file.mimeType};base64,${file.base64}`}
+                        alt="preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removePendingUpload(file.id)}
+                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                    >
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <div className="flex h-12 items-center px-1">
+                  <span className="text-[10px] font-medium text-indigo-500">准备上传 {pendingUploads.length} 个文件</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <FileManagerPanel />
+        </div>
+      )}
     </div>
   )
 }

@@ -21,9 +21,9 @@ test("upsertFileIndexEntry writes a single local index document and updates by i
       "这是一张关于代数与方程的错题照片，包含式子化简、解一元二次方程以及步骤批注，需要在上传时被截断到一百字以内。",
   })
 
-  assert.equal(entry.canonicalName, "数学-代数-unknown-2026-04-21")
+  assert.equal(entry.canonicalName, "数学-代数-资料文件-2026-04-21")
   assert.deepEqual(entry.knowledgePoints, ["代数", "方程"])
-  assert.equal(entry.questionType, "unknown")
+  assert.equal(entry.questionType, "资料文件")
   assert.ok(entry.description.length <= 100)
 
   upsertFileIndexEntry(entry, root)
@@ -34,7 +34,7 @@ test("upsertFileIndexEntry writes a single local index document and updates by i
   const firstRead = readFileIndex(root)
   assert.equal(firstRead.version, 1)
   assert.equal(firstRead.files.length, 1)
-  assert.equal(firstRead.files[0]?.canonicalName, "数学-代数-unknown-2026-04-21")
+  assert.equal(firstRead.files[0]?.canonicalName, "数学-代数-资料文件-2026-04-21")
 
   upsertFileIndexEntry(
     {
@@ -51,4 +51,27 @@ test("upsertFileIndexEntry writes a single local index document and updates by i
   assert.equal(secondRead.files[0]?.description, "更新后的描述")
   assert.equal(secondRead.files[0]?.questionType, "错题")
   assert.equal(secondRead.files[0]?.canonicalName, "数学-代数-错题-2026-04-21")
+})
+
+test("normalizeStructuredFileIndex replaces empty or unknown classification with displayable archive labels", () => {
+  const entry = normalizeStructuredFileIndex({
+    id: "fallback-file",
+    originalName: "微信群_草原旅行照片.jpg",
+    storedPath: "uploads/fallback-file.jpg",
+    subject: " unknown ",
+    questionType: "待分类",
+    knowledgePoints: ["", "未分类", "unknown"],
+    indexedAt: "2026-04-22T09:15:00.000Z",
+    description: "",
+  })
+
+  assert.equal(entry.subject, "其他资料")
+  assert.equal(entry.questionType, "资料文件")
+  assert.ok(entry.knowledgePoints.length >= 1)
+  assert.equal(entry.knowledgePoints.includes("unknown"), false)
+  assert.equal(entry.knowledgePoints.includes("未分类"), false)
+  assert.equal(entry.knowledgePoints.includes("待分类"), false)
+  assert.equal(entry.canonicalName.includes("unknown"), false)
+  assert.equal(entry.canonicalName.includes("未分类"), false)
+  assert.equal(entry.canonicalName.includes("待分类"), false)
 })

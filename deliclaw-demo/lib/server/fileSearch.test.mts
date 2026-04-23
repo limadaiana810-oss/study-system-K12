@@ -48,6 +48,27 @@ test("searchLocalFileIndex returns strong tag hits from the local index first", 
   assert.equal(results[0]?.source, "local")
 })
 
+test("searchLocalFileIndex prioritizes newer matches for recent file queries", () => {
+  const entries: LocalFileIndexEntry[] = [
+    makeEntry({
+      id: "old",
+      originalName: "old.JPG",
+      storedPath: "uploads/old.jpg",
+      indexedAt: "2026-04-18",
+    }),
+    makeEntry({
+      id: "new",
+      originalName: "new.JPG",
+      storedPath: "uploads/new.jpg",
+      indexedAt: "2026-04-22",
+    }),
+  ]
+
+  const results = searchLocalFileIndex("帮我找到最近的错题", entries, 5)
+
+  assert.deepEqual(results.map((item) => item.id), ["new", "old"])
+})
+
 test("mergeSearchResults keeps local hits ahead of semantic fallbacks and de-duplicates by id", () => {
   const merged = mergeSearchResults(
     [

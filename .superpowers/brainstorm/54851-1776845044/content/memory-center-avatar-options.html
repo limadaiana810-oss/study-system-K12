@@ -1,0 +1,114 @@
+<h2>记忆中心新展现方式</h2>
+<p class="subtitle">请看三种方向：都只保留长期记忆卡片，把用户状态交给 Q 版学生形象表达。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:330px;border-radius:14px;background:#f8fafc;border:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:8px">
+          <div style="width:22px;height:22px;border-radius:8px;background:#4f46e5"></div>
+          <div>
+            <div style="font-size:12px;font-weight:800;color:#111827">记忆中心</div>
+            <div style="font-size:10px;color:#94a3b8">用户状态 + 长期记忆</div>
+          </div>
+        </div>
+        <div style="padding:18px 16px 10px;display:flex;flex-direction:column;align-items:center">
+          <div style="position:relative;width:134px;height:134px;border-radius:42px;background:linear-gradient(180deg,#eef2ff,#ffffff);border:1px solid #dbeafe;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;top:15px;width:66px;height:44px;border-radius:28px 28px 18px 18px;background:#1f2937"></div>
+            <div style="position:absolute;top:38px;width:64px;height:58px;border-radius:28px;background:#fde7ca;border:2px solid #f6c99a"></div>
+            <div style="position:absolute;top:58px;left:44px;width:8px;height:12px;border-radius:50%;background:#111827;box-shadow:38px 0 0 #111827"></div>
+            <div style="position:absolute;top:51px;right:31px;font-size:24px;font-weight:900;color:#6366f1">?</div>
+            <div style="position:absolute;top:75px;width:22px;height:10px;border-bottom:3px solid #ef4444;border-radius:0 0 18px 18px"></div>
+            <div style="position:absolute;bottom:13px;width:82px;height:34px;border-radius:18px 18px 12px 12px;background:#6366f1"></div>
+          </div>
+          <div style="margin-top:10px;text-align:center">
+            <div style="font-size:13px;font-weight:800;color:#111827">好奇探索中</div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px">形象轻微摆动，问号浮动</div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;display:grid;gap:8px">
+          <div style="background:#fff;border:1px solid #eef2f7;border-left:3px solid #3b82f6;border-radius:12px;padding:10px">
+            <div style="font-size:9px;color:#94a3b8;font-weight:800">姓名</div>
+            <div style="font-size:13px;color:#111827;font-weight:800">凯伦</div>
+          </div>
+          <div style="background:#fff;border:1px solid #eef2f7;border-left:3px solid #3b82f6;border-radius:12px;padding:10px">
+            <div style="font-size:9px;color:#94a3b8;font-weight:800">近期目标</div>
+            <div style="font-size:13px;color:#111827;font-weight:800">提升综合成绩</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 状态舞台在顶部</h3>
+      <p>推荐。最直观，用户一眼先看到自己的状态，再看到长期记忆卡片。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:330px;border-radius:14px;background:#ffffff;border:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px;border-bottom:1px solid #eef2f7">
+          <div style="font-size:12px;font-weight:800;color:#111827">记忆中心</div>
+          <div style="font-size:10px;color:#94a3b8">长期记忆</div>
+        </div>
+        <div style="padding:14px;display:grid;grid-template-columns:84px 1fr;gap:10px;align-items:center;border-bottom:1px solid #f1f5f9">
+          <div style="position:relative;width:84px;height:84px;border-radius:28px;background:#ecfeff;border:1px solid #bae6fd">
+            <div style="position:absolute;top:17px;left:20px;width:44px;height:40px;border-radius:20px;background:#fde7ca;border:2px solid #f6c99a"></div>
+            <div style="position:absolute;top:31px;left:32px;width:6px;height:9px;border-radius:50%;background:#111827;box-shadow:17px 0 0 #111827"></div>
+            <div style="position:absolute;top:45px;left:35px;width:14px;height:8px;border-bottom:3px solid #22c55e;border-radius:0 0 14px 14px"></div>
+            <div style="position:absolute;bottom:12px;left:19px;width:46px;height:22px;border-radius:12px;background:#14b8a6"></div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#111827">当前状态：开心</div>
+            <div style="font-size:11px;line-height:1.5;color:#64748b">学生笑着点头，适合展示积极反馈。</div>
+          </div>
+        </div>
+        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">年级</div><div style="font-size:13px;color:#111827;font-weight:800">初一</div></div>
+          <div style="background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">近期目标</div><div style="font-size:13px;color:#111827;font-weight:800">提升综合成绩</div></div>
+          <div style="background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">偏好</div><div style="font-size:13px;color:#111827;font-weight:800">数学、物理</div></div>
+          <div style="background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">待加强</div><div style="font-size:13px;color:#111827;font-weight:800">语文</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 头像状态条</h3>
+      <p>信息密度更高，但形象存在感弱一些，适合右栏空间很紧时。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:330px;border-radius:14px;background:#f8fafc;border:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px;border-bottom:1px solid #eef2f7">
+          <div style="font-size:12px;font-weight:800;color:#111827">记忆中心</div>
+          <div style="font-size:10px;color:#94a3b8">状态形象 + 卡片墙</div>
+        </div>
+        <div style="padding:18px 12px 6px;display:flex;justify-content:center">
+          <div style="position:relative;width:150px;height:112px;border-radius:28px;background:#fff7ed;border:1px solid #fed7aa">
+            <div style="position:absolute;top:23px;left:43px;width:62px;height:54px;border-radius:28px;background:#fde7ca;border:2px solid #f6c99a"></div>
+            <div style="position:absolute;top:39px;left:61px;width:6px;height:5px;border-radius:50%;background:#111827;box-shadow:22px 0 0 #111827"></div>
+            <div style="position:absolute;top:57px;left:66px;width:19px;height:8px;border-top:3px solid #64748b;border-radius:18px 18px 0 0"></div>
+            <div style="position:absolute;bottom:15px;left:42px;width:66px;height:25px;border-radius:14px;background:#fb923c"></div>
+            <div style="position:absolute;top:13px;right:20px;width:14px;height:14px;border-radius:50%;background:#f97316;opacity:.35"></div>
+            <div style="position:absolute;top:34px;right:14px;width:10px;height:10px;border-radius:50%;background:#f97316;opacity:.25"></div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;display:grid;gap:8px">
+          <div style="background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px;text-align:center">
+            <div style="font-size:13px;font-weight:900;color:#111827">有点沮丧</div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px">低头、慢呼吸、暖色安抚</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">姓名</div><div style="font-size:13px;color:#111827;font-weight:800">凯伦</div></div>
+            <div style="flex:1;background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:10px"><div style="font-size:9px;color:#94a3b8;font-weight:800">目标</div><div style="font-size:13px;color:#111827;font-weight:800">综合成绩</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 情绪形象主导</h3>
+      <p>情绪表达最强，但长期记忆卡片容易被压缩，展示完整度略弱。</p>
+    </div>
+  </div>
+</div>

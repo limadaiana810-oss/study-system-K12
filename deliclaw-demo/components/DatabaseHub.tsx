@@ -1,10 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import type { InferredCandidate, MemoryEntry, TurnInsight } from "@/types"
-import { EMOTION_COLOR } from "@/lib/memoryParser"
+import { getStudentStateAvatar } from "@/lib/studentState"
 import MemoryCard from "./MemoryCard"
-import FileManagerPanel from "./FileManagerPanel"
 
 interface Props {
   memory: MemoryEntry
@@ -16,714 +14,133 @@ interface Props {
   onIgnoreInferred?: (id: string) => void
 }
 
-type FileSummary = {
-  fileName: string
-  tags: string[]
-  uploadedAt?: string
-  description?: string
-}
-
-function labelForField(field: string) {
-  const map: Record<string, string> = {
-    sleepPattern: "作息习惯",
-    mood: "情绪状态",
-    preferences: "偏好",
-  }
-  return map[field] || field
-}
-
-function scoreColor(score: number): string {
-  if (score < 0.4) return "#EF4444"
-  if (score < 0.6) return "#F59E0B"
-  return "#34D399"
-}
-
-function stringifyValue(value: string | string[]) {
-  return Array.isArray(value) ? value.join("，") : value
-}
-
-function hasInferredValue(value: string | string[] | undefined) {
+function hasValue(value: unknown) {
   if (Array.isArray(value)) return value.length > 0
-  return !!value
+  return typeof value === "string" ? value.trim().length > 0 : !!value
 }
 
-function hasTurnInsightDetail(turnInsight: TurnInsight | null) {
-  return !!(
-    turnInsight &&
-    (
-      (turnInsight.capturedItems && turnInsight.capturedItems.length > 0) ||
-      turnInsight.factualAdded.length > 0 ||
-      turnInsight.inferredPending.length > 0 ||
-      turnInsight.emotion ||
-      turnInsight.fileUnderstanding
-    )
-  )
+function getCurrentEmotion(memory: MemoryEntry, turnInsight: TurnInsight | null) {
+  return turnInsight?.emotion?.emotion || memory.psychState?.dominant || "平静"
 }
 
-function recentFiles(memory: MemoryEntry): FileSummary[] {
-  const indexed = memory.fileIndex || []
-  if (indexed.length > 0) {
-    return indexed.slice(-3).reverse().map((item) => ({
-      fileName: item.fileName,
-      tags: item.tags || [],
-      uploadedAt: item.uploadedAt,
-      description: item.description,
-    }))
-  }
-
-  if (memory.fileTags?.length || memory.fileDescription) {
-    return [
-      {
-        fileName: "最近解析文件",
-        tags: memory.fileTags || [],
-        description: memory.fileDescription,
-      },
-    ]
-  }
-
-  return []
-}
-
-function InsightChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "confirmed" | "pending" | "active" }) {
-  const styles = {
-    neutral: "bg-slate-100 text-slate-600",
-    confirmed: "bg-emerald-50 text-emerald-700",
-    pending: "bg-amber-50 text-amber-700",
-    active: "bg-indigo-50 text-indigo-700",
-  }
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${styles[tone]}`}>
-      {label}
-    </span>
-  )
-}
-
-function CaptureItemRow({ item }: { item: { type: string; label: string; value: string; evidence: string } }) {
-  const typeIcon: Record<string, string> = {
-    task_progress: "任务",
-    emotion: "情绪",
-    fact: "事实",
-    file_intent: "文件",
-  }
-  const typeColor: Record<string, string> = {
-    task_progress: "#6366f1",
-    emotion: "#f43f5e",
-    fact: "#10b981",
-    file_intent: "#0ea5e9",
-  }
-  return (
-    <div className="flex items-start gap-2 rounded-lg bg-white/80 px-2.5 py-2 ring-1 ring-slate-100">
-      <span
-        className="mt-0.5 inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white flex-shrink-0"
-        style={{ backgroundColor: typeColor[item.type] || "#94a3b8" }}
-      >
-        {typeIcon[item.type] || item.type}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-semibold text-slate-800">
-          <span className="text-slate-400 text-[11px]">{item.label}：</span>
-          {item.value}
-        </p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400 truncate">依据：「{item.evidence}」</p>
-      </div>
-    </div>
-  )
-}
-
-function CandidateCard({
-  item,
-  onAccept,
-  onEditAccept,
-  onIgnore,
-  onReject,
-}: {
-  item: {
-    id: string
-    field: string
-    label: string
-    value: string
-    evidence: string
-    status?: string
-    editedValue?: string
-    autoConfirmAt?: number
-  }
-  onAccept: (id: string) => void
-  onEditAccept?: (id: string, value: string | string[]) => void
-  onIgnore?: (id: string) => void
-  onReject: (id: string) => void
-}) {
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(item.value)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (!item.autoConfirmAt) {
-      setSecondsLeft(null)
-      return
-    }
-    const now = Date.now()
-    const left = Math.max(0, Math.ceil((item.autoConfirmAt - now) / 1000))
-    if (left <= 0) {
-      setSecondsLeft(0)
-      onAccept(item.id)
-      return
-    }
-    setSecondsLeft(left)
-
-    intervalRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((item.autoConfirmAt! - Date.now()) / 1000))
-      setSecondsLeft(remaining)
-      if (remaining <= 0) {
-        if (intervalRef.current) clearInterval(intervalRef.current)
-        onAccept(item.id)
-      }
-    }, 1000)
-
-    timerRef.current = setTimeout(() => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      setSecondsLeft(0)
-      onAccept(item.id)
-    }, item.autoConfirmAt - now)
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [item.id, item.autoConfirmAt, onAccept])
-
-  const handleEditSave = () => {
-    if (!editValue.trim()) return
-    setIsEditing(false)
-    onEditAccept?.(item.id, editValue)
-  }
+function StudentStateAvatar({ memory, turnInsight }: { memory: MemoryEntry; turnInsight: TurnInsight | null }) {
+  const state = getStudentStateAvatar(getCurrentEmotion(memory, turnInsight))
 
   return (
-    <div
-      className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: "#F59E0B",
-        opacity: 1,
-        transform: "translateX(0)",
-        transition: "opacity 0.35s ease-out, transform 0.35s ease-out",
-      }}
+    <section
+      className="overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-50 to-white shadow-sm"
+      style={{ borderColor: `${state.accent}33` }}
     >
-      <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
-        {item.label}
-      </p>
-      {isEditing ? (
-        <div className="space-y-2">
-          <input
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            className="w-full text-[12px] px-2 py-1 rounded border border-amber-200 outline-none focus:border-amber-400 text-slate-800"
-            autoFocus
+      <div className="px-4 pt-4 text-center">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">用户状态</p>
+        <h2 className="mt-1 text-base font-black text-slate-900">{state.title}</h2>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{state.description}</p>
+      </div>
+
+      <div
+        className="mx-4 mt-3 flex h-44 items-center justify-center overflow-hidden rounded-2xl border"
+        style={{ backgroundColor: `${state.accent}12`, borderColor: `${state.accent}22` }}
+      >
+        <div key={state.src} className="student-avatar-enter">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={state.src}
+            alt={`${state.title}状态的Q版学生`}
+            className="student-avatar-float h-52 w-52 object-contain"
           />
-          <div className="flex gap-2">
-            <button onClick={handleEditSave} className="text-[11px] px-2 py-1 rounded-lg bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100">
-              保存
-            </button>
-            <button onClick={() => { setIsEditing(false); setEditValue(item.value) }} className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100">
-              取消
-            </button>
-          </div>
         </div>
-      ) : (
-        <>
-          <p className="text-sm font-semibold text-gray-800">{item.value}</p>
-          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">依据：{item.evidence}</p>
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => onAccept(item.id)}
-              className="text-[11px] px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 font-semibold hover:bg-emerald-100 transition-colors"
-            >
-              接受
-            </button>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-[11px] px-2 py-1 rounded-lg bg-sky-50 text-sky-600 font-semibold hover:bg-sky-100 transition-colors"
-            >
-              编辑
-            </button>
-            {onIgnore && (
-              <button
-                onClick={() => onIgnore(item.id)}
-                className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100 transition-colors"
-              >
-                忽略
-              </button>
-            )}
-            <button
-              onClick={() => onReject(item.id)}
-              className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100 transition-colors"
-            >
-              拒绝
-            </button>
-            {secondsLeft !== null && secondsLeft > 0 && (
-              <span className="ml-auto text-[10px] text-amber-500 font-medium tabular-nums">
-                {secondsLeft}s 后自动确认
-              </span>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+      </div>
+    </section>
   )
 }
 
-function TurnInsightPanel({ turnInsight }: { turnInsight: TurnInsight | null }) {
-  const hasDetail = hasTurnInsightDetail(turnInsight)
-  const file = turnInsight?.fileUnderstanding
-  const fileStatus =
-    file?.status === "indexing" ? "正在识别" :
-    file?.status === "failed" ? "文件未入库" :
-    file?.status === "ready" ? "文件已入库" :
-    file ? "已入库，待补全" : ""
+function LongTermMemoryCards({ memory }: { memory: MemoryEntry }) {
+  const factual = memory.factual || {}
+  const inferred = memory.inferred || {}
+  const hasLongTermMemory =
+    Object.values(factual).some(hasValue) ||
+    Object.values(inferred).some(hasValue)
+
+  if (!hasLongTermMemory) {
+    return (
+      <section className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+        <p className="text-xs font-bold text-slate-700">长期记忆会沉淀到这里</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+          告诉我姓名、年级、学校或近期目标后，这里会生成稳定记忆卡片。
+        </p>
+      </section>
+    )
+  }
 
   return (
-    <section className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-3.5 shadow-sm animate-[pulse_0.8s_ease-out_1]">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600">实时理解</p>
-          <p className="mt-0.5 text-sm font-bold text-slate-900">本轮捕捉</p>
-        </div>
-        <InsightChip label={turnInsight ? "正在解析" : "等待输入"} tone={turnInsight ? "active" : "neutral"} />
+    <section className="space-y-2">
+      <div className="flex items-center gap-1.5 px-1">
+        <div className="h-3 w-1 rounded-full bg-blue-500" />
+        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">长期记忆</p>
       </div>
 
-      {turnInsight?.userText && (
-        <div className="mt-3 rounded-xl bg-white/80 p-2.5 ring-1 ring-slate-100">
-          <p className="text-[10px] font-semibold text-slate-400">你刚刚说了</p>
-          <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-slate-700">「{turnInsight.userText}」</p>
-        </div>
+      {factual.name && (
+        <MemoryCard key={`name-${factual.name}`} label="姓名" value={factual.name} delay={0} accent="#3B82F6" />
       )}
-
-      {!turnInsight && (
-        <p className="mt-3 rounded-xl bg-white/80 p-2.5 text-[12px] leading-relaxed text-slate-500 ring-1 ring-slate-100">
-          先发送一句话或上传一个文件，我会在这里展示理解过程。
-        </p>
+      {factual.age && (
+        <MemoryCard key={`age-${factual.age}`} label="年龄" value={factual.age} delay={50} accent="#3B82F6" />
       )}
-
-      {/* 第一块：本轮捕捉信息 */}
-      {turnInsight?.capturedItems && turnInsight.capturedItems.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <InsightChip label="实时" tone="active" />
-            <p className="text-[11px] font-bold text-slate-700">客户端即时分析</p>
-          </div>
-          {turnInsight.capturedItems.map((item, idx) => (
-            <CaptureItemRow key={`${item.type}-${idx}`} item={item} />
-          ))}
-        </div>
+      {factual.grade && (
+        <MemoryCard key={`grade-${factual.grade}`} label="年级" value={factual.grade} delay={100} accent="#3B82F6" />
       )}
-
-      {/* 第二块：信息依据（已确认事实） */}
-      {turnInsight?.factualAdded.length ? (
-        <div className="mt-3 space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <InsightChip label="已确认" tone="confirmed" />
-            <p className="text-[11px] font-bold text-slate-700">AI 确认的事实</p>
-          </div>
-          {turnInsight.factualAdded.map((fact) => (
-            <div key={`${fact.label}-${fact.value}`} className="flex items-center justify-between rounded-lg bg-white/80 px-2.5 py-2 ring-1 ring-emerald-100">
-              <span className="text-[11px] text-slate-400">{fact.label}</span>
-              <span className="text-[12px] font-semibold text-slate-800">{fact.value}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {turnInsight?.emotion && (
-        <div className="mt-3 rounded-xl bg-white/80 p-2.5 ring-1 ring-slate-100">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-700">用户情绪状态</p>
-            <span className="text-[12px] font-bold" style={{ color: EMOTION_COLOR[turnInsight.emotion.emotion] ?? "#64748B" }}>
-              {turnInsight.emotion.emotion}
-            </span>
-          </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-400 truncate">
-            依据：「{turnInsight.userText || turnInsight.emotion.evidence || ""}」
-          </p>
-        </div>
+      {factual.school && (
+        <MemoryCard key={`school-${factual.school}`} label="学校" value={factual.school} delay={150} accent="#3B82F6" />
       )}
-
-      {file && (
-        <div className="mt-3 rounded-xl bg-white/85 p-2.5 ring-1 ring-sky-100">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-bold text-slate-700">文件理解</p>
-            <InsightChip label={fileStatus} tone={file.status === "indexing" || file.status === "failed" ? "pending" : "confirmed"} />
-          </div>
-          <p className="mt-1 text-[12px] font-semibold text-slate-800">{file.originalName}</p>
-          {file.canonicalName && <p className="mt-1 text-[11px] text-slate-400">标准名：{file.canonicalName}</p>}
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{file.description}</p>
-          {file.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {file.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+      {factual.position && (
+        <MemoryCard key={`position-${factual.position}`} label="职位" value={factual.position} delay={200} accent="#3B82F6" />
       )}
-
-      {turnInsight && !hasDetail && (
-        <p className="mt-3 rounded-xl bg-white/80 p-2.5 text-[12px] leading-relaxed text-slate-500 ring-1 ring-slate-100">
-          本轮没有新增记忆，但对话上下文已参与理解。
-        </p>
+      {factual.recentGoal && (
+        <MemoryCard key={`recent-goal-${factual.recentGoal}`} label="近期目标" value={factual.recentGoal} delay={250} accent="#3B82F6" />
+      )}
+      {inferred.sleepPattern && (
+        <MemoryCard key={`sleep-${inferred.sleepPattern}`} label="已确认作息" value={inferred.sleepPattern} delay={300} accent="#10B981" />
+      )}
+      {inferred.mood && (
+        <MemoryCard key={`mood-${inferred.mood}`} label="已确认状态" value={inferred.mood} delay={350} accent="#10B981" />
+      )}
+      {inferred.preferences && inferred.preferences.length > 0 && (
+        <MemoryCard key={`preferences-${inferred.preferences.join("|")}`} label="已确认偏好" tags={inferred.preferences} delay={400} accent="#10B981" />
       )}
     </section>
   )
 }
 
-export default function DatabaseHub({
-  memory,
-  turnInsight,
-  pendingInferred,
-  onAcceptInferred,
-  onRejectInferred,
-  onEditAcceptInferred,
-  onIgnoreInferred,
-}: Props) {
-  const hasFactual = memory.factual && Object.values(memory.factual).some(Boolean)
-  const hasInferred = memory.inferred && Object.values(memory.inferred).some(hasInferredValue)
-  const hasPending = pendingInferred && pendingInferred.length > 0
-  const hasPsychState = memory.psychState && memory.psychState.snapshots.length > 0
-  const files = recentFiles(memory)
-  const hasFiles = files.length > 0
-  const isEmpty = !hasFactual && !hasInferred && !hasPending && !hasPsychState && !hasFiles
-
-  const psych = memory.psychState
-  const dominantColor = psych ? (EMOTION_COLOR[psych.dominant] ?? "#94A3B8") : "#94A3B8"
-  const [activeTab, setActiveTab] = useState<"memory" | "files">("memory")
+export default function DatabaseHub({ memory, turnInsight }: Props) {
+  const hasAnyMemory =
+    Object.values(memory.factual || {}).some(hasValue) ||
+    Object.values(memory.inferred || {}).some(hasValue) ||
+    !!memory.psychState?.snapshots.length
 
   return (
-    <div className="h-full flex flex-col bg-white border-l border-gray-100">
-      {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-gray-50">
+    <div className="flex h-full flex-col border-l border-gray-100 bg-white">
+      <div className="border-b border-gray-50 px-5 pb-4 pt-5">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600">
+            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 3 8 3s8-.79 8-3V7M4 7c0 2.21 3.582 3 8 3s8-.79 8-3M4 7c0-2.21 3.582-3 8-3s8 .79 8 3" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-bold text-gray-800 leading-tight">记忆中心</p>
-            <p className="text-[10px] text-gray-400">理解过程 + 长期记忆</p>
+            <p className="text-xs font-bold leading-tight text-gray-800">记忆中心</p>
+            <p className="text-[10px] text-gray-400">孩子状态 + 成长记忆</p>
           </div>
         </div>
       </div>
 
-      {/* Tab switcher */}
-      <div className="px-5 pt-3 pb-0">
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
-          {(["memory", "files"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-all ${
-                activeTab === tab
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab === "memory" ? "记忆中心" : "文件中心"}
-            </button>
-          ))}
-        </div>
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <StudentStateAvatar memory={memory} turnInsight={turnInsight} />
+        <LongTermMemoryCards memory={memory} />
       </div>
 
-      {/* Content area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {activeTab === "memory" && (
-          <>
-        <TurnInsightPanel key={turnInsight?.turnId ?? "empty-turn-insight"} turnInsight={turnInsight} />
-
-        {/* 新增记忆候选区 */}
-        {turnInsight?.inferredPending && turnInsight.inferredPending.length > 0 && (
-          <section className="space-y-2">
-            <div className="flex items-center gap-1.5 px-1">
-              <div className="w-1 h-3 bg-amber-500 rounded-full" />
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                新增记忆候选（{turnInsight.inferredPending.length}）
-              </p>
-            </div>
-            {turnInsight.inferredPending.map((item) => (
-              <CandidateCard
-                key={item.id}
-                item={item}
-                onAccept={onAcceptInferred}
-                onEditAccept={onEditAcceptInferred}
-                onIgnore={onIgnoreInferred}
-                onReject={onRejectInferred}
-              />
-            ))}
-          </section>
-        )}
-
-        {isEmpty ? (
-          /* 冷启动引导 */
-          <div className="space-y-3">
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3.5">
-              <p className="text-xs font-bold text-slate-700 mb-2">长期记忆会沉淀到这里</p>
-              <div className="space-y-2">
-                {[
-                  { color: "#8B5CF6", label: "短期记忆", desc: "当前对话的实时上下文和状态" },
-                  { color: "#3B82F6", label: "长期记忆", desc: "姓名、年级、学校等你告诉我的信息" },
-                  { color: "#F59E0B", label: "待确认推测", desc: "作息、偏好，需要你确认后才写入" },
-                  { color: "#EC4899", label: "情绪趋势", desc: "每轮对话感知状态并形成趋势" },
-                  { color: "#06B6D4", label: "文件索引", desc: "上传文件自动分类，一句话找回" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: item.color }} />
-                    <p className="text-[11px] text-gray-600 leading-relaxed">
-                      <span className="font-semibold">{item.label}</span>：{item.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <p className="text-[10px] text-gray-300 text-center px-2">先跟我打个招呼，记忆就开始建立</p>
-          </div>
-        ) : (
-          <>
-            {/* 短期记忆区域 */}
-            {turnInsight && (
-              <section className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-violet-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">短期记忆</p>
-                </div>
-                <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100 border-l-[3px] border-l-violet-500">
-                  <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">当前对话上下文</p>
-                  {turnInsight.userText && (
-                    <p className="text-[11px] text-gray-600 leading-relaxed mb-2">
-                      <span className="text-gray-400">最近输入：</span>「{turnInsight.userText}」
-                    </p>
-                  )}
-                  {turnInsight.capturedItems && turnInsight.capturedItems.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {turnInsight.capturedItems.map((item, idx) => (
-                        <span key={idx} className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
-                          {item.label}：{item.value}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {turnInsight.emotion && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-gray-400">当前情绪：</span>
-                      <span className="text-[11px] font-semibold" style={{ color: EMOTION_COLOR[turnInsight.emotion.emotion] ?? '#64748B' }}>
-                        {turnInsight.emotion.emotion}
-                      </span>
-                    </div>
-                  )}
-                  {turnInsight.fileUnderstanding && (
-                    <div className="mt-2 pt-2 border-t border-gray-50">
-                      <p className="text-[11px] text-gray-500">
-                        <span className="text-gray-400">文件状态：</span>
-                        {turnInsight.fileUnderstanding.status === 'indexing' ? '正在识别' :
-                         turnInsight.fileUnderstanding.status === 'ready' ? '已入库' :
-                         turnInsight.fileUnderstanding.status === 'failed' ? '识别失败' : '处理中'}
-                        {turnInsight.fileUnderstanding.originalName ? ` · ${turnInsight.fileUnderstanding.originalName}` : ''}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* 长期记忆区域（原事实记忆） */}
-            {hasFactual && (
-              <section className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-blue-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">长期记忆</p>
-                </div>
-                {memory.factual?.name && (
-                  <MemoryCard key={`name-${memory.factual.name}`} label="姓名" value={memory.factual.name} delay={0} accent="#3B82F6" />
-                )}
-                {memory.factual?.age && (
-                  <MemoryCard key={`age-${memory.factual.age}`} label="年龄" value={memory.factual.age} delay={50} accent="#3B82F6" />
-                )}
-                {memory.factual?.grade && (
-                  <MemoryCard key={`grade-${memory.factual.grade}`} label="年级" value={memory.factual.grade} delay={100} accent="#3B82F6" />
-                )}
-                {memory.factual?.school && (
-                  <MemoryCard key={`school-${memory.factual.school}`} label="学校" value={memory.factual.school} delay={150} accent="#3B82F6" />
-                )}
-                {memory.factual?.position && (
-                  <MemoryCard key={`position-${memory.factual.position}`} label="职位" value={memory.factual.position} delay={200} accent="#3B82F6" />
-                )}
-              </section>
-            )}
-
-            {/* pendingInferred 全局队列（兼容模式） */}
-            {hasPending && (
-              <section className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-amber-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                    待确认推测{hasPending ? `（${pendingInferred.length}）` : ""}
-                  </p>
-                </div>
-
-                {pendingInferred.map((c) => (
-                  <div
-                    key={c.id}
-                    className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
-                    style={{
-                      borderLeftWidth: 3,
-                      borderLeftColor: "#F59E0B",
-                      opacity: 1,
-                      transform: "translateX(0)",
-                      transition: "opacity 0.35s ease-out, transform 0.35s ease-out",
-                    }}
-                  >
-                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
-                      {labelForField(c.field)}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-800">{stringifyValue(c.value)}</p>
-                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">依据：{c.evidence}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={() => onAcceptInferred(c.id)}
-                        className="text-[11px] px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 font-semibold hover:bg-emerald-100 transition-colors"
-                      >
-                        接受
-                      </button>
-                      <button
-                        onClick={() => onRejectInferred(c.id)}
-                        className="text-[11px] px-2 py-1 rounded-lg bg-gray-50 text-gray-500 font-semibold hover:bg-gray-100 transition-colors"
-                      >
-                        拒绝
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
-
-            {/* 已确认的推测（展示状态） */}
-            {hasInferred && !hasPending && (
-              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-relaxed text-emerald-700">
-                之前的推测已由你确认，并沉淀为长期理解。
-              </p>
-            )}
-            {memory.inferred?.sleepPattern && (
-              <MemoryCard label="已确认作息" value={memory.inferred.sleepPattern} accent="#10B981" />
-            )}
-            {memory.inferred?.mood && (
-              <MemoryCard label="已确认状态" value={memory.inferred.mood} accent="#10B981" />
-            )}
-            {memory.inferred?.preferences && memory.inferred.preferences.length > 0 && (
-              <MemoryCard label="已确认偏好" tags={memory.inferred.preferences} accent="#10B981" />
-            )}
-
-            {/* 情绪趋势区域 */}
-            {hasPsychState && psych && (
-              <section className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 rounded-full" style={{ backgroundColor: dominantColor }} />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">情绪趋势</p>
-                </div>
-
-                <div
-                  className="rounded-xl bg-white p-3 shadow-sm border border-gray-100"
-                  style={{ borderLeftWidth: 3, borderLeftColor: dominantColor }}
-                >
-                  <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">当前趋势</p>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-bold text-gray-800">{psych.dominant}</span>
-                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${(psych.snapshots[psych.snapshots.length - 1]?.weight ?? 0.3) * 100}%`,
-                          backgroundColor: dominantColor,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-gray-400">
-                      {((psych.snapshots[psych.snapshots.length - 1]?.weight ?? 0) * 100).toFixed(0)}% 强度
-                    </span>
-                  </div>
-
-                  {psych.snapshots.length > 1 && (
-                    <div className="flex items-end gap-0.5 h-5 mt-1">
-                      {psych.snapshots.map((s, i) => (
-                        <div
-                          key={s.timestamp}
-                          className="flex-1 rounded-sm transition-all duration-300"
-                          title={`${s.emotion} (${(s.weight * 100).toFixed(0)}%)`}
-                          style={{
-                            height: `${Math.max(15, s.weight * 100)}%`,
-                            backgroundColor: EMOTION_COLOR[s.emotion] ?? "#94A3B8",
-                            opacity: 0.4 + (i / psych.snapshots.length) * 0.6,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {psych.snapshots.length > 0 && psych.snapshots[psych.snapshots.length - 1].evidence && (
-                    <p className="text-[10px] text-gray-400 mt-1.5 truncate">
-                      最近依据：「{psych.snapshots[psych.snapshots.length - 1].evidence}」
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* 文件索引区域 */}
-            {hasFiles && (
-              <section className="space-y-2">
-                <div className="flex items-center gap-1.5 px-1">
-                  <div className="w-1 h-3 bg-cyan-500 rounded-full" />
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">文件索引</p>
-                </div>
-                {files.map((file) => (
-                  <div key={`${file.fileName}-${file.uploadedAt || file.description || ""}`} className="rounded-xl bg-white p-3 shadow-sm border border-gray-100 border-l-[3px] border-l-cyan-500">
-                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-1.5">
-                      {file.uploadedAt ? `入库 ${file.uploadedAt}` : "最近文件"}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-800">{file.fileName}</p>
-                    {file.description && <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{file.description}</p>}
-                    {file.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {file.tags.map((tag) => (
-                          <span key={tag} className="rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </section>
-            )}
-          </>
-        )}
-      </>
-    )}
-    {activeTab === "files" && <FileManagerPanel />}
-      </div>
-
-      {/* Footer status */}
-      <div className="px-4 py-3 border-t border-gray-50">
+      <div className="border-t border-gray-50 px-4 py-3">
         <div className="flex items-center gap-1.5">
-          <div className={`w-1.5 h-1.5 rounded-full ${isEmpty ? "bg-gray-300" : "bg-emerald-400"}`} />
-          <p className="text-[10px] text-gray-400">
-            {isEmpty ? "等待首次对话" : "记忆已同步"}
-          </p>
-          {hasPsychState && psych && (
-            <span className="ml-auto text-[10px]" style={{ color: dominantColor }}>
-              {psych.snapshots.length} 轮 · {psych.dominant}
-            </span>
-          )}
+          <div className={`h-1.5 w-1.5 rounded-full ${hasAnyMemory ? "bg-emerald-400" : "bg-gray-300"}`} />
+          <p className="text-[10px] text-gray-400">{hasAnyMemory ? "记忆已同步" : "等待首次对话"}</p>
         </div>
       </div>
     </div>

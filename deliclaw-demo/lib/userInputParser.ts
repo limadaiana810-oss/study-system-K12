@@ -13,6 +13,7 @@ export interface CaptureItem {
 }
 
 const EMOTION_PATTERNS: Array<{ pattern: RegExp; label: string; value: string }> = [
+  { pattern: /生气|愤怒|烦躁|恼火|不爽|气死|发火/, label: "情绪感知", value: "生气" },
   { pattern: /开心|高兴|愉快|爽|棒|快乐|兴奋/, label: "情绪感知", value: "愉悦" },
   { pattern: /累|疲惫|困|睡|没精神|倦/, label: "情绪感知", value: "疲惫" },
   { pattern: /焦虑|紧张|担心|害怕|慌/, label: "情绪感知", value: "焦虑" },
@@ -74,6 +75,11 @@ const FACT_PATTERNS: Array<{
     pattern: /职位[是为](.+?)[，。]|我是(.+?)(?:老师|工程师|经理|学生|医生)/,
     label: "职位",
     extract: (m) => cleanCapture(m[1] || m[2]),
+  },
+  {
+    pattern: /(?:近期目标是|目标是|我想|想要|希望|想)(提升|提高|改善|学好|补上|掌握|完成|整理)([^，。,；;！!？?]+)/,
+    label: "近期目标",
+    extract: (m) => cleanCapture(`${m[1] || ""}${m[2] || ""}`),
   },
 ]
 

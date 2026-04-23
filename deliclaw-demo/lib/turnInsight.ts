@@ -23,6 +23,7 @@ const FACT_LABELS: Record<string, string> = {
   grade: "年级",
   school: "学校",
   position: "职位",
+  recentGoal: "近期目标",
 }
 
 const INFERRED_LABELS: Record<string, string> = {

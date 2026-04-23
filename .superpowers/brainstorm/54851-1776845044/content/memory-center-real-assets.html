@@ -1,0 +1,85 @@
+<h2>用你给的像素 Q 版学生做记忆中心</h2>
+<p class="subtitle">这版不再手画角色，直接使用 5status 的真实素材。重点：状态形象占上方，下面只保留长期记忆卡片。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">推荐布局：状态舞台 + 长期记忆卡片</div>
+    <div class="mockup-body">
+      <div style="width:285px;margin:0 auto;border:1px solid #e5e7eb;border-radius:16px;background:#fff;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:9px">
+          <div style="width:24px;height:24px;border-radius:8px;background:#4f46e5"></div>
+          <div>
+            <div style="font-size:13px;font-weight:900;color:#111827">记忆中心</div>
+            <div style="font-size:10px;color:#94a3b8">状态形象 + 长期记忆</div>
+          </div>
+        </div>
+
+        <div style="padding:14px 14px 10px;background:linear-gradient(180deg,#f8fafc,#fff)">
+          <div style="height:178px;border-radius:16px;background:#eef2ff;border:1px solid #dbeafe;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img src="assets/curious.png" alt="好奇状态" style="width:190px;height:190px;object-fit:contain;animation:student-bob 1.8s ease-in-out infinite">
+          </div>
+          <div style="margin-top:10px;text-align:center">
+            <div style="font-size:15px;font-weight:900;color:#111827">好奇探索中</div>
+            <div style="font-size:11px;color:#64748b;line-height:1.5">根据当前情绪切换学生形象，并保留轻微动态。</div>
+          </div>
+        </div>
+
+        <div style="padding:10px 12px 14px;display:grid;gap:8px;background:#fff">
+          <div style="border:1px solid #eef2f7;border-left:3px solid #3b82f6;border-radius:12px;padding:10px;background:#fff">
+            <div style="font-size:9px;font-weight:900;color:#94a3b8;letter-spacing:.08em">姓名</div>
+            <div style="font-size:14px;font-weight:850;color:#111827;margin-top:2px">凯伦</div>
+          </div>
+          <div style="border:1px solid #eef2f7;border-left:3px solid #3b82f6;border-radius:12px;padding:10px;background:#fff">
+            <div style="font-size:9px;font-weight:900;color:#94a3b8;letter-spacing:.08em">年级</div>
+            <div style="font-size:14px;font-weight:850;color:#111827;margin-top:2px">初一</div>
+          </div>
+          <div style="border:1px solid #eef2f7;border-left:3px solid #3b82f6;border-radius:12px;padding:10px;background:#fff">
+            <div style="font-size:9px;font-weight:900;color:#94a3b8;letter-spacing:.08em">近期目标</div>
+            <div style="font-size:14px;font-weight:850;color:#111827;margin-top:2px">提升综合成绩</div>
+          </div>
+        </div>
+      </div>
+      <style>
+        @keyframes student-bob {
+          0%, 100% { transform: translateY(0) rotate(-1deg); }
+          50% { transform: translateY(-6px) rotate(1deg); }
+        }
+      </style>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">状态素材映射</div>
+    <div class="mockup-body">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        <div style="border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;background:#fff">
+          <img src="assets/curious.png" style="height:94px;object-fit:contain" alt="好奇">
+          <div style="font-size:12px;font-weight:900;color:#111827">好奇</div>
+          <div style="font-size:10px;color:#64748b">歪头思考</div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;background:#fff">
+          <img src="assets/joy.png" style="height:94px;object-fit:contain" alt="愉悦">
+          <div style="font-size:12px;font-weight:900;color:#111827">愉悦 / 满足</div>
+          <div style="font-size:10px;color:#64748b">笑脸比耶</div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;background:#fff">
+          <img src="assets/sad.png" style="height:94px;object-fit:contain" alt="沮丧">
+          <div style="font-size:12px;font-weight:900;color:#111827">沮丧</div>
+          <div style="font-size:10px;color:#64748b">擦泪低落</div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:14px;padding:10px;text-align:center;background:#fff">
+          <img src="assets/angry.png" style="height:94px;object-fit:contain" alt="焦虑">
+          <div style="font-size:12px;font-weight:900;color:#111827">焦虑 / 疲惫</div>
+          <div style="font-size:10px;color:#64748b">用作负向状态</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#f8fafc">
+        <div style="font-size:12px;font-weight:900;color:#111827">实现建议</div>
+        <p style="font-size:11px;line-height:1.6;color:#64748b;margin:6px 0 0">
+          把图片复制到 public/student-states/，用 dominant emotion 选择对应图片。记忆中心删除实时理解、短期记忆、情绪趋势、文件索引等块，只留下形象舞台和长期记忆卡片。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
