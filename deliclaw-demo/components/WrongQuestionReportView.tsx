@@ -35,7 +35,7 @@ function OverviewCard({ overview }: { overview: WrongQuestionReport["overview"] 
       <SectionTitle>错题总览</SectionTitle>
       <div className="mb-3 text-xs text-slate-500">共 {overview.total} 道</div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="h-44">
+        <div className="h-44 min-w-0">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">学科分布</p>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -54,7 +54,7 @@ function OverviewCard({ overview }: { overview: WrongQuestionReport["overview"] 
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="h-44">
+        <div className="h-44 min-w-0">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">题型分布</p>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={overview.byQuestionType}>

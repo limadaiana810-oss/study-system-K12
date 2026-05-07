@@ -61,7 +61,7 @@ function ScoreTrendCard({ scores }: { scores: GrowthReport["scores"] }) {
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <SectionTitle>本月分数趋势（百分制）</SectionTitle>
-      <div className="h-56">
+      <div className="h-56 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />

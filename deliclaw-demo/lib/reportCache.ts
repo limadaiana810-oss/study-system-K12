@@ -11,12 +11,54 @@ export const REPORT_STORAGE_KEYS: Record<ReportType, string> = {
 
 type AnyReport = WrongQuestionReport | GrowthReport
 
+function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    !!r.overview &&
+    typeof r.overview === "object" &&
+    Array.isArray(r.overview.bySubject) &&
+    Array.isArray(r.overview.byQuestionType) &&
+    Array.isArray(r.weakPoints) &&
+    Array.isArray(r.errorPatterns) &&
+    Array.isArray(r.actionPlan)
+  )
+}
+
+function isGrowthReportShape(r: any): r is GrowthReport {
+  return (
+    !!r &&
+    typeof r === "object" &&
+    !!r.trajectory &&
+    typeof r.trajectory === "object" &&
+    Array.isArray(r.scores) &&
+    Array.isArray(r.emotionTrend) &&
+    Array.isArray(r.highlights) &&
+    !!r.parentAdvice &&
+    typeof r.parentAdvice === "object"
+  )
+}
+
 export function readCachedReport<T extends AnyReport = AnyReport>(type: ReportType): T | null {
   try {
     const raw = localStorage.getItem(REPORT_STORAGE_KEYS[type])
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed !== "object") return null
+
+    // Discard stale or malformed cache entries (e.g. partial writes from earlier code paths).
+    const ok =
+      type === "wrong-questions"
+        ? isWrongQuestionReportShape(parsed)
+        : isGrowthReportShape(parsed)
+    if (!ok) {
+      try {
+        localStorage.removeItem(REPORT_STORAGE_KEYS[type])
+      } catch {
+        // ignore
+      }
+      return null
+    }
     return parsed as T
   } catch {
     return null
