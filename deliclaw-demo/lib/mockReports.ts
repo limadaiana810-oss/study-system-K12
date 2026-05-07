@@ -33,6 +33,55 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
         { type: "阅读", count: 1 },
       ],
     },
+    focusPicks: [
+      {
+        knowledgePoint: "二次函数图像与开口方向",
+        subject: "数学",
+        occurrences: 4,
+        priority: "高",
+        diagnosis: "a>0 时口朝上，你混淆了 4 次——不是不会，是符号反应慢。",
+        tasks: [
+          {
+            id: "focus-0-task-0",
+            text: "专项练 15 道，每题先圈出 a 的符号再画图",
+          },
+          {
+            id: "focus-0-task-1",
+            text: "看一遍开口方向口诀（5 分钟）",
+          },
+        ],
+        expectedOutcome: "本知识点正确率 33% → 80%",
+        fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
+      },
+      {
+        knowledgePoint: "单位换算",
+        subject: "物理",
+        occurrences: 3,
+        priority: "高",
+        diagnosis: "cm→m / g→kg 转换漏除幂次，结果偏差一个数量级。",
+        tasks: [
+          {
+            id: "focus-1-task-0",
+            text: "cm→m 单位换算 30 题集中训练，每题写出换算式再运算",
+          },
+          {
+            id: "focus-1-task-1",
+            text: "做完后用红笔回看：哪一步没乘 100？",
+          },
+        ],
+        expectedOutcome: "本知识点正确率 50% → 90%",
+        fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
+      },
+    ],
+    weeklyTrend: {
+      series: [
+        { week: 1, count: 4 },
+        { week: 2, count: 5 },
+        { week: 3, count: 2 },
+        { week: 4, count: 1 },
+      ],
+      summary: "本月在好转：从周 5 题降到周 1 题，继续保持。",
+    },
     weakPoints: [
       {
         knowledgePoint: "二次函数图像与开口方向",
@@ -63,60 +112,6 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
         subject: "化学",
         occurrences: 1,
         diagnosis: "忽略原子守恒，常出现氧原子数不平的错误。",
-      },
-    ],
-    errorPatterns: [
-      {
-        pattern: "单位换算遗漏",
-        evidence: "多道物理题忽略 cm→m 与 g→kg，结果偏差一到两个数量级。",
-        fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
-      },
-      {
-        pattern: "二次函数符号判断错位",
-        evidence: "a>0 时口朝上，多次混淆开口方向，连带影响顶点坐标判断。",
-        fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
-      },
-      {
-        pattern: "主旨题被细节句干扰",
-        evidence: "英语阅读连续 2 题都选了细节对应项，未提取段落主旨。",
-        fileRefs: ["英语-阅读-2026-04-18.png"],
-      },
-      {
-        pattern: "代数化简跳步漏负号",
-        evidence: "解答题中间步骤合并过快，多次出现负号丢失。",
-        fileRefs: ["数学-错题-2026-04-20.png"],
-      },
-    ],
-    actionPlan: [
-      {
-        priority: "高",
-        action: "本周完成二次函数专项练习 15 道，重点对照 a 系数与开口方向的对应关系",
-        estimatedGain: "+5 分",
-        targetWeakPoint: "二次函数图像与开口方向",
-      },
-      {
-        priority: "高",
-        action: "物理 cm→m 单位换算 30 题集中训练，每题写出换算式再运算",
-        estimatedGain: "+4 分",
-        targetWeakPoint: "单位换算",
-      },
-      {
-        priority: "中",
-        action: "做 5 篇英语阅读，先看首尾段总结句再做主旨题",
-        estimatedGain: "+3 分",
-        targetWeakPoint: "阅读题主旨判断",
-      },
-      {
-        priority: "中",
-        action: "画 5 道电路图，先标出电压表/电流表位置再做串并联分析",
-        estimatedGain: "+2 分",
-        targetWeakPoint: "电路图分析（串并联识别）",
-      },
-      {
-        priority: "低",
-        action: "复习化学方程式配平的奇偶法、最小公倍数法各 5 题",
-        estimatedGain: "+1 分",
-        targetWeakPoint: "化学方程式配平",
       },
     ],
   }
