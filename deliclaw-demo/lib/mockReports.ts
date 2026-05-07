@@ -17,7 +17,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    progressSignal: "比上周少错了 4 道，二次函数你已经追上来了——继续。",
+    progressSignal: "这周错题少了一半，节奏稳住了——继续。",
     focusPicks: [
       {
         knowledgePoint: "二次函数顶点式",
@@ -27,13 +27,13 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
         tasks: [
           {
             id: "focus-0-task-0",
-            text: "重新做 5/12 那道二次函数题：把顶点 (-2, 3) 代进去重推一遍，看符号在哪里变。",
+            text: "重新做 4/12 那道二次函数题：把顶点 (-2, 3) 代进去重推一遍，看符号在哪里变。",
             durationMinutes: 8,
             isReDo: true,
           },
           {
             id: "focus-0-task-1",
-            text: "翻 5/25 那道老错题，先圈出 h、k 的符号再开始解。",
+            text: "翻 4/25 那道老错题，先圈出 h、k 的符号再开始解。",
             durationMinutes: 6,
             isReDo: true,
           },
