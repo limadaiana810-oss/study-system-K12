@@ -23,6 +23,28 @@ interface Props {
 
 type Status = "idle" | "loading" | "ready" | "error"
 
+function isValidReport(report: AnyReport | null, type: ReportType): boolean {
+  if (!report) return false
+  if (type === "wrong-questions") {
+    const r = report as WrongQuestionReport
+    return (
+      !!r.overview &&
+      Array.isArray(r.overview.bySubject) &&
+      Array.isArray(r.weakPoints) &&
+      Array.isArray(r.errorPatterns) &&
+      Array.isArray(r.actionPlan)
+    )
+  }
+  const r = report as GrowthReport
+  return (
+    !!r.trajectory &&
+    Array.isArray(r.scores) &&
+    Array.isArray(r.emotionTrend) &&
+    Array.isArray(r.highlights) &&
+    !!r.parentAdvice
+  )
+}
+
 export default function ReportCenterPanel({ memory }: Props) {
   const [active, setActive] = useState<ReportType>("wrong-questions")
   const [report, setReport] = useState<AnyReport | null>(null)
@@ -32,10 +54,12 @@ export default function ReportCenterPanel({ memory }: Props) {
   // When tab changes, load cached report (or reset to idle)
   useEffect(() => {
     const cached = readCachedReport(active)
-    if (cached) {
+    if (cached && isValidReport(cached, active)) {
       setReport(cached)
       setStatus("ready")
     } else {
+      // Cached but malformed (e.g. partial write from earlier code path) — discard.
+      if (cached) clearCachedReport(active)
       setReport(null)
       setStatus("idle")
     }
@@ -102,7 +126,7 @@ export default function ReportCenterPanel({ memory }: Props) {
         )}
         {status === "loading" && <LoadingState />}
         {status === "error" && <ErrorState message={errMsg} onRetry={generate} />}
-        {status === "ready" && report && (
+        {status === "ready" && report && isValidReport(report, active) && (
           <div className="mx-auto max-w-3xl space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-[10px] text-slate-400">
@@ -121,6 +145,12 @@ export default function ReportCenterPanel({ memory }: Props) {
               <GrowthReportView report={report as GrowthReport} />
             )}
           </div>
+        )}
+        {status === "ready" && report && !isValidReport(report, active) && (
+          <ErrorState
+            message="缓存的报告格式异常，请重新生成。"
+            onRetry={regenerate}
+          />
         )}
       </div>
     </div>
