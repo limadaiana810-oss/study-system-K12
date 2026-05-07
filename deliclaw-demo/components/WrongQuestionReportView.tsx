@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { WrongQuestionReport, FocusPick } from "@/lib/reportTypes"
+import type { WrongQuestionReport, FocusPick, TodayPick } from "@/lib/reportTypes"
 import {
   Bar,
   BarChart,
@@ -24,13 +24,83 @@ const SUBJECT_DOT: Record<string, string> = {
   语文: "bg-purple-500",
 }
 
-function ProgressSignalBar({ text }: { text: string }) {
+function HeroSignalsBar({
+  progressSignal,
+  gapSignal,
+}: {
+  progressSignal: string
+  gapSignal: string
+}) {
+  if (!progressSignal && !gapSignal) return null
   return (
     <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-base">🌱</span>
-        <p className="text-sm font-bold leading-relaxed text-emerald-800">{text}</p>
+      {progressSignal && (
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-emerald-600 font-bold">✓</span>
+          <p className="text-sm font-bold leading-relaxed text-emerald-800">{progressSignal}</p>
+        </div>
+      )}
+      {gapSignal && (
+        <div className={`flex items-center gap-2 ${progressSignal ? "mt-2" : ""}`}>
+          <span className="shrink-0 text-amber-600 font-bold">⚠</span>
+          <p className="text-sm font-semibold leading-relaxed text-amber-800">{gapSignal}</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function scrollToTask(taskId: string) {
+  if (typeof document !== "undefined") {
+    const el = document.getElementById(`task-${taskId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      el.classList.add("ring-2", "ring-indigo-400")
+      setTimeout(() => el.classList.remove("ring-2", "ring-indigo-400"), 1500)
+    }
+  }
+}
+
+function TodayPickCard({
+  todayPick,
+  taskState,
+}: {
+  todayPick: TodayPick
+  taskState: Record<string, true>
+}) {
+  const isDone = !!taskState[todayPick.taskId]
+
+  if (isDone) {
+    return (
+      <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-indigo-600 font-bold">✓</span>
+          <h2 className="text-sm font-bold text-indigo-800">今天这件做完了</h2>
+        </div>
+        <p className="text-xs text-slate-600 leading-relaxed mb-1">{todayPick.fileRef}</p>
+        <p className="text-xs text-slate-500 leading-relaxed">下面还有计划，想继续就往下翻</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-indigo-600 font-bold">▶</span>
+        <h2 className="text-sm font-bold text-indigo-900">现在做这一件</h2>
       </div>
+      <p className="text-sm font-semibold text-slate-800 leading-relaxed mb-1">
+        {todayPick.taskText}
+      </p>
+      <p className="text-xs text-slate-600 leading-relaxed mb-4">{todayPick.whyLine}</p>
+      <button
+        type="button"
+        onClick={() => scrollToTask(todayPick.taskId)}
+        className="w-full rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white hover:bg-indigo-700"
+        style={{ minHeight: "48px" }}
+      >
+        开始
+      </button>
     </section>
   )
 }
@@ -64,10 +134,7 @@ function FocusCard({
   function jumpToFirstTask() {
     const first = pick.tasks[0]
     if (!first) return
-    if (typeof document !== "undefined") {
-      const el = document.getElementById(`task-${first.id}`)
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-    }
+    scrollToTask(first.id)
   }
 
   const numberLabel = ["❶", "❷"][index] ?? `#${index + 1}`
@@ -155,7 +222,7 @@ function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] 
     <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">错题节奏</h3>
+        <h3 className="text-sm font-bold text-slate-800">本月错题，一周一根</h3>
       </div>
       <div className="h-40 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -218,9 +285,22 @@ function MoreToPracticeCard({
 
 export default function WrongQuestionReportView({ report }: Props) {
   const focusKPs = new Set(report.focusPicks.map((fp) => fp.knowledgePoint))
+  const [taskState, setTaskState] = useState<Record<string, true>>({})
+
+  useEffect(() => {
+    setTaskState(readTaskState(report.generatedAt))
+  }, [report.generatedAt])
+
   return (
     <div className="space-y-3">
-      <ProgressSignalBar text={report.progressSignal} />
+      <HeroSignalsBar
+        progressSignal={report.progressSignal}
+        gapSignal={report.gapSignal}
+      />
+
+      <TodayPickCard todayPick={report.todayPick} taskState={taskState} />
+
+      <p className="text-center text-xs text-neutral-500 my-4">↓ 想看完整本周计划，往下翻</p>
 
       <div className="space-y-3">
         <div className="flex items-center gap-2">
