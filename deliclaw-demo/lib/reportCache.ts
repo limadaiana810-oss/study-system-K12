@@ -19,9 +19,12 @@ function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
     typeof r.overview === "object" &&
     Array.isArray(r.overview.bySubject) &&
     Array.isArray(r.overview.byQuestionType) &&
-    Array.isArray(r.weakPoints) &&
-    Array.isArray(r.errorPatterns) &&
-    Array.isArray(r.actionPlan)
+    Array.isArray(r.focusPicks) &&
+    !!r.weeklyTrend &&
+    typeof r.weeklyTrend === "object" &&
+    Array.isArray(r.weeklyTrend.series) &&
+    typeof r.weeklyTrend.summary === "string" &&
+    Array.isArray(r.weakPoints)
   )
 }
 

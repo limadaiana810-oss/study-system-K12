@@ -28,9 +28,9 @@ const VALID_WRONG_QUESTION_FIXTURE = {
   generatedAt: "x",
   windowDays: 30,
   overview: { total: 0, bySubject: [], byQuestionType: [] },
+  focusPicks: [],
+  weeklyTrend: { series: [], summary: "" },
   weakPoints: [],
-  errorPatterns: [],
-  actionPlan: [],
 }
 
 const VALID_GROWTH_FIXTURE = {
@@ -76,11 +76,33 @@ test("readCachedReport discards a cached growth report missing trajectory", () =
   assert.equal((globalThis as any).localStorage.getItem("deliclaw_report_growth"), null)
 })
 
-test("readCachedReport discards a cached wrong-questions report missing overview", () => {
+test("readCachedReport discards a cached wrong-questions report missing focusPicks", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify({ generatedAt: "z", windowDays: 30, weakPoints: [] })
+    JSON.stringify({
+      generatedAt: "z",
+      windowDays: 30,
+      overview: { total: 0, bySubject: [], byQuestionType: [] },
+      weakPoints: [],
+      // focusPicks and weeklyTrend missing
+    })
+  )
+  assert.equal(readCachedReport("wrong-questions"), null)
+})
+
+test("readCachedReport discards a stale wrong-questions report still using the old errorPatterns/actionPlan shape", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify({
+      generatedAt: "legacy",
+      windowDays: 30,
+      overview: { total: 0, bySubject: [], byQuestionType: [] },
+      weakPoints: [],
+      errorPatterns: [],
+      actionPlan: [],
+    })
   )
   assert.equal(readCachedReport("wrong-questions"), null)
 })
