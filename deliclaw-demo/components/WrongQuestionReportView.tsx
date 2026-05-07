@@ -44,7 +44,7 @@ function OverviewCard({ overview }: { overview: WrongQuestionReport["overview"] 
                 dataKey="count"
                 nameKey="subject"
                 outerRadius={50}
-                label={({ subject }) => subject}
+                label={({ name }) => name}
               >
                 {overview.bySubject.map((_, i) => (
                   <Cell key={i} fill={SUBJECT_COLORS[i % SUBJECT_COLORS.length]} />
