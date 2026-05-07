@@ -14,64 +14,69 @@ function todayIso(): string {
 }
 
 export function buildMockWrongQuestionReport(): WrongQuestionReport {
+  const focusPicks: WrongQuestionReport["focusPicks"] = [
+    {
+      knowledgePoint: "二次函数顶点式",
+      subject: "数学",
+      goal: "你知道 y = a(x-h)² + k 这个式子里，h 和 k 各管什么吗？",
+      stepDiagnosis: "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。",
+      tasks: [
+        {
+          id: "focus-0-task-0",
+          text: "重新做 4/12 那道二次函数题：把顶点 (-2, 3) 代进去重推一遍，看符号在哪里变。",
+          durationMinutes: 8,
+          isReDo: true,
+        },
+        {
+          id: "focus-0-task-1",
+          text: "翻 4/25 那道老错题，先圈出 h、k 的符号再开始解。",
+          durationMinutes: 6,
+          isReDo: true,
+        },
+      ],
+      closingLine: "下次再遇到顶点式——第一步先看 h、k 的符号。这一步对了，后面就不会跑偏。",
+      fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
+    },
+    {
+      knowledgePoint: "物理单位换算",
+      subject: "物理",
+      goal: "cm 换 m、g 换 kg 的时候，幂次怎么处理你心里有数吗？",
+      stepDiagnosis: "上次那道浮力题，你把密度从 g/cm³ 换到 kg/m³ 时漏乘了 1000，最后算出来的结果差了一个数量级。",
+      tasks: [
+        {
+          id: "focus-1-task-0",
+          text: "重做 4/15 和 4/22 那两道老错题，每一步把单位写在数字旁边。",
+          durationMinutes: 10,
+          isReDo: true,
+        },
+        {
+          id: "focus-1-task-1",
+          text: "记一遍单位换算口诀（cm³→m³ 是除以 10⁶，不是 10²）。",
+          durationMinutes: 5,
+          isReDo: false,
+        },
+      ],
+      closingLine: "下次遇到带单位的物理题——先把所有量换到同一套单位再列方程。",
+      fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
+    },
+  ]
+
+  const firstTask = focusPicks[0].tasks[0]
+  const todayPick: TodayPick = {
+    taskId: firstTask.id,
+    taskText: "5 分钟，重做 4/12 那道二次函数",
+    durationMinutes: 5,
+    whyLine: "上次你把 h = -2 写成了 2",
+    fileRef: focusPicks[0].fileRefs[0],
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
     progressSignal: "这周错题从 5 道降到 1 道",
     gapSignal: "物理单位换算又冒头，第 3 次了",
-    todayPick: {
-      taskId: "focus-0-task-0",
-      taskText: "5 分钟，重做 4/12 那道二次函数",
-      durationMinutes: 5,
-      whyLine: "上次你把 h = -2 写成了 2",
-      fileRef: "数学-错题-2026-04-12.png",
-    } satisfies TodayPick,
-    focusPicks: [
-      {
-        knowledgePoint: "二次函数顶点式",
-        subject: "数学",
-        goal: "你知道 y = a(x-h)² + k 这个式子里，h 和 k 各管什么吗？",
-        stepDiagnosis: "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。",
-        tasks: [
-          {
-            id: "focus-0-task-0",
-            text: "重新做 4/12 那道二次函数题：把顶点 (-2, 3) 代进去重推一遍，看符号在哪里变。",
-            durationMinutes: 8,
-            isReDo: true,
-          },
-          {
-            id: "focus-0-task-1",
-            text: "翻 4/25 那道老错题，先圈出 h、k 的符号再开始解。",
-            durationMinutes: 6,
-            isReDo: true,
-          },
-        ],
-        closingLine: "下次再遇到顶点式——第一步先看 h、k 的符号。这一步对了，后面就不会跑偏。",
-        fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
-      },
-      {
-        knowledgePoint: "物理单位换算",
-        subject: "物理",
-        goal: "cm 换 m、g 换 kg 的时候，幂次怎么处理你心里有数吗？",
-        stepDiagnosis: "上次那道浮力题，你把密度从 g/cm³ 换到 kg/m³ 时漏乘了 1000，最后算出来的结果差了一个数量级。",
-        tasks: [
-          {
-            id: "focus-1-task-0",
-            text: "重做 4/15 和 4/22 那两道老错题，每一步把单位写在数字旁边。",
-            durationMinutes: 10,
-            isReDo: true,
-          },
-          {
-            id: "focus-1-task-1",
-            text: "记一遍单位换算口诀（cm³→m³ 是除以 10⁶，不是 10²）。",
-            durationMinutes: 5,
-            isReDo: false,
-          },
-        ],
-        closingLine: "下次遇到带单位的物理题——先把所有量换到同一套单位再列方程。",
-        fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
-      },
-    ],
+    todayPick,
+    focusPicks,
     weeklyTrend: {
       series: [
         { week: 1, count: 4 },
