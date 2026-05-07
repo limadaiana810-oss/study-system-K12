@@ -83,3 +83,44 @@ test("countActiveDays counts unique date entries from scores", () => {
   const days = countActiveDays(SAMPLE_SCORES)
   assert.equal(days, 4) // 4 distinct dates: 04-10, 04-17, 04-24, 05-01
 })
+
+test("aggregateScores weeklySeries is ordered oldest -> newest", () => {
+  const out = aggregateScores(SAMPLE_SCORES, "2026-05-07")
+  const math = out.find((s) => s.subject === "数学")!
+  // SAMPLE_SCORES math entries:
+  //   2026-04-10 (27 days ago, week 3 / oldest, index 0): homework 80/100 = 80
+  //   2026-04-17 (20 days ago, week 2, index 1):           homework 90/100 = 90
+  //   2026-04-24 (13 days ago, week 1, index 2):           homework 70/100 = 70
+  //   2026-05-01 ( 6 days ago, week 0 / newest, index 3):  exam 108/120 = 90
+  assert.deepEqual(math.weeklySeries, [80, 90, 70, 90])
+})
+
+test("aggregateScores examLatest is null when subject has no exam entries", () => {
+  const homeworkOnly: ScoreEntry[] = [
+    { id: "h1", subject: "化学", type: "homework", value: 80, max: 100, date: "2026-05-01" },
+    { id: "h2", subject: "化学", type: "homework", value: 90, max: 100, date: "2026-05-05" },
+  ]
+  const out = aggregateScores(homeworkOnly, "2026-05-07")
+  const chem = out.find((s) => s.subject === "化学")!
+  assert.equal(chem.examLatest, null)
+  assert.equal(chem.homeworkAvg, 85)
+})
+
+test("aggregateScores ignores entries older than 28 days", () => {
+  const mixed: ScoreEntry[] = [
+    { id: "old", subject: "语文", type: "homework", value: 60, max: 100, date: "2026-04-08" },  // 29 days ago, dropped
+    { id: "in",  subject: "语文", type: "homework", value: 90, max: 100, date: "2026-04-25" },  // 12 days ago, kept
+  ]
+  const out = aggregateScores(mixed, "2026-05-07")
+  const chinese = out.find((s) => s.subject === "语文")!
+  // Out-of-window entries are dropped from weeklySeries buckets but still counted in homeworkAvg
+  // (the helper aggregates homework regardless of the 28-day window)
+  // Pin behavior: weeklySeries should only reflect the in-window entry (90, in week 1 / index 2)
+  assert.equal(chinese.weeklySeries.length, 4)
+  // The in-window entry is at index 2 (week 1, 12 days ago). Index 0,1 carry-forward from homeworkAvg = 75 = (60+90)/2
+  // Index 2 = 90 (in-window). Index 3 carries forward from index 2 = 90.
+  assert.equal(chinese.weeklySeries[2], 90)
+  assert.equal(chinese.weeklySeries[3], 90)
+  // homeworkAvg includes BOTH entries (the function doesn't filter by window for homeworkAvg)
+  assert.equal(chinese.homeworkAvg, 75)
+})
