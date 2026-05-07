@@ -84,12 +84,20 @@ async function buildWrongQuestionReport(): Promise<WrongQuestionReport> {
     responseFormat: "json_object",
   })
 
+  const safeErrorPatterns = (Array.isArray(llm.errorPatterns) ? llm.errorPatterns : []).map(
+    (ep) => ({
+      pattern: typeof ep?.pattern === "string" ? ep.pattern : "",
+      evidence: typeof ep?.evidence === "string" ? ep.evidence : "",
+      fileRefs: Array.isArray(ep?.fileRefs) ? ep.fileRefs.filter((r: unknown): r is string => typeof r === "string") : [],
+    })
+  )
+
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
     overview,
     weakPoints: Array.isArray(llm.weakPoints) ? llm.weakPoints : [],
-    errorPatterns: Array.isArray(llm.errorPatterns) ? llm.errorPatterns : [],
+    errorPatterns: safeErrorPatterns,
     actionPlan: Array.isArray(llm.actionPlan) ? llm.actionPlan : [],
   }
 }
