@@ -136,7 +136,7 @@ function FocusCard({
       </div>
 
       <div className="mb-3 rounded-xl border border-slate-100 bg-white/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">上次卡在哪里</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">上次卡在哪</p>
         <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.stepDiagnosis}</p>
       </div>
 
@@ -244,7 +244,7 @@ function MoreToPracticeCard({
       >
         <div className="h-3 w-1 rounded-full bg-slate-400" />
         <h3 className="flex-1 text-sm font-bold text-slate-800">
-          还可以再练这些 ({others.length})
+          其他还在冒头的（{others.length}）
         </h3>
         <span className="text-xs text-slate-400">{open ? "▴" : "▾"}</span>
       </button>
@@ -271,6 +271,8 @@ function MoreToPracticeCard({
 export default function WrongQuestionReportView({ report }: Props) {
   const focusKPs = new Set(report.focusPicks.map((fp) => fp.knowledgePoint))
   const [taskState, setTaskState] = useState<Record<string, true>>({})
+  const totalErrorCount = report.weakPoints.reduce((sum, wp) => sum + wp.occurrences, 0)
+  const subjectsCount = new Set(report.weakPoints.map((wp) => wp.subject)).size
 
   useEffect(() => {
     setTaskState(readTaskState(report.generatedAt))
@@ -299,9 +301,12 @@ export default function WrongQuestionReportView({ report }: Props) {
       <p className="text-center text-xs text-neutral-500 my-4">↓ 想看完整本周计划，往下翻</p>
 
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-1 rounded-full bg-indigo-500" />
-          <h2 className="text-sm font-bold text-slate-800">这周先拿下这道</h2>
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-1 rounded-full bg-indigo-500" />
+            <h2 className="text-sm font-bold text-slate-800">这周先把这两道拿下</h2>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5 ml-3">做完这两道，这周就算过去了。</p>
         </div>
         {report.focusPicks.map((pick, i) => (
           <FocusCard
@@ -316,6 +321,11 @@ export default function WrongQuestionReportView({ report }: Props) {
 
       <WeeklyTrendCard trend={report.weeklyTrend} />
       <MoreToPracticeCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
+
+      <footer className="pt-2 pb-4 text-center text-[11px] text-slate-400 leading-relaxed">
+        <p>本月一共 {totalErrorCount} 道错题，覆盖 {subjectsCount} 个学科</p>
+        <p>下次错题进来，会自动加进这份报告</p>
+      </footer>
     </div>
   )
 }

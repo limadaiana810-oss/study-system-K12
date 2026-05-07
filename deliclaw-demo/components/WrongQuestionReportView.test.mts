@@ -12,11 +12,12 @@ test("WrongQuestionReportView is a client component", () => {
   assert.match(SOURCE, /^["']use client["']/m)
 })
 
-test("WrongQuestionReportView renders V3 section titles", () => {
-  assert.match(SOURCE, /这周先拿下这道/)
-  // WeeklyTrend title updated in V4 (节奏 is banned); check new title
+test("WrongQuestionReportView renders section titles", () => {
+  // V4 updated headings — old V3 wording removed
+  assert.match(SOURCE, /这周先把这两道拿下/)
+  // WeeklyTrend title (节奏 is banned); check V4 title
   assert.match(SOURCE, /本月错题，一周一根/)
-  assert.match(SOURCE, /还可以再练这些/)
+  assert.match(SOURCE, /其他还在冒头的/)
 })
 
 test("WrongQuestionReportView renders the progress signal above the fold", () => {
@@ -49,7 +50,7 @@ test("FocusCard shows goal/stepDiagnosis/closingLine + ⏱ duration + '现在就
   assert.match(SOURCE, /durationMinutes/)
   assert.match(SOURCE, /分钟/)
   assert.match(SOURCE, /现在就做/)
-  assert.match(SOURCE, /上次卡在哪里/)
+  assert.match(SOURCE, /上次卡在哪/)
   assert.match(SOURCE, /下次再遇到/)
 })
 
@@ -131,4 +132,38 @@ test("V4 chrome banned-words: source does not contain V4 banned words", () => {
   for (const word of banned) {
     assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should not contain banned word "${word}"`)
   }
+})
+
+// ── V4-3 tests (Task 3: section copy polish + page footer) ──
+
+test("V4-3: FocusCards section header is '这周先把这两道拿下'", () => {
+  assert.match(SOURCE, /这周先把这两道拿下/)
+})
+
+test("V4-3: FocusCards section has subtitle '做完这两道，这周就算过去了'", () => {
+  assert.match(SOURCE, /做完这两道，这周就算过去了/)
+})
+
+test("V4-3: MoreToPracticeCard title is '其他还在冒头的'", () => {
+  assert.match(SOURCE, /其他还在冒头的/)
+})
+
+test("V4-3: page footer contains '下次错题进来，会自动加进这份报告'", () => {
+  assert.match(SOURCE, /下次错题进来，会自动加进这份报告/)
+})
+
+test("V4-3: source does NOT contain V3 FocusCards header '这周先拿下这道'", () => {
+  assert.doesNotMatch(SOURCE, /这周先拿下这道/)
+})
+
+test("V4-3: source does NOT contain V3 MoreToPractice title '还可以再练这些'", () => {
+  assert.doesNotMatch(SOURCE, /还可以再练这些/)
+})
+
+test("V4-3: source does NOT contain old FocusCard label '上次卡在哪里' (should be '上次卡在哪')", () => {
+  assert.doesNotMatch(SOURCE, /上次卡在哪里/)
+})
+
+test("V4-3: source contains new FocusCard label '上次卡在哪'", () => {
+  assert.match(SOURCE, /上次卡在哪/)
 })
