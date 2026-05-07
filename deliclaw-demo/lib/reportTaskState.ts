@@ -15,7 +15,8 @@ function read(): Stored | null {
       typeof parsed !== "object" ||
       typeof parsed.generatedAt !== "string" ||
       !parsed.done ||
-      typeof parsed.done !== "object"
+      typeof parsed.done !== "object" ||
+      Array.isArray(parsed.done)
     ) {
       return null
     }
