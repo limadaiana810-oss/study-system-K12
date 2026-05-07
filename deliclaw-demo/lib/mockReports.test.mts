@@ -6,39 +6,40 @@ import {
   buildMockWrongQuestionReport,
 } from "./mockReports.ts"
 
-test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape (V2)", () => {
+test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape (V3)", () => {
   const r = buildMockWrongQuestionReport()
   assert.equal(r.windowDays, 30)
   assert.equal(typeof r.generatedAt, "string")
-  assert.equal(r.overview.total, 12)
-  assert.ok(r.overview.bySubject.length >= 3)
-  assert.ok(r.overview.byQuestionType.length >= 2)
+  assert.ok(r.progressSignal.length > 0, "progressSignal must be non-empty")
 
-  // focusPicks: exactly 2, each with stable id and 2 tasks
-  assert.equal(r.focusPicks.length, 2)
+  // focusPicks: 1-2, each with goal/stepDiagnosis/closingLine/tasks
+  assert.ok(r.focusPicks.length >= 1 && r.focusPicks.length <= 2, `focusPicks length ${r.focusPicks.length}`)
   for (let i = 0; i < r.focusPicks.length; i++) {
     const fp = r.focusPicks[i]
-    assert.ok(["高", "中"].includes(fp.priority), `priority ${fp.priority} not allowed`)
-    assert.ok(fp.diagnosis.length > 0)
-    assert.ok(fp.expectedOutcome.length > 0)
-    assert.equal(fp.tasks.length, 2)
+    assert.ok(fp.goal.length > 0, `focusPicks[${i}].goal empty`)
+    assert.ok(fp.stepDiagnosis.length > 0, `focusPicks[${i}].stepDiagnosis empty`)
+    assert.ok(fp.closingLine.length > 0, `focusPicks[${i}].closingLine empty`)
+    assert.ok(fp.tasks.length >= 1 && fp.tasks.length <= 3, `tasks length`)
+    let hasReDo = false
     for (let j = 0; j < fp.tasks.length; j++) {
-      assert.equal(fp.tasks[j].id, `focus-${i}-task-${j}`)
-      assert.ok(fp.tasks[j].text.length > 0)
+      const t = fp.tasks[j]
+      assert.equal(t.id, `focus-${i}-task-${j}`, `task id`)
+      assert.ok(t.text.length > 0)
+      assert.ok(typeof t.durationMinutes === "number" && t.durationMinutes > 0, `durationMinutes`)
+      if (t.isReDo) hasReDo = true
     }
+    assert.ok(hasReDo, `focusPicks[${i}] must have at least one isReDo task (retrieval practice)`)
     assert.ok(Array.isArray(fp.fileRefs))
   }
 
-  // weeklyTrend: 4 weeks ascending, sum == overview.total
+  // weeklyTrend
   assert.equal(r.weeklyTrend.series.length, 4)
-  const sum = r.weeklyTrend.series.reduce((acc, p) => acc + p.count, 0)
-  assert.equal(sum, r.overview.total)
   for (let i = 0; i < 4; i++) {
     assert.equal(r.weeklyTrend.series[i].week, (i + 1) as 1 | 2 | 3 | 4)
   }
   assert.ok(r.weeklyTrend.summary.length > 0)
 
-  // weakPoints: still present as fallback list
+  // weakPoints
   assert.ok(r.weakPoints.length >= 1 && r.weakPoints.length <= 5)
 })
 
@@ -68,4 +69,14 @@ test("buildMockGrowthReport's score chart reflects the crafted math dip+recovery
   // Week index 0 = oldest, 3 = newest. Math should dip in the middle and recover at the end.
   // Don't pin exact numbers (mock scores are date-relative); just verify the directional story.
   assert.ok(math!.weeklySeries[3] > math!.weeklySeries[1], "数学 week 4 should exceed week 2 (recovery story)")
+})
+
+test("buildMockWrongQuestionReport contains no banned diagnostic-report words", () => {
+  // V3 hard constraint: 学生口径
+  const r = buildMockWrongQuestionReport()
+  const banned = ["症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级"]
+  const allText = JSON.stringify(r)
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (V3 banned word)`)
+  }
 })
