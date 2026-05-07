@@ -24,9 +24,15 @@ const SUBJECT_DOT: Record<string, string> = {
   语文: "bg-purple-500",
 }
 
-function priorityChipClass(p: "高" | "中") {
-  if (p === "高") return "bg-red-50 text-red-600 border-red-100"
-  return "bg-amber-50 text-amber-600 border-amber-100"
+function ProgressSignalBar({ text }: { text: string }) {
+  return (
+    <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="text-base">🌱</span>
+        <p className="text-sm font-bold leading-relaxed text-emerald-800">{text}</p>
+      </div>
+    </section>
+  )
 }
 
 function FocusCard({
@@ -55,37 +61,40 @@ function FocusCard({
     })
   }
 
-  const numberLabel = ["❶", "❷", "❸"][index] ?? `#${index + 1}`
+  function jumpToFirstTask() {
+    const first = pick.tasks[0]
+    if (!first) return
+    if (typeof document !== "undefined") {
+      const el = document.getElementById(`task-${first.id}`)
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }
+
+  const numberLabel = ["❶", "❷"][index] ?? `#${index + 1}`
 
   return (
     <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 p-5 shadow-sm">
       <div className="mb-3 flex items-baseline gap-2">
         <span className="text-lg font-black text-indigo-600">{numberLabel}</span>
-        <h3 className="flex-1 text-sm font-bold text-slate-800">{pick.knowledgePoint}</h3>
-        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-bold ${priorityChipClass(pick.priority)}`}>
-          {pick.priority}
+        <h3 className="flex-1 text-sm font-bold leading-relaxed text-slate-800">{pick.goal}</h3>
+        <span className="shrink-0 text-[10px] text-slate-400">
+          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
+          {pick.subject}
         </span>
       </div>
 
-      <div className="mb-3 flex items-center gap-2 text-[10px] text-slate-500">
-        <span className={`inline-block h-2 w-2 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
-        <span>{pick.subject}</span>
-        <span>·</span>
-        <span>错 {pick.occurrences} 题</span>
-      </div>
-
-      <div className="mb-3 rounded-xl border border-slate-100 bg-white/60 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">症结</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.diagnosis}</p>
+      <div className="mb-3 rounded-xl border border-slate-100 bg-white/70 p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">上次卡在哪里</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.stepDiagnosis}</p>
       </div>
 
       <div className="mb-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">本周任务</p>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">这周怎么补</p>
         <ul className="space-y-2">
           {pick.tasks.map((t) => {
             const isDone = !!done[t.id]
             return (
-              <li key={t.id}>
+              <li key={t.id} id={`task-${t.id}`}>
                 <button
                   type="button"
                   onClick={() => toggle(t.id)}
@@ -101,6 +110,9 @@ function FocusCard({
                   <span className={`flex-1 text-xs leading-relaxed ${isDone ? "text-slate-400 line-through" : "text-slate-700"}`}>
                     {t.text}
                   </span>
+                  <span className={`shrink-0 text-[10px] tabular-nums ${isDone ? "text-slate-300" : "text-slate-500"}`}>
+                    ⏱ {t.durationMinutes} 分钟
+                  </span>
                 </button>
               </li>
             )
@@ -109,12 +121,20 @@ function FocusCard({
       </div>
 
       <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">完成后预期</p>
-        <p className="mt-1 text-xs leading-relaxed text-emerald-800">{pick.expectedOutcome}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">下次再遇到</p>
+        <p className="mt-1 text-xs leading-relaxed text-emerald-800">{pick.closingLine}</p>
       </div>
 
+      <button
+        type="button"
+        onClick={jumpToFirstTask}
+        className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+      >
+        ▶ 现在就做
+      </button>
+
       {pick.fileRefs.length > 0 && (
-        <div>
+        <div className="mt-3">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">相关错题</p>
           <div className="flex flex-wrap gap-1.5">
             {pick.fileRefs.map((f) => (
@@ -152,7 +172,7 @@ function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] 
   )
 }
 
-function OtherWeakPointsCard({
+function MoreToPracticeCard({
   weakPoints,
   focusKnowledgePoints,
 }: {
@@ -172,7 +192,7 @@ function OtherWeakPointsCard({
       >
         <div className="h-3 w-1 rounded-full bg-slate-400" />
         <h3 className="flex-1 text-sm font-bold text-slate-800">
-          其他薄弱点 ({others.length})
+          还可以再练这些 ({others.length})
         </h3>
         <span className="text-xs text-slate-400">{open ? "▴" : "▾"}</span>
       </button>
@@ -196,38 +216,24 @@ function OtherWeakPointsCard({
   )
 }
 
-function OverviewStripCard({ overview }: { overview: WrongQuestionReport["overview"] }) {
-  return (
-    <section className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
-        <span className="font-bold text-slate-800">共 {overview.total} 道</span>
-        {overview.bySubject.map((s) => (
-          <span key={s.subject} className="flex items-center gap-1">
-            <span className={`inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[s.subject] ?? "bg-slate-400"}`} />
-            {s.subject} {s.count}
-          </span>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 export default function WrongQuestionReportView({ report }: Props) {
   const focusKPs = new Set(report.focusPicks.map((fp) => fp.knowledgePoint))
   return (
     <div className="space-y-3">
+      <ProgressSignalBar text={report.progressSignal} />
+
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-3 w-1 rounded-full bg-indigo-500" />
-          <h2 className="text-sm font-bold text-slate-800">本周聚焦</h2>
+          <h2 className="text-sm font-bold text-slate-800">这周先拿下这道</h2>
         </div>
         {report.focusPicks.map((pick, i) => (
           <FocusCard key={i} pick={pick} index={i} generatedAt={report.generatedAt} />
         ))}
       </div>
+
       <WeeklyTrendCard trend={report.weeklyTrend} />
-      <OtherWeakPointsCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
-      <OverviewStripCard overview={report.overview} />
+      <MoreToPracticeCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
     </div>
   )
 }

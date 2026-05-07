@@ -1,5 +1,5 @@
 import type { ScoreEntry, WeeklyEmotion } from "./mockScores.ts"
-import type { GrowthReport, WrongQuestionReport } from "./reportTypes.ts"
+import type { GrowthReport } from "./reportTypes.ts"
 
 export type FileForOverview = {
   subject: string
@@ -9,9 +9,15 @@ export type FileForOverview = {
   description: string
 }
 
+export type FileOverview = {
+  total: number
+  bySubject: { subject: string; count: number }[]
+  byQuestionType: { type: string; count: number }[]
+}
+
 export function aggregateFileOverview(
   files: FileForOverview[]
-): WrongQuestionReport["overview"] {
+): FileOverview {
   const subjectMap = new Map<string, number>()
   const typeMap = new Map<string, number>()
   for (const f of files) {
