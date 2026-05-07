@@ -45,7 +45,11 @@ node --experimental-strip-types --test \
   lib/fileUploadFeedback.test.mts \
   lib/server/sqliteOptional.test.mts \
   lib/nextConfig.test.mts \
-  lib/launcherScript.test.mts
+  lib/launcherScript.test.mts \
+  lib/mockReports.test.mts \
+  lib/reportCache.test.mts \
+  lib/reportTaskState.test.mts \
+  components/WrongQuestionReportView.test.mts
 ```
 
 ## Critical Gotcha — Turbopack disabled for dev
@@ -205,9 +209,9 @@ Three retrieval paths exist in `ChatPanel`:
 
 ## Report Center
 
-Third view alongside chat and file center, surfaced via `activeView === "reports"`. New `ReportCenterPanel` (in `deliclaw-demo/components/`) hosts two report types via internal tabs:
+Third view alongside chat and file center, surfaced via `activeView === "reports"`. `ReportCenterPanel` (in `deliclaw-demo/components/`) hosts two report types via internal tabs:
 
-- **错题报告** (student-facing) — `WrongQuestionReportView`
+- **错题报告** (student-facing) — `WrongQuestionReportView` (V4 layout — see below)
 - **成长报告** (parent-facing) — `GrowthReportView` with monthly score line chart, emotion trend, and parent advice
 
 ### Pipeline (current: demo / mock mode)
@@ -221,7 +225,31 @@ app/api/reports/[type]/route.ts
 ReportCenterPanel writes to localStorage["deliclaw_report_<type>"]
 ```
 
-The route currently returns hardcoded fixtures from `lib/mockReports.ts` so the demo runs without an OpenRouter call. The growth report's `scores` array still flows through `aggregateScores(getScoresForWindow(30), today)` so the line chart shows the crafted `MOCK_SCORES` narrative (math dip+recovery, physics low week 3, etc.). Only the qualitative text (`weakPoints` / `errorPatterns` / `actionPlan` / `emotionTrend.summary` / `highlights` / `parentAdvice`) is hardcoded.
+The route currently returns hardcoded fixtures from `lib/mockReports.ts` so the demo runs without an OpenRouter call. The growth report's `scores` array still flows through `aggregateScores(getScoresForWindow(30), today)` so the line chart shows the crafted `MOCK_SCORES` narrative (math dip+recovery, physics low week 3, etc.). Only the qualitative text (wrong-question diagnoses + growth highlights/parentAdvice) is hardcoded.
+
+### 错题报告 V4 layout
+
+Top-down render order in `WrongQuestionReportView`:
+
+1. **HeroSignalsBar** — two compact rows (✓ progress + ⚠ gap), either side hidden when its signal is empty
+2. **TodayPickCard** — hero card with title 「本日重点」, the day's single 5-min task, "上次卡在哪" reminder, and a 48px-min 「开始」 button that scrolls to `#task-${todayPick.taskId}`. Done-state title is 「本日已完成」.
+3. **本周聚焦** section — FocusCards with formal labels 「错因回顾」 / 「本周练习」 / 「解题要点」 (Hattie 三问 mapped to feed-back / feed-up / feed-forward). Each card has at least one `isReDo: true` task (Roediger retrieval-practice priority).
+4. **本月错题趋势** — `WeeklyTrendCard` with recharts BarChart + 2-3 sentence summary
+5. **其他薄弱点（N）** — `MoreToPracticeCard`, default-collapsed list of weak points not in this week's focus
+6. **Footer** — totalErrorCount + subjectsCount derived from `weakPoints`
+
+### 文案分层 (chrome 正式 / body 学生)
+
+This is a load-bearing distinction enforced by tests:
+
+- **Chrome (titles, section labels, button text)**: formal product-grade copy ("本日重点", "本周聚焦", "错因回顾", "解题要点", "本月错题趋势", "其他薄弱点")
+- **Body (goal / stepDiagnosis / closingLine / progressSignal / gapSignal / footer)**: student voice ("4/12 那道，你顶点写对了，但 h = -2 写成了 2"; "物理单位换算又冒头，第 3 次了")
+
+Banned-words guards live in two layers:
+- **Mock layer** (`lib/mockReports.test.mts`): `JSON.stringify(report)` must not contain 稳 / 节奏 / 拆 / 提升 / 持续 / 整体呈 / 立即 / 马上 (V4) plus V3 legacy: 症结 / 优先级 / 孩子需要 / 正确率 / 掌握 / 夯实 / 精进
+- **View chrome layer** (`components/WrongQuestionReportView.test.mts`): the .tsx source must not contain those words PLUS removed casual titles (现在做这一件 / 今天这件做完了 / 这周先把这两道拿下 / 本月错题，一周一根 / 其他还在冒头的 / 上次卡在哪 / 这周怎么补 / 下次再遇到 / 想看完整本周计划)
+
+When polishing copy, run both test files — they are how regressions get caught.
 
 ### Re-enabling the real LLM pipeline
 
@@ -233,26 +261,29 @@ The full LLM-driven implementation is preserved in commit history and in the pla
 
 ### Key files
 
-- `lib/reportTypes.ts` — `WrongQuestionReport` / `GrowthReport` JSON contracts
-- `lib/mockReports.ts` — **active in demo mode**: `buildMockWrongQuestionReport()` / `buildMockGrowthReport()`. Both return fully-typed fixtures aligned with the `MOCK_SCORES` narrative.
+- `lib/reportTypes.ts` — `WrongQuestionReport` / `GrowthReport` JSON contracts. V4 wrong-question shape: `progressSignal` + `gapSignal` + `todayPick` (with `taskId`/`taskText`/`durationMinutes`/`whyLine`/`fileRef`) + `focusPicks` + `weeklyTrend` + `weakPoints`.
+- `lib/mockReports.ts` — **active in demo mode**: `buildMockWrongQuestionReport()` / `buildMockGrowthReport()`. Wrong-question mock derives `todayPick.taskId` from `focusPicks[0].tasks[0].id` to keep the scroll-target in sync with the FocusCard task.
 - `lib/mockScores.ts` — `MOCK_SCORES` (~50 entries, 30 days, 5 subjects) + `MOCK_EMOTION_HISTORY` (4 weeks). Powers the growth report's score chart even in mock mode.
 - `lib/reportAggregation.ts` — pure functions: `aggregateFileOverview`, `aggregateScores`, `buildEmotionTrendSkeleton`, `countActiveDays`. Used by `mockReports.ts` for score aggregation; otherwise reserved for the LLM path.
 - `lib/reportPrompts.ts` — prompt strings (used only when LLM mode is restored)
 - `app/api/reports/[type]/route.ts` — thin orchestration; currently delegates straight to `mockReports`
-- `lib/reportCache.ts` — `readCachedReport` / `writeCachedReport` / `clearCachedReport` + `REPORT_STORAGE_KEYS`
+- `lib/reportCache.ts` — `readCachedReport` / `writeCachedReport` / `clearCachedReport` + `REPORT_STORAGE_KEYS`. Cache validator (`isWrongQuestionReportShape`) auto-discards V2/V3 cached reports that lack V4 fields, so users with stale localStorage re-generate cleanly.
+- `lib/reportTaskState.ts` — `readTaskState` / `setTaskDone` / `clearTaskState` + `TASK_STATE_STORAGE_KEY`. localStorage-backed task checkbox persistence keyed on `report.generatedAt`. Used by both TodayPickCard's done-state and FocusCard's checkboxes — the parent `WrongQuestionReportView` owns the React state and passes `taskState` + `onToggle` down to FocusCards (single source of truth, so checking a task in FocusCard immediately flips TodayPickCard to done).
 - `components/ReportCenterPanel.tsx` — container that consumes those helpers
-- `components/WrongQuestionReportView.tsx` / `components/GrowthReportView.tsx` — view layers (recharts)
+- `components/WrongQuestionReportView.tsx` — V4 view: HeroSignalsBar / TodayPickCard / FocusCards / WeeklyTrendCard / MoreToPracticeCard / footer. Shared `scrollToTask(id)` helper used by both FocusCard's "现在就做" and TodayPickCard's "开始" buttons.
+- `components/GrowthReportView.tsx` — view layer (recharts)
 
 ### LocalStorage cache
 
 - `deliclaw_report_wrong-questions` — `WrongQuestionReport` JSON
 - `deliclaw_report_growth` — `GrowthReport` JSON
+- `deliclaw_report_wq_tasks` — task checkbox state, keyed on `generatedAt` so a regenerated report resets all checkboxes
 
-Both keys are cleared by **重置会话** (in addition to the original 5 keys). Cache is also cleared by the in-panel **重新生成** button.
+All three keys are cleared by **重置会话** (alongside the chat/memory/files keys). Report-cache keys are also cleared by the in-panel **重新生成** button (which calls `clearCachedReport(type)` + for wrong-questions also `clearTaskState()`).
 
 ### Dependencies
 
-- `recharts` — line/bar/pie charts; required by `WrongQuestionReportView` and `GrowthReportView`
+- `recharts` — line/bar charts; required by `WrongQuestionReportView` and `GrowthReportView` (no PieChart in V4 wrong-question report — locked by test)
 
 ## Environment
 
@@ -318,3 +349,19 @@ Latest verification:
 - Launcher tests passed: 4 tests, 0 failures.
 - `npm run build` passed.
 - Production API smoke test for `/api/files/upload` returned `ok: true` and `sqliteStored: true`; `/api/files/search` returned the uploaded test file through SQLite search.
+
+## Current Code Progress — 2026-05-07
+
+错题报告 V3 → V4 redesign shipped. Key shifts:
+
+- **V3 (Hattie 三问 + student-voice)**: replaced the V2 four-parallel-section layout (错题总览 / 薄弱知识点 / 错误模式 / 提分行动) with focus-driven `progressSignal` + 1-3 `focusPicks` + `weeklyTrend` + `weakPoints`. Each focus card walked the student through Hattie's feed-up / feed-back / feed-forward via `goal` / `stepDiagnosis` / `closingLine`. Banned diagnostic-report tone (症结 / 正确率% / 优先级 / 孩子需要 etc.) and replaced it with student voice ("你 + 具体动作 + 具体卡点").
+- **V4 (hero action card)**: V3 still made the student scan to know "now what". V4 puts three things in the first viewport: ✓ progress + ⚠ gap + ▶ today's single 5-min task with a 「开始」 button that scrolls to the matching FocusCard task. New data fields: `gapSignal`, `todayPick`. New components: `HeroSignalsBar`, `TodayPickCard`. Shared `scrollToTask` helper. `taskState` lifted to parent so TodayPickCard's done-state mirrors FocusCard checkboxes immediately.
+- **Formal-titles polish**: section titles (chrome) shifted from coach-y casual ("现在做这一件" / "这周先把这两道拿下" / "本月错题，一周一根") to product-grade formal ("本日重点" / "本周聚焦" / "本月错题趋势" / "其他薄弱点（N）"); body copy stays in student voice. This "chrome 正式 / body 亲切" split is enforced by chrome banned-words tests in `WrongQuestionReportView.test.mts`.
+
+Implementation discipline:
+- Subagent-driven development with two-stage review (spec compliance + code quality) per task.
+- TDD throughout (RED → GREEN → commit).
+- Three feature branches merged to master, all with --no-ff merge commits preserving the V3 → V4 → polish progression.
+- 75 targeted tests pass after final merge; `npm run build` clean.
+
+Known nit (deferred): TodayPickCard done-state shows raw filename ("数学-错题-2026-04-12.png") rather than a prettier label like "4/12 二次函数". Spec §2.3 explicitly defers this. The done-state body line "下面还有计划，想继续就往下翻" is also still casual under the formal "本日已完成" title — flag for next polish pass.
