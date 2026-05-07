@@ -29,8 +29,7 @@ function isValidReport(report: AnyReport | null, type: ReportType): boolean {
   if (type === "wrong-questions") {
     const r = report as WrongQuestionReport
     return (
-      !!r.overview &&
-      Array.isArray(r.overview.bySubject) &&
+      typeof r.progressSignal === "string" &&
       Array.isArray(r.focusPicks) &&
       !!r.weeklyTrend &&
       Array.isArray(r.weeklyTrend.series) &&

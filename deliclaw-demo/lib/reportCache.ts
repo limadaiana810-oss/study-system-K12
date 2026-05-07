@@ -15,10 +15,7 @@ function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
   return (
     !!r &&
     typeof r === "object" &&
-    !!r.overview &&
-    typeof r.overview === "object" &&
-    Array.isArray(r.overview.bySubject) &&
-    Array.isArray(r.overview.byQuestionType) &&
+    typeof r.progressSignal === "string" &&
     Array.isArray(r.focusPicks) &&
     !!r.weeklyTrend &&
     typeof r.weeklyTrend === "object" &&
