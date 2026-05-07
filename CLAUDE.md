@@ -203,6 +203,52 @@ Three retrieval paths exist in `ChatPanel`:
 - **File management APIs**: `app/api/files/list/route.ts`, `app/api/files/[id]/route.ts`, `app/api/files/clear/route.ts`
 - **Config**: `next.config.ts` disables image optimization, allows `*.trycloudflare.com` dev origins for Cloudflare quick tunnels, and sets `outputFileTracingRoot` to suppress workspace warnings
 
+## Report Center
+
+Third view alongside chat and file center, surfaced via `activeView === "reports"`. New `ReportCenterPanel` (in `deliclaw-demo/components/`) hosts two report types via internal tabs:
+
+- **错题报告** (student-facing) — `WrongQuestionReportView`
+- **成长报告** (parent-facing) — `GrowthReportView` with monthly score line chart, emotion trend, and parent advice
+
+### Pipeline
+
+```
+ReportCenterPanel
+  ↓ POST /api/reports/{wrong-questions | growth} { memorySnapshot }
+app/api/reports/[type]/route.ts
+  ↓ aggregate SQLite files / mock scores / 4-week emotion history (deterministic)
+  ↓ openrouterChatJson(prompt, response_format: json_object)
+  ↓ merge LLM output (qualitative only) with deterministic data
+  ← JSON envelope { ok: true, report }
+ReportCenterPanel writes to localStorage["deliclaw_report_<type>"]
+```
+
+### Core principle
+
+**Numbers are computed server-side; the LLM only writes qualitative text.** Never let the model produce score values, counts, or weekly averages — those are aggregated in `lib/reportAggregation.ts`. The LLM only writes diagnoses, error patterns, action plans, weekly summaries, highlights, and parent advice.
+
+### Key files
+
+- `lib/reportTypes.ts` — `WrongQuestionReport` / `GrowthReport` JSON contracts
+- `lib/mockScores.ts` — `MOCK_SCORES` (~50 entries, 30 days, 5 subjects) + `MOCK_EMOTION_HISTORY` (4 weeks). Replace this module to ingest real data.
+- `lib/reportAggregation.ts` — pure functions: `aggregateFileOverview`, `aggregateScores`, `buildEmotionTrendSkeleton`, `countActiveDays`
+- `lib/reportPrompts.ts` — two prompt strings (Chinese, JSON-only)
+- `app/api/reports/[type]/route.ts` — orchestration
+- `lib/reportCache.ts` — `readCachedReport` / `writeCachedReport` / `clearCachedReport` + `REPORT_STORAGE_KEYS`
+- `components/ReportCenterPanel.tsx` — container that consumes those helpers
+- `components/WrongQuestionReportView.tsx` / `components/GrowthReportView.tsx` — view layers (recharts)
+
+### LocalStorage cache
+
+- `deliclaw_report_wrong-questions` — `WrongQuestionReport` JSON
+- `deliclaw_report_growth` — `GrowthReport` JSON
+
+Both keys are cleared by **重置会话** (in addition to the original 5 keys). Cache is also cleared by the in-panel **重新生成** button.
+
+### Dependencies
+
+- `recharts` — line/bar/pie charts; required by `WrongQuestionReportView` and `GrowthReportView`
+
 ## Environment
 
 ```
