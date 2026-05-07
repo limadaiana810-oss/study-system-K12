@@ -11,9 +11,10 @@ export async function openrouterChatJson<T>(params: {
   system: string
   user: string
   timeoutMs?: number
+  responseFormat?: "json_object"
 }): Promise<T> {
   const key = mustKey()
-  const { model, system, user, timeoutMs = 20000 } = params
+  const { model, system, user, timeoutMs = 20000, responseFormat } = params
 
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -31,7 +32,12 @@ export async function openrouterChatJson<T>(params: {
         "HTTP-Referer": "http://localhost:3000",
         "X-Title": "DeliClaw Demo",
       },
-      body: JSON.stringify({ model, messages, temperature: 0.1 }),
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.1,
+        ...(responseFormat ? { response_format: { type: responseFormat } } : {}),
+      }),
       signal: ctrl.signal,
     })
     if (!res.ok) throw new Error(await res.text())
