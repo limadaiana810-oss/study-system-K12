@@ -1,11 +1,17 @@
+export type FocusTask = {
+  id: string
+  text: string
+  durationMinutes: number
+  isReDo: boolean
+}
+
 export type FocusPick = {
   knowledgePoint: string
   subject: string
-  occurrences: number
-  priority: "高" | "中"
-  diagnosis: string
-  tasks: { id: string; text: string }[]
-  expectedOutcome: string
+  goal: string
+  stepDiagnosis: string
+  tasks: FocusTask[]
+  closingLine: string
   fileRefs: string[]
 }
 
@@ -22,11 +28,7 @@ export type WeeklyTrend = {
 export type WrongQuestionReport = {
   generatedAt: string
   windowDays: 30
-  overview: {
-    total: number
-    bySubject: { subject: string; count: number }[]
-    byQuestionType: { type: string; count: number }[]
-  }
+  progressSignal: string
   focusPicks: FocusPick[]
   weeklyTrend: WeeklyTrend
   weakPoints: {
