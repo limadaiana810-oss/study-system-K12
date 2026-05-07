@@ -11,7 +11,7 @@ test("chat panel exposes file center as a header peer to the online DeliClaw ide
   const messagesRender = source.indexOf("messages.map")
 
   assert.match(source, /activeView/)
-  assert.match(source, /onActiveViewChange:\s*\(view:\s*"chat" \| "files"\) => void/)
+  assert.match(source, /onActiveViewChange:\s*\(view:\s*"chat" \| "files" \| "reports"\) => void/)
   assert.match(source, /onActiveViewChange\("chat"\)/)
   assert.match(source, /onActiveViewChange\("files"\)/)
   assert.doesNotMatch(source, /const \[activeView, setActiveView\] = useState/)

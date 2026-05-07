@@ -19,7 +19,7 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [pendingInferred, setPendingInferred] = useState<InferredCandidate[]>([])
   const [turnInsight, setTurnInsight] = useState<TurnInsight | null>(null)
-  const [activeView, setActiveView] = useState<"chat" | "files">("chat")
+  const [activeView, setActiveView] = useState<"chat" | "files" | "reports">("chat")
   const [isLoaded, setIsLoaded] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const isResettingRef = useRef(false)
@@ -195,6 +195,8 @@ export default function Home() {
     localStorage.removeItem(STAGE_STORAGE_KEY)
     localStorage.removeItem(PENDING_INFERRED_STORAGE_KEY)
     localStorage.removeItem(FILE_CENTER_ONBOARDING_STORAGE_KEY)
+    localStorage.removeItem("deliclaw_report_wrong-questions")
+    localStorage.removeItem("deliclaw_report_growth")
     window.requestAnimationFrame(() => {
       window.location.replace(window.location.pathname + window.location.search)
     })

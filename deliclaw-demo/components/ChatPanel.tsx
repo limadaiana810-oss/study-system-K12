@@ -32,6 +32,7 @@ import FileCenterOnboarding, { type OnboardingTarget } from "./FileCenterOnboard
 import FileManagerPanel from "./FileManagerPanel"
 import MessageBubble from "./MessageBubble"
 import QuickReplyBar from "./QuickReplyBar"
+import ReportCenterPanel from "./ReportCenterPanel"
 
 interface Props {
   memory: MemoryEntry
@@ -43,8 +44,8 @@ interface Props {
   onFileUpload: (base64: string, mime: string, name: string) => void
   stage: DemoStage
   onStageChange: (s: DemoStage) => void
-  activeView: "chat" | "files"
-  onActiveViewChange: (view: "chat" | "files") => void
+  activeView: "chat" | "files" | "reports"
+  onActiveViewChange: (view: "chat" | "files" | "reports") => void
 }
 
 const FILE_CENTER_VIEW = "files"
@@ -927,10 +928,22 @@ export default function ChatPanel({
             <span className="block text-xs font-black">文件中心</span>
             <span className="block text-[9px] font-semibold opacity-70">点我找文件</span>
           </button>
+          <button
+            type="button"
+            onClick={() => onActiveViewChange("reports")}
+            className={`rounded-xl px-4 py-1.5 text-left transition-all ${
+              activeView === "reports"
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-indigo-600 hover:bg-white/70"
+            }`}
+          >
+            <span className="block text-xs font-black">报告中心</span>
+            <span className="block text-[9px] font-semibold opacity-70">错题 / 成长</span>
+          </button>
         </div>
       </div>
 
-      {activeView === "chat" ? (
+      {activeView === "chat" && (
         <>
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             {messages.map((msg) => (
@@ -1003,10 +1016,14 @@ export default function ChatPanel({
             )}
           </div>
         </>
-      ) : (
+      )}
+      {activeView === "files" && (
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <FileManagerPanel thumbnailBadgeMode={fileThumbnailBadgeMode} />
         </div>
+      )}
+      {activeView === "reports" && (
+        <ReportCenterPanel memory={memory} />
       )}
 
       <FileCenterOnboarding active={showFileOnboarding && activeView === "files"} onFinish={handleFileOnboardingFinish} onStepTargetChange={setFileOnboardingTarget} />

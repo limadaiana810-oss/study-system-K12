@@ -25,7 +25,7 @@ test("reset skips persistence writes while a controlled reset navigation is in p
 test("page owns the active view and passes it down to the chat panel", () => {
   const source = fs.readFileSync(path.join(process.cwd(), "app", "page.tsx"), "utf8")
 
-  assert.match(source, /const \[activeView, setActiveView\] = useState<"chat" \| "files">\("chat"\)/)
+  assert.match(source, /const \[activeView, setActiveView\] = useState<"chat" \| "files" \| "reports">\("chat"\)/)
   assert.match(source, /<ChatPanel[\s\S]*activeView=\{activeView\}/)
   assert.match(source, /<ChatPanel[\s\S]*onActiveViewChange=\{setActiveView\}/)
 })
