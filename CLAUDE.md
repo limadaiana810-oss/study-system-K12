@@ -210,30 +210,35 @@ Third view alongside chat and file center, surfaced via `activeView === "reports
 - **错题报告** (student-facing) — `WrongQuestionReportView`
 - **成长报告** (parent-facing) — `GrowthReportView` with monthly score line chart, emotion trend, and parent advice
 
-### Pipeline
+### Pipeline (current: demo / mock mode)
 
 ```
 ReportCenterPanel
   ↓ POST /api/reports/{wrong-questions | growth} { memorySnapshot }
 app/api/reports/[type]/route.ts
-  ↓ aggregate SQLite files / mock scores / 4-week emotion history (deterministic)
-  ↓ openrouterChatJson(prompt, response_format: json_object)
-  ↓ merge LLM output (qualitative only) with deterministic data
+  ↓ buildMockWrongQuestionReport() | buildMockGrowthReport()
   ← JSON envelope { ok: true, report }
 ReportCenterPanel writes to localStorage["deliclaw_report_<type>"]
 ```
 
-### Core principle
+The route currently returns hardcoded fixtures from `lib/mockReports.ts` so the demo runs without an OpenRouter call. The growth report's `scores` array still flows through `aggregateScores(getScoresForWindow(30), today)` so the line chart shows the crafted `MOCK_SCORES` narrative (math dip+recovery, physics low week 3, etc.). Only the qualitative text (`weakPoints` / `errorPatterns` / `actionPlan` / `emotionTrend.summary` / `highlights` / `parentAdvice`) is hardcoded.
+
+### Re-enabling the real LLM pipeline
+
+The full LLM-driven implementation is preserved in commit history and in the plan file `deliclaw-demo/docs/superpowers/plans/2026-05-07-report-center.md` (Task 7). It still relies on these supporting files (kept in the repo, currently unused by the route): `lib/reportAggregation.ts`, `lib/reportPrompts.ts`, `lib/server/openrouter.ts`'s `responseFormat` option, and the SQLite read in `lib/server/sqlite.ts`. To switch back: replace the route body with the LLM orchestration from that plan; the original principle below still governs.
+
+### Core principle (when LLM is on)
 
 **Numbers are computed server-side; the LLM only writes qualitative text.** Never let the model produce score values, counts, or weekly averages — those are aggregated in `lib/reportAggregation.ts`. The LLM only writes diagnoses, error patterns, action plans, weekly summaries, highlights, and parent advice.
 
 ### Key files
 
 - `lib/reportTypes.ts` — `WrongQuestionReport` / `GrowthReport` JSON contracts
-- `lib/mockScores.ts` — `MOCK_SCORES` (~50 entries, 30 days, 5 subjects) + `MOCK_EMOTION_HISTORY` (4 weeks). Replace this module to ingest real data.
-- `lib/reportAggregation.ts` — pure functions: `aggregateFileOverview`, `aggregateScores`, `buildEmotionTrendSkeleton`, `countActiveDays`
-- `lib/reportPrompts.ts` — two prompt strings (Chinese, JSON-only)
-- `app/api/reports/[type]/route.ts` — orchestration
+- `lib/mockReports.ts` — **active in demo mode**: `buildMockWrongQuestionReport()` / `buildMockGrowthReport()`. Both return fully-typed fixtures aligned with the `MOCK_SCORES` narrative.
+- `lib/mockScores.ts` — `MOCK_SCORES` (~50 entries, 30 days, 5 subjects) + `MOCK_EMOTION_HISTORY` (4 weeks). Powers the growth report's score chart even in mock mode.
+- `lib/reportAggregation.ts` — pure functions: `aggregateFileOverview`, `aggregateScores`, `buildEmotionTrendSkeleton`, `countActiveDays`. Used by `mockReports.ts` for score aggregation; otherwise reserved for the LLM path.
+- `lib/reportPrompts.ts` — prompt strings (used only when LLM mode is restored)
+- `app/api/reports/[type]/route.ts` — thin orchestration; currently delegates straight to `mockReports`
 - `lib/reportCache.ts` — `readCachedReport` / `writeCachedReport` / `clearCachedReport` + `REPORT_STORAGE_KEYS`
 - `components/ReportCenterPanel.tsx` — container that consumes those helpers
 - `components/WrongQuestionReportView.tsx` / `components/GrowthReportView.tsx` — view layers (recharts)
