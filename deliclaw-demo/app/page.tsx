@@ -6,6 +6,7 @@ import ChatPanel from "@/components/ChatPanel"
 import DatabaseHub from "@/components/DatabaseHub"
 import { applyInferredCandidate, dedupeCandidates } from "@/lib/memoryParser"
 import { FILE_CENTER_ONBOARDING_STORAGE_KEY } from "@/lib/onboardingStorage"
+import { clearTaskState as clearReportTaskState } from "@/lib/reportTaskState"
 import { acceptDueInferredCandidates, getNextAutoConfirmDelay } from "@/lib/pendingInferred"
 
 const MEMORY_STORAGE_KEY = "deliclaw_memory"
@@ -197,6 +198,7 @@ export default function Home() {
     localStorage.removeItem(FILE_CENTER_ONBOARDING_STORAGE_KEY)
     localStorage.removeItem("deliclaw_report_wrong-questions")
     localStorage.removeItem("deliclaw_report_growth")
+    clearReportTaskState()
     window.requestAnimationFrame(() => {
       window.location.replace(window.location.pathname + window.location.search)
     })
