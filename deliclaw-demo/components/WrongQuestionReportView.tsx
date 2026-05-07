@@ -108,29 +108,14 @@ function TodayPickCard({
 function FocusCard({
   pick,
   index,
-  generatedAt,
+  taskState,
+  onToggle,
 }: {
   pick: FocusPick
   index: number
-  generatedAt: string
+  taskState: Record<string, true>
+  onToggle: (taskId: string) => void
 }) {
-  const [done, setDone] = useState<Record<string, true>>({})
-
-  useEffect(() => {
-    setDone(readTaskState(generatedAt))
-  }, [generatedAt])
-
-  function toggle(taskId: string) {
-    const next = !done[taskId]
-    setTaskDone(generatedAt, taskId, next)
-    setDone((prev) => {
-      const copy = { ...prev }
-      if (next) copy[taskId] = true
-      else delete copy[taskId]
-      return copy
-    })
-  }
-
   function jumpToFirstTask() {
     const first = pick.tasks[0]
     if (!first) return
@@ -159,12 +144,12 @@ function FocusCard({
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">这周怎么补</p>
         <ul className="space-y-2">
           {pick.tasks.map((t) => {
-            const isDone = !!done[t.id]
+            const isDone = !!taskState[t.id]
             return (
               <li key={t.id} id={`task-${t.id}`}>
                 <button
                   type="button"
-                  onClick={() => toggle(t.id)}
+                  onClick={() => onToggle(t.id)}
                   className="flex w-full items-start gap-2 rounded-lg border border-slate-100 bg-white p-2 text-left hover:border-indigo-200"
                 >
                   <span
@@ -291,6 +276,17 @@ export default function WrongQuestionReportView({ report }: Props) {
     setTaskState(readTaskState(report.generatedAt))
   }, [report.generatedAt])
 
+  function toggleTask(taskId: string) {
+    const next = !taskState[taskId]
+    setTaskDone(report.generatedAt, taskId, next)
+    setTaskState((prev) => {
+      const copy = { ...prev }
+      if (next) copy[taskId] = true
+      else delete copy[taskId]
+      return copy
+    })
+  }
+
   return (
     <div className="space-y-3">
       <HeroSignalsBar
@@ -308,7 +304,13 @@ export default function WrongQuestionReportView({ report }: Props) {
           <h2 className="text-sm font-bold text-slate-800">这周先拿下这道</h2>
         </div>
         {report.focusPicks.map((pick, i) => (
-          <FocusCard key={i} pick={pick} index={i} generatedAt={report.generatedAt} />
+          <FocusCard
+            key={i}
+            pick={pick}
+            index={i}
+            taskState={taskState}
+            onToggle={toggleTask}
+          />
         ))}
       </div>
 
