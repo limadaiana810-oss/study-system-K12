@@ -12,6 +12,7 @@ import {
   readCachedReport,
   writeCachedReport,
 } from "@/lib/reportCache"
+import { clearTaskState } from "@/lib/reportTaskState"
 import WrongQuestionReportView from "./WrongQuestionReportView"
 import GrowthReportView from "./GrowthReportView"
 
@@ -30,9 +31,11 @@ function isValidReport(report: AnyReport | null, type: ReportType): boolean {
     return (
       !!r.overview &&
       Array.isArray(r.overview.bySubject) &&
-      Array.isArray(r.weakPoints) &&
-      Array.isArray(r.errorPatterns) &&
-      Array.isArray(r.actionPlan)
+      Array.isArray(r.focusPicks) &&
+      !!r.weeklyTrend &&
+      Array.isArray(r.weeklyTrend.series) &&
+      typeof r.weeklyTrend.summary === "string" &&
+      Array.isArray(r.weakPoints)
     )
   }
   const r = report as GrowthReport
@@ -92,6 +95,7 @@ export default function ReportCenterPanel({ memory }: Props) {
 
   function regenerate() {
     clearCachedReport(active)
+    if (active === "wrong-questions") clearTaskState()
     setReport(null)
     generate()
   }
