@@ -12,12 +12,10 @@ test("WrongQuestionReportView is a client component", () => {
   assert.match(SOURCE, /^["']use client["']/m)
 })
 
-test("WrongQuestionReportView renders section titles", () => {
-  // V4 updated headings — old V3 wording removed
-  assert.match(SOURCE, /这周先把这两道拿下/)
-  // WeeklyTrend title (节奏 is banned); check V4 title
-  assert.match(SOURCE, /本月错题，一周一根/)
-  assert.match(SOURCE, /其他还在冒头的/)
+test("WrongQuestionReportView renders formal section titles", () => {
+  assert.match(SOURCE, /本周聚焦/)
+  assert.match(SOURCE, /本月错题趋势/)
+  assert.match(SOURCE, /其他薄弱点/)
 })
 
 test("WrongQuestionReportView renders the progress signal above the fold", () => {
@@ -50,8 +48,9 @@ test("FocusCard shows goal/stepDiagnosis/closingLine + ⏱ duration + '现在就
   assert.match(SOURCE, /durationMinutes/)
   assert.match(SOURCE, /分钟/)
   assert.match(SOURCE, /现在就做/)
-  assert.match(SOURCE, /上次卡在哪/)
-  assert.match(SOURCE, /下次再遇到/)
+  assert.match(SOURCE, /错因回顾/)
+  assert.match(SOURCE, /本周练习/)
+  assert.match(SOURCE, /解题要点/)
 })
 
 test("WrongQuestionReportView wires task checkbox state through reportTaskState", () => {
@@ -93,12 +92,8 @@ test("V4: source does NOT contain ProgressSignalBar (replaced by HeroSignalsBar)
   assert.doesNotMatch(SOURCE, /ProgressSignalBar/)
 })
 
-test("V4: source contains the header text '现在做这一件'", () => {
-  assert.match(SOURCE, /现在做这一件/)
-})
-
-test("V4: source contains the divider prompt '↓ 想看完整本周计划，往下翻'", () => {
-  assert.match(SOURCE, /↓ 想看完整本周计划，往下翻/)
+test("V4: TodayPickCard header is the formal '本日重点'", () => {
+  assert.match(SOURCE, /本日重点/)
 })
 
 test("V4: source references both progressSignal and gapSignal props", () => {
@@ -116,9 +111,9 @@ test("V4: source contains scroll target pattern #task-${...} for 开始 button",
   assert.match(SOURCE, /`#task-\$\{|'task-' \+|"task-" \+|task-\$\{/)
 })
 
-test("V4: source contains '开始' button text and '今天这件做完了' done-state label", () => {
+test("V4: source contains '开始' button text and '本日已完成' done-state label", () => {
   assert.match(SOURCE, /开始/)
-  assert.match(SOURCE, /今天这件做完了|做完/)
+  assert.match(SOURCE, /本日已完成/)
 })
 
 test("V4 chrome banned-words: source does not contain V4 banned words", () => {
@@ -134,36 +129,32 @@ test("V4 chrome banned-words: source does not contain V4 banned words", () => {
   }
 })
 
-// ── V4-3 tests (Task 3: section copy polish + page footer) ──
+// ── Page footer ──
 
-test("V4-3: FocusCards section header is '这周先把这两道拿下'", () => {
-  assert.match(SOURCE, /这周先把这两道拿下/)
-})
-
-test("V4-3: FocusCards section has subtitle '做完这两道，这周就算过去了'", () => {
-  assert.match(SOURCE, /做完这两道，这周就算过去了/)
-})
-
-test("V4-3: MoreToPracticeCard title is '其他还在冒头的'", () => {
-  assert.match(SOURCE, /其他还在冒头的/)
-})
-
-test("V4-3: page footer contains '下次错题进来，会自动加进这份报告'", () => {
+test("page footer renders weakPoints aggregate counts", () => {
   assert.match(SOURCE, /下次错题进来，会自动加进这份报告/)
+  assert.match(SOURCE, /totalErrorCount/)
+  assert.match(SOURCE, /subjectsCount/)
 })
 
-test("V4-3: source does NOT contain V3 FocusCards header '这周先拿下这道'", () => {
-  assert.doesNotMatch(SOURCE, /这周先拿下这道/)
-})
+// ── Removed casual titles (chrome 已转为正式口吻) ──
 
-test("V4-3: source does NOT contain V3 MoreToPractice title '还可以再练这些'", () => {
-  assert.doesNotMatch(SOURCE, /还可以再练这些/)
-})
-
-test("V4-3: source does NOT contain old FocusCard label '上次卡在哪里' (should be '上次卡在哪')", () => {
-  assert.doesNotMatch(SOURCE, /上次卡在哪里/)
-})
-
-test("V4-3: source contains new FocusCard label '上次卡在哪'", () => {
-  assert.match(SOURCE, /上次卡在哪/)
+test("chrome banned: removed casual section titles (formal pass)", () => {
+  const removed = [
+    "现在做这一件",          // → 本日重点
+    "今天这件做完了",        // → 本日已完成
+    "这周先把这两道拿下",    // → 本周聚焦
+    "做完这两道",            // subtitle removed
+    "本月错题，一周一根",    // → 本月错题趋势
+    "其他还在冒头的",        // → 其他薄弱点
+    "想看完整本周计划",      // divider removed
+    "上次卡在哪",            // → 错因回顾 (covers V3 "上次卡在哪里" too)
+    "这周怎么补",            // → 本周练习
+    "下次再遇到",            // → 解题要点
+    "这周先拿下这道",        // V3 wording, already gone
+    "还可以再练这些",        // V3 wording, already gone
+  ]
+  for (const word of removed) {
+    assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should no longer contain "${word}"`)
+  }
 })

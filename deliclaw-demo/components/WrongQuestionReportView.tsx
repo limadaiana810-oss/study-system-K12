@@ -75,7 +75,7 @@ function TodayPickCard({
       <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-indigo-600 font-bold">✓</span>
-          <h2 className="text-sm font-bold text-indigo-800">今天这件做完了</h2>
+          <h2 className="text-sm font-bold text-indigo-800">本日已完成</h2>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed mb-1">{todayPick.fileRef}</p>
         <p className="text-xs text-slate-500 leading-relaxed">下面还有计划，想继续就往下翻</p>
@@ -87,7 +87,7 @@ function TodayPickCard({
     <section className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-indigo-600 font-bold">▶</span>
-        <h2 className="text-sm font-bold text-indigo-900">现在做这一件</h2>
+        <h2 className="text-sm font-bold text-indigo-900">本日重点</h2>
       </div>
       <p className="text-sm font-semibold text-slate-800 leading-relaxed mb-1">
         {todayPick.taskText}
@@ -136,12 +136,12 @@ function FocusCard({
       </div>
 
       <div className="mb-3 rounded-xl border border-slate-100 bg-white/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">上次卡在哪</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">错因回顾</p>
         <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.stepDiagnosis}</p>
       </div>
 
       <div className="mb-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">这周怎么补</p>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">本周练习</p>
         <ul className="space-y-2">
           {pick.tasks.map((t) => {
             const isDone = !!taskState[t.id]
@@ -173,7 +173,7 @@ function FocusCard({
       </div>
 
       <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">下次再遇到</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">解题要点</p>
         <p className="mt-1 text-xs leading-relaxed text-emerald-800">{pick.closingLine}</p>
       </div>
 
@@ -207,7 +207,7 @@ function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] 
     <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">本月错题，一周一根</h3>
+        <h3 className="text-sm font-bold text-slate-800">本月错题趋势</h3>
       </div>
       <div className="h-40 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -244,7 +244,7 @@ function MoreToPracticeCard({
       >
         <div className="h-3 w-1 rounded-full bg-slate-400" />
         <h3 className="flex-1 text-sm font-bold text-slate-800">
-          其他还在冒头的（{others.length}）
+          其他薄弱点（{others.length}）
         </h3>
         <span className="text-xs text-slate-400">{open ? "▴" : "▾"}</span>
       </button>
@@ -298,15 +298,10 @@ export default function WrongQuestionReportView({ report }: Props) {
 
       <TodayPickCard todayPick={report.todayPick} taskState={taskState} />
 
-      <p className="text-center text-xs text-neutral-500 my-4">↓ 想看完整本周计划，往下翻</p>
-
       <div className="space-y-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-1 rounded-full bg-indigo-500" />
-            <h2 className="text-sm font-bold text-slate-800">这周先把这两道拿下</h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5 ml-3">做完这两道，这周就算过去了。</p>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-1 rounded-full bg-indigo-500" />
+          <h2 className="text-sm font-bold text-slate-800">本周聚焦</h2>
         </div>
         {report.focusPicks.map((pick, i) => (
           <FocusCard
