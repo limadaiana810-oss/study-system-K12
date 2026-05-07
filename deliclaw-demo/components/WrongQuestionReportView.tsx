@@ -178,8 +178,8 @@ function OtherWeakPointsCard({
       </button>
       {open && (
         <div className="mt-3 space-y-2">
-          {others.map((wp, i) => (
-            <div key={i} className="rounded-xl border border-slate-100 p-3">
+          {others.map((wp) => (
+            <div key={wp.knowledgePoint} className="rounded-xl border border-slate-100 p-3">
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-slate-800">{wp.knowledgePoint}</span>
                 <span className="text-[10px] text-slate-500">
@@ -222,7 +222,7 @@ export default function WrongQuestionReportView({ report }: Props) {
           <h2 className="text-sm font-bold text-slate-800">本周聚焦</h2>
         </div>
         {report.focusPicks.map((pick, i) => (
-          <FocusCard key={pick.knowledgePoint} pick={pick} index={i} generatedAt={report.generatedAt} />
+          <FocusCard key={i} pick={pick} index={i} generatedAt={report.generatedAt} />
         ))}
       </div>
       <WeeklyTrendCard trend={report.weeklyTrend} />
