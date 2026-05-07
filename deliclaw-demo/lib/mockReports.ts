@@ -3,7 +3,7 @@ import {
   buildEmotionTrendSkeleton,
 } from "./reportAggregation.ts"
 import { getScoresForWindow, MOCK_EMOTION_HISTORY } from "./mockScores.ts"
-import type { GrowthReport, WrongQuestionReport } from "./reportTypes.ts"
+import type { GrowthReport, TodayPick, WrongQuestionReport } from "./reportTypes.ts"
 
 function todayIso(): string {
   const d = new Date()
@@ -17,13 +17,21 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    progressSignal: "这周错题少了一半，节奏稳住了——继续。",
+    progressSignal: "这周错题从 5 道降到 1 道",
+    gapSignal: "物理单位换算又冒头，第 3 次了",
+    todayPick: {
+      taskId: "focus-0-task-0",
+      taskText: "5 分钟，重做 4/12 那道二次函数",
+      durationMinutes: 5,
+      whyLine: "上次你把 h = -2 写成了 2",
+      fileRef: "数学-错题-2026-04-12.png",
+    } satisfies TodayPick,
     focusPicks: [
       {
         knowledgePoint: "二次函数顶点式",
         subject: "数学",
         goal: "你知道 y = a(x-h)² + k 这个式子里，h 和 k 各管什么吗？",
-        stepDiagnosis: "上次做这道题，你写出了顶点式，但把 h = -2 写成了 2。符号翻转是这道题最常卡的地方——不是你不会，是这个陷阱挺隐蔽的。",
+        stepDiagnosis: "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。",
         tasks: [
           {
             id: "focus-0-task-0",
@@ -38,7 +46,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
             isReDo: true,
           },
         ],
-        closingLine: "下次再遇到顶点式——第一步先看 h、k 的符号。这一步过了，整道题就稳了。",
+        closingLine: "下次再遇到顶点式——第一步先看 h、k 的符号。这一步对了，后面就不会跑偏。",
         fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
       },
       {
@@ -71,7 +79,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
         { week: 3, count: 2 },
         { week: 4, count: 1 },
       ],
-      summary: "本月错题在好转——从最高一周 5 道降到这周 1 道。",
+      summary: "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周缓过来了。",
     },
     weakPoints: [
       {

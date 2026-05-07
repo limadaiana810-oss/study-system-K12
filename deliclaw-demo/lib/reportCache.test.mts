@@ -28,6 +28,14 @@ const VALID_WRONG_QUESTION_FIXTURE = {
   generatedAt: "x",
   windowDays: 30,
   progressSignal: "",
+  gapSignal: "",
+  todayPick: {
+    taskId: "focus-0-task-0",
+    taskText: "5 分钟，重做",
+    durationMinutes: 5,
+    whyLine: "上次卡在这里",
+    fileRef: "test.png",
+  },
   focusPicks: [],
   weeklyTrend: { series: [], summary: "" },
   weakPoints: [],
@@ -106,4 +114,68 @@ test("readCachedReport discards a V2 cached wrong-questions report (no progressS
     })
   )
   assert.equal(readCachedReport("wrong-questions"), null)
+})
+
+// V4 shape validation tests
+const VALID_V3_WRONG_QUESTION_FIXTURE = {
+  generatedAt: "v3",
+  windowDays: 30,
+  progressSignal: "good",
+  focusPicks: [],
+  weeklyTrend: { series: [], summary: "" },
+  weakPoints: [],
+  // missing gapSignal and todayPick (V3 shape — should be rejected as stale by V4 validator)
+}
+
+const VALID_V4_WRONG_QUESTION_FIXTURE = {
+  generatedAt: "v4",
+  windowDays: 30,
+  progressSignal: "good",
+  gapSignal: "物理单位换算又冒头，第 3 次了",
+  todayPick: {
+    taskId: "focus-0-task-0",
+    taskText: "5 分钟，重做 4/12 那道二次函数",
+    durationMinutes: 5,
+    whyLine: "上次你把 h = -2 写成了 2",
+    fileRef: "数学-错题-2026-04-12.png",
+  },
+  focusPicks: [],
+  weeklyTrend: { series: [], summary: "" },
+  weakPoints: [],
+}
+
+test("readCachedReport discards a V3 wrong-questions report missing gapSignal and todayPick", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(VALID_V3_WRONG_QUESTION_FIXTURE)
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "V3 shape (no gapSignal/todayPick) must be rejected")
+})
+
+test("readCachedReport accepts a V4 wrong-questions report with gapSignal and todayPick", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(VALID_V4_WRONG_QUESTION_FIXTURE)
+  )
+  const result = readCachedReport("wrong-questions")
+  assert.notEqual(result, null, "V4 shape must be accepted")
+  assert.equal((result as any).generatedAt, "v4")
+})
+
+test("readCachedReport rejects V4 shape when todayPick.durationMinutes is a string", () => {
+  installShim()
+  const badFixture = {
+    ...VALID_V4_WRONG_QUESTION_FIXTURE,
+    todayPick: {
+      ...VALID_V4_WRONG_QUESTION_FIXTURE.todayPick,
+      durationMinutes: "five", // wrong type: should be number
+    },
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(badFixture)
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "todayPick.durationMinutes as string must be rejected")
 })

@@ -1,3 +1,11 @@
+export type TodayPick = {
+  taskId: string         // relates to focusPicks[i].tasks[j].id (used for scroll jump)
+  taskText: string       // "5 分钟，重做 4/12 那道二次函数"
+  durationMinutes: number // 5
+  whyLine: string        // "上次你把 h = -2 写成了 2"
+  fileRef: string        // old wrong-question file name (optional preview)
+}
+
 export type FocusTask = {
   id: string
   text: string
@@ -29,6 +37,8 @@ export type WrongQuestionReport = {
   generatedAt: string
   windowDays: 30
   progressSignal: string
+  gapSignal: string        // ⚠ line: specific knowledge point + occurrence count (NEW in V4)
+  todayPick: TodayPick     // "现在做这一件" hero action card (NEW in V4)
   focusPicks: FocusPick[]
   weeklyTrend: WeeklyTrend
   weakPoints: {

@@ -11,11 +11,26 @@ export const REPORT_STORAGE_KEYS: Record<ReportType, string> = {
 
 type AnyReport = WrongQuestionReport | GrowthReport
 
+function isTodayPickShape(x: any): boolean {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    typeof x.taskId === "string" &&
+    typeof x.taskText === "string" &&
+    typeof x.durationMinutes === "number" &&
+    typeof x.whyLine === "string" &&
+    typeof x.fileRef === "string"
+  )
+}
+
 function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
   return (
     !!r &&
     typeof r === "object" &&
     typeof r.progressSignal === "string" &&
+    typeof r.gapSignal === "string" &&
+    isTodayPickShape(r.todayPick) &&
     Array.isArray(r.focusPicks) &&
     !!r.weeklyTrend &&
     typeof r.weeklyTrend === "object" &&

@@ -80,3 +80,35 @@ test("buildMockWrongQuestionReport contains no banned diagnostic-report words", 
     assert.equal(allText.includes(word), false, `mock should not contain "${word}" (V3 banned word)`)
   }
 })
+
+test("buildMockWrongQuestionReport V4 new fields: gapSignal and todayPick", () => {
+  const r = buildMockWrongQuestionReport()
+  // gapSignal
+  assert.equal(r.gapSignal, "物理单位换算又冒头，第 3 次了")
+  // todayPick fields
+  assert.equal(r.todayPick.taskText, "5 分钟，重做 4/12 那道二次函数")
+  assert.equal(r.todayPick.durationMinutes, 5)
+  assert.equal(r.todayPick.whyLine, "上次你把 h = -2 写成了 2")
+  assert.equal(r.todayPick.taskId, "focus-0-task-0")
+  assert.ok(r.todayPick.fileRef.includes("数学-错题-2026-04-12"), `fileRef should contain "数学-错题-2026-04-12", got: ${r.todayPick.fileRef}`)
+  // consistency: todayPick.taskId must equal focusPicks[0].tasks[0].id
+  assert.equal(r.todayPick.taskId, r.focusPicks[0].tasks[0].id, "todayPick.taskId must match focusPicks[0].tasks[0].id")
+})
+
+test("buildMockWrongQuestionReport contains no V4 banned words", () => {
+  const r = buildMockWrongQuestionReport()
+  const allText = JSON.stringify(r)
+  // V4 new banned words (each catches family of variants)
+  const banned = ["稳", "节奏", "拆", "提升", "持续", "整体呈", "立即", "马上"]
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (V4 banned word)`)
+  }
+})
+
+test("buildMockWrongQuestionReport V4 updated fields: progressSignal / stepDiagnosis / closingLine / summary", () => {
+  const r = buildMockWrongQuestionReport()
+  assert.equal(r.progressSignal, "这周错题从 5 道降到 1 道")
+  assert.equal(r.focusPicks[0].stepDiagnosis, "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。")
+  assert.ok(r.focusPicks[0].closingLine.includes("后面就不会跑偏"), `closingLine should contain "后面就不会跑偏", got: ${r.focusPicks[0].closingLine}`)
+  assert.equal(r.weeklyTrend.summary, "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周缓过来了。")
+})
