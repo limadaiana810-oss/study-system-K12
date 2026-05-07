@@ -25,7 +25,12 @@ export type WeeklyEmotion = {
 function isoNDaysAgo(n: number): string {
   const d = new Date()
   d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  // Build the local-date string directly so we don't drift to the UTC day
+  // when run in early-morning local time (e.g. CST UTC+8 at 02:00).
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }
 
 export const MOCK_SCORES: ScoreEntry[] = [
@@ -97,8 +102,10 @@ export const MOCK_EMOTION_HISTORY: WeeklyEmotion[] = [
 ]
 
 export function getScoresForWindow(days: number): ScoreEntry[] {
+  // Returns the last `days` calendar days, exclusive of the day `days+1` ago.
+  // E.g. getScoresForWindow(7) yields entries from the 6 previous days plus today (7 distinct days).
   const cutoff = isoNDaysAgo(days)
-  return MOCK_SCORES.filter((s) => s.date >= cutoff).sort((a, b) =>
+  return MOCK_SCORES.filter((s) => s.date > cutoff).sort((a, b) =>
     a.date.localeCompare(b.date)
   )
 }
