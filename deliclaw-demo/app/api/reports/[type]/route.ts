@@ -143,9 +143,9 @@ async function buildGrowthReport(memorySnapshot: MemoryEntry): Promise<GrowthRep
     emotionTrend,
     highlights: Array.isArray(llm.highlights) ? llm.highlights : [],
     parentAdvice: {
-      strengthen: llm.parentAdvice?.strengthen ?? [],
-      remind: llm.parentAdvice?.remind ?? [],
-      encourage: llm.parentAdvice?.encourage ?? [],
+      strengthen: Array.isArray(llm.parentAdvice?.strengthen) ? llm.parentAdvice.strengthen : [],
+      remind: Array.isArray(llm.parentAdvice?.remind) ? llm.parentAdvice.remind : [],
+      encourage: Array.isArray(llm.parentAdvice?.encourage) ? llm.parentAdvice.encourage : [],
     },
   }
 }
