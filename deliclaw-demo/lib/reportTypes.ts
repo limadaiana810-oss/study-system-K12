@@ -1,3 +1,24 @@
+export type FocusPick = {
+  knowledgePoint: string
+  subject: string
+  occurrences: number
+  priority: "高" | "中"
+  diagnosis: string
+  tasks: { id: string; text: string }[]
+  expectedOutcome: string
+  fileRefs: string[]
+}
+
+export type WeeklyTrendPoint = {
+  week: 1 | 2 | 3 | 4
+  count: number
+}
+
+export type WeeklyTrend = {
+  series: WeeklyTrendPoint[]
+  summary: string
+}
+
 export type WrongQuestionReport = {
   generatedAt: string
   windowDays: 30
@@ -6,22 +27,13 @@ export type WrongQuestionReport = {
     bySubject: { subject: string; count: number }[]
     byQuestionType: { type: string; count: number }[]
   }
+  focusPicks: FocusPick[]
+  weeklyTrend: WeeklyTrend
   weakPoints: {
     knowledgePoint: string
     subject: string
     occurrences: number
     diagnosis: string
-  }[]
-  errorPatterns: {
-    pattern: string
-    evidence: string
-    fileRefs: string[]
-  }[]
-  actionPlan: {
-    priority: "高" | "中" | "低"
-    action: string
-    estimatedGain: string
-    targetWeakPoint?: string
   }[]
 }
 
