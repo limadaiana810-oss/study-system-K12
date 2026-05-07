@@ -1,6 +1,6 @@
 export const WRONG_QUESTION_REPORT_PROMPT = `你是一名教学辅导分析师。基于学生的错题清单，输出严格 JSON。
 
-输出 JSON 必须只包含四个字段：
+输出 JSON 必须只包含三个字段：
 {
   "focusPicks": [{
     "knowledgePoint": string,
