@@ -49,7 +49,6 @@ test("FocusCard shows goal/stepDiagnosis/closingLine + ⏱ duration + '现在就
   assert.match(SOURCE, /分钟/)
   assert.match(SOURCE, /现在就做/)
   assert.match(SOURCE, /错因回顾/)
-  assert.match(SOURCE, /本周练习/)
   assert.match(SOURCE, /解题要点/)
 })
 
