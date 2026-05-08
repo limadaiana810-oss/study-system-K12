@@ -34,8 +34,10 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
           isReDo: true,
         },
       ],
-      closingLine: "下次再遇到顶点式——第一步先看 h、k 的符号。这一步对了，后面就不会跑偏。",
+      closingLine: "下次再遇到顶点式——第一步先把 h、k 的符号锁死。这一步对了，后面 18 分跑不掉。",
       fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
+      errorCount: 4,
+      examWeightLabel: "期中压轴 18 分",
     },
     {
       knowledgePoint: "物理单位换算",
@@ -56,8 +58,34 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
           isReDo: false,
         },
       ],
-      closingLine: "下次遇到带单位的物理题——先把所有量换到同一套单位再列方程。",
+      closingLine: "下次遇到带单位的物理题——先把所有量统一换到 SI 制再列方程。这一步省下来，整张卷子的物理选填都不丢分。",
       fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
+      errorCount: 3,
+      examWeightLabel: "选填常考 6 分",
+    },
+    {
+      knowledgePoint: "电路图分析（串并联识别）",
+      subject: "物理",
+      goal: "电路图先看什么？是先找电源，还是先看电压表/电流表的位置？",
+      stepDiagnosis: "4/19 那道，你把并联看成了串联——少看了电压表跨在哪两个点上。整张图一开局就读错了。",
+      tasks: [
+        {
+          id: "focus-2-task-0",
+          text: "重做 4/19 那道电路图题：第一步把电压表/电流表所在位置标出来再判断串并联。",
+          durationMinutes: 10,
+          isReDo: true,
+        },
+        {
+          id: "focus-2-task-1",
+          text: "翻 4/28 那道实验题，画一遍等效电路图再算阻值。",
+          durationMinutes: 8,
+          isReDo: true,
+        },
+      ],
+      closingLine: "下次遇到电路图——第一步先把表跨在哪标出来，再判串并联。这一步对了，实验题 12 分整块就拿下。",
+      fileRefs: ["物理-错题-2026-04-19.png", "物理-错题-2026-04-28.png"],
+      errorCount: 3,
+      examWeightLabel: "实验题 12 分",
     },
   ]
 
@@ -73,7 +101,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    progressSignal: "这周错题从 5 道降到 1 道",
+    progressSignal: "这周错题从 5 道降到 1 道——连续 7 天打卡，二次函数顶点式啃下来，3 道老错题一起翻过去",
     gapSignal: "物理单位换算又冒头，第 3 次了",
     todayPick,
     focusPicks,

@@ -21,6 +21,8 @@ export type FocusPick = {
   tasks: FocusTask[]
   closingLine: string
   fileRefs: string[]
+  errorCount: number
+  examWeightLabel: string
 }
 
 export type WeeklyTrendPoint = {

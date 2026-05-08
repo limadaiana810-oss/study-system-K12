@@ -12,8 +12,8 @@ test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape 
   assert.equal(typeof r.generatedAt, "string")
   assert.ok(r.progressSignal.length > 0, "progressSignal must be non-empty")
 
-  // focusPicks: 1-2, each with goal/stepDiagnosis/closingLine/tasks
-  assert.ok(r.focusPicks.length >= 1 && r.focusPicks.length <= 2, `focusPicks length ${r.focusPicks.length}`)
+  // focusPicks: V5 fixed at 3 (high-freq + high-weight picks)
+  assert.equal(r.focusPicks.length, 3, `focusPicks length ${r.focusPicks.length}`)
   for (let i = 0; i < r.focusPicks.length; i++) {
     const fp = r.focusPicks[i]
     assert.ok(fp.goal.length > 0, `focusPicks[${i}].goal empty`)
@@ -30,6 +30,11 @@ test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape 
     }
     assert.ok(hasReDo, `focusPicks[${i}] must have at least one isReDo task (retrieval practice)`)
     assert.ok(Array.isArray(fp.fileRefs))
+    // V5: errorCount + examWeightLabel
+    assert.equal(typeof fp.errorCount, "number", `focusPicks[${i}].errorCount type`)
+    assert.ok(fp.errorCount > 0, `focusPicks[${i}].errorCount must be > 0`)
+    assert.equal(typeof fp.examWeightLabel, "string", `focusPicks[${i}].examWeightLabel type`)
+    assert.ok(fp.examWeightLabel.length > 0, `focusPicks[${i}].examWeightLabel empty`)
   }
 
   // weeklyTrend
@@ -105,10 +110,29 @@ test("buildMockWrongQuestionReport contains no V4 banned words", () => {
   }
 })
 
-test("buildMockWrongQuestionReport V4 updated fields: progressSignal / stepDiagnosis / closingLine / summary", () => {
+test("buildMockWrongQuestionReport V5 progressSignal includes both result and method", () => {
   const r = buildMockWrongQuestionReport()
-  assert.equal(r.progressSignal, "这周错题从 5 道降到 1 道")
+  // V5: progressSignal must convey BOTH the result AND the method/cause
+  assert.ok(r.progressSignal.includes("从 5 道降到 1 道"), `progressSignal should include the result, got: ${r.progressSignal}`)
+  assert.ok(
+    r.progressSignal.includes("打卡") || r.progressSignal.includes("啃下来") || r.progressSignal.includes("攻下来"),
+    `progressSignal should include the method (打卡/啃下来/攻下来), got: ${r.progressSignal}`,
+  )
+})
+
+test("buildMockWrongQuestionReport V5: 3 focusPicks selected by frequency × exam weight", () => {
+  const r = buildMockWrongQuestionReport()
+  // 二次函数 + 物理单位换算 + 物理电路图
+  const subjects = r.focusPicks.map((fp) => fp.subject)
+  assert.equal(subjects.filter((s) => s === "数学").length, 1, "should have 1 数学 pick")
+  assert.equal(subjects.filter((s) => s === "物理").length, 2, "should have 2 物理 picks")
+  // 数学 pick should have highest errorCount
+  const math = r.focusPicks.find((fp) => fp.subject === "数学")
+  assert.ok(math && math.errorCount >= 4, `数学 pick should have errorCount >= 4, got: ${math?.errorCount}`)
+})
+
+test("buildMockWrongQuestionReport stepDiagnosis matches V4 wording", () => {
+  const r = buildMockWrongQuestionReport()
   assert.equal(r.focusPicks[0].stepDiagnosis, "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。")
-  assert.ok(r.focusPicks[0].closingLine.includes("后面就不会跑偏"), `closingLine should contain "后面就不会跑偏", got: ${r.focusPicks[0].closingLine}`)
   assert.equal(r.weeklyTrend.summary, "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周缓过来了。")
 })

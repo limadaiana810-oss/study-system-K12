@@ -179,3 +179,63 @@ test("readCachedReport rejects V4 shape when todayPick.durationMinutes is a stri
   )
   assert.equal(readCachedReport("wrong-questions"), null, "todayPick.durationMinutes as string must be rejected")
 })
+
+// V5 shape validation tests
+const V4_FOCUS_PICK = {
+  knowledgePoint: "二次函数顶点式",
+  subject: "数学",
+  goal: "g",
+  stepDiagnosis: "s",
+  tasks: [],
+  closingLine: "c",
+  fileRefs: [],
+  // V5 missing: errorCount, examWeightLabel
+}
+
+const V5_FOCUS_PICK = {
+  ...V4_FOCUS_PICK,
+  errorCount: 4,
+  examWeightLabel: "期中压轴 18 分",
+}
+
+test("readCachedReport discards V4 shape with focusPicks missing errorCount/examWeightLabel", () => {
+  installShim()
+  const v4WithFocusPicks = {
+    ...VALID_V4_WRONG_QUESTION_FIXTURE,
+    focusPicks: [V4_FOCUS_PICK],
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(v4WithFocusPicks)
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "V4 focusPick (no errorCount) must be rejected")
+})
+
+test("readCachedReport accepts V5 shape with focusPicks containing errorCount + examWeightLabel", () => {
+  installShim()
+  const v5Fixture = {
+    ...VALID_V4_WRONG_QUESTION_FIXTURE,
+    generatedAt: "v5",
+    focusPicks: [V5_FOCUS_PICK],
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(v5Fixture)
+  )
+  const result = readCachedReport("wrong-questions")
+  assert.notEqual(result, null, "V5 focusPick shape must be accepted")
+  assert.equal((result as any).generatedAt, "v5")
+})
+
+test("readCachedReport rejects V5 shape when errorCount is a string", () => {
+  installShim()
+  const badFixture = {
+    ...VALID_V4_WRONG_QUESTION_FIXTURE,
+    focusPicks: [{ ...V5_FOCUS_PICK, errorCount: "four" }],
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(badFixture)
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "errorCount as string must be rejected")
+})

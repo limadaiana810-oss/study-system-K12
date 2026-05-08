@@ -24,6 +24,16 @@ function isTodayPickShape(x: any): boolean {
   )
 }
 
+function isFocusPickShape(x: any): boolean {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    typeof x.errorCount === "number" &&
+    typeof x.examWeightLabel === "string"
+  )
+}
+
 function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
   return (
     !!r &&
@@ -32,6 +42,7 @@ function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
     typeof r.gapSignal === "string" &&
     isTodayPickShape(r.todayPick) &&
     Array.isArray(r.focusPicks) &&
+    r.focusPicks.every(isFocusPickShape) &&
     !!r.weeklyTrend &&
     typeof r.weeklyTrend === "object" &&
     Array.isArray(r.weeklyTrend.series) &&

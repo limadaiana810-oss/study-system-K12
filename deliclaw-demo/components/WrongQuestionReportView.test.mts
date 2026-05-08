@@ -15,7 +15,7 @@ test("WrongQuestionReportView is a client component", () => {
 test("WrongQuestionReportView renders formal section titles", () => {
   assert.match(SOURCE, /本周聚焦/)
   assert.match(SOURCE, /本月错题趋势/)
-  assert.match(SOURCE, /其他薄弱点/)
+  assert.match(SOURCE, /次要错题/)
 })
 
 test("WrongQuestionReportView renders the progress signal above the fold", () => {
@@ -97,8 +97,8 @@ test("V4: source does NOT contain ProgressSignalBar (replaced by HeroSignalsBar)
   assert.doesNotMatch(SOURCE, /ProgressSignalBar/)
 })
 
-test("V4: TodayPickCard header is the formal '本日重点'", () => {
-  assert.match(SOURCE, /本日重点/)
+test("V5: TodayPickCard header is '本周重点' (weekly report, not daily)", () => {
+  assert.match(SOURCE, /本周重点/)
 })
 
 test("V4: source references both progressSignal and gapSignal props", () => {
@@ -116,9 +116,31 @@ test("V4: source contains scroll target pattern #task-${...} for 开始 button",
   assert.match(SOURCE, /`#task-\$\{|'task-' \+|"task-" \+|task-\$\{/)
 })
 
-test("V4: source contains '开始' button text and '本日已完成' done-state label", () => {
+test("V5: source contains '开始' button text and '本周已完成' done-state label", () => {
   assert.match(SOURCE, /开始/)
-  assert.match(SOURCE, /本日已完成/)
+  assert.match(SOURCE, /本周已完成/)
+})
+
+test("V5: FocusCard renders errorCount + examWeightLabel meta badge", () => {
+  assert.match(SOURCE, /pick\.errorCount/)
+  assert.match(SOURCE, /pick\.examWeightLabel/)
+  // amber-styled meta badge
+  assert.match(SOURCE, /amber/)
+})
+
+test("V5: original-question evidence renders as image thumbnails via /api/uploads/", () => {
+  assert.match(SOURCE, /\/api\/uploads\//)
+  assert.match(SOURCE, /<img/)
+})
+
+test("V5: source includes a Lightbox component for image preview", () => {
+  assert.match(SOURCE, /Lightbox/i)
+})
+
+test("V5: MoreToPracticeCard is renamed '次要错题' with amber accent", () => {
+  assert.match(SOURCE, /次要错题/)
+  // 次要错题 chrome must use amber, not slate
+  assert.doesNotMatch(SOURCE, /其他薄弱点/)
 })
 
 test("V4 chrome banned-words: source does not contain V4 banned words", () => {
@@ -146,18 +168,21 @@ test("page footer renders weakPoints aggregate counts", () => {
 
 test("chrome banned: removed casual section titles (formal pass)", () => {
   const removed = [
-    "现在做这一件",          // → 本日重点
-    "今天这件做完了",        // → 本日已完成
+    "现在做这一件",          // → 本日重点 (V4) → 本周重点 (V5)
+    "今天这件做完了",        // → 本日已完成 (V4) → 本周已完成 (V5)
+    "本日重点",              // V4 → 本周重点 (V5: weekly report)
+    "本日已完成",            // V4 → 本周已完成 (V5)
+    "其他薄弱点",            // V4 → 次要错题 (V5)
     "这周先把这两道拿下",    // → 本周聚焦
     "做完这两道",            // subtitle removed
     "本月错题，一周一根",    // → 本月错题趋势
-    "其他还在冒头的",        // → 其他薄弱点
+    "其他还在冒头的",        // V3 wording
     "想看完整本周计划",      // divider removed
-    "上次卡在哪",            // → 错因回顾 (covers V3 "上次卡在哪里" too)
+    "上次卡在哪",            // → 错因回顾
     "这周怎么补",            // → 本周练习
     "下次再遇到",            // → 解题要点
-    "这周先拿下这道",        // V3 wording, already gone
-    "还可以再练这些",        // V3 wording, already gone
+    "这周先拿下这道",        // V3 wording
+    "还可以再练这些",        // V3 wording
   ]
   for (const word of removed) {
     assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should no longer contain "${word}"`)
