@@ -113,11 +113,22 @@ test("buildMockWrongQuestionReport contains no V4 banned words", () => {
 test("buildMockWrongQuestionReport V5 progressSignal includes both result and method", () => {
   const r = buildMockWrongQuestionReport()
   // V5: progressSignal must convey BOTH the result AND the method/cause
-  assert.ok(r.progressSignal.includes("从 5 道降到 1 道"), `progressSignal should include the result, got: ${r.progressSignal}`)
+  assert.ok(
+    r.progressSignal.includes("1 道") && r.progressSignal.includes("5 道"),
+    `progressSignal should reference both this-week (1 道) and month-peak (5 道), got: ${r.progressSignal}`,
+  )
   assert.ok(
     r.progressSignal.includes("打卡") || r.progressSignal.includes("啃下来") || r.progressSignal.includes("攻下来"),
     `progressSignal should include the method (打卡/啃下来/攻下来), got: ${r.progressSignal}`,
   )
+})
+
+test("buildMockWrongQuestionReport: weeklyTrend.series sum equals weakPoints occurrences sum", () => {
+  // MECE check: 趋势图总和必须等于 weakPoints 总和（饼图 + footer 都基于 weakPoints）
+  const r = buildMockWrongQuestionReport()
+  const trendSum = r.weeklyTrend.series.reduce((s, p) => s + p.count, 0)
+  const weakSum = r.weakPoints.reduce((s, w) => s + w.occurrences, 0)
+  assert.equal(trendSum, weakSum, `weeklyTrend sum (${trendSum}) must equal weakPoints sum (${weakSum})`)
 })
 
 test("buildMockWrongQuestionReport V5: 3 focusPicks selected by frequency × exam weight", () => {
@@ -134,5 +145,5 @@ test("buildMockWrongQuestionReport V5: 3 focusPicks selected by frequency × exa
 test("buildMockWrongQuestionReport stepDiagnosis matches V4 wording", () => {
   const r = buildMockWrongQuestionReport()
   assert.equal(r.focusPicks[0].stepDiagnosis, "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。")
-  assert.equal(r.weeklyTrend.summary, "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周缓过来了。")
+  assert.equal(r.weeklyTrend.summary, "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周追回来了。")
 })

@@ -101,7 +101,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    progressSignal: "这周错题从 5 道降到 1 道——连续 7 天打卡，二次函数顶点式啃下来，3 道老错题一起翻过去",
+    progressSignal: "这周只错 1 道，月内最高一周 5 道——连续 7 天打卡，二次函数顶点式啃下来，3 道老错题一起翻过去",
     gapSignal: "物理单位换算又冒头，第 3 次了",
     todayPick,
     focusPicks,
@@ -109,10 +109,10 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
       series: [
         { week: 1, count: 4 },
         { week: 2, count: 5 },
-        { week: 3, count: 2 },
+        { week: 3, count: 3 },
         { week: 4, count: 1 },
       ],
-      summary: "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周缓过来了。",
+      summary: "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周追回来了。",
     },
     weakPoints: [
       {
