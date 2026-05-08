@@ -6,13 +6,14 @@ export type FocusTask = {
 }
 
 export type FocusPick = {
-  knowledgePoint: string
   subject: string
   goal: string
   stepDiagnosis: string
   tasks: FocusTask[]
   closingLine: string
   fileRefs: string[]
+  knowledgePoints: string[]
+  whyPicked: string
   errorCount: number
   examWeightLabel: string
 }

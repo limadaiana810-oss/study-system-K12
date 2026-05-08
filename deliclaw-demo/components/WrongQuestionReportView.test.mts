@@ -123,6 +123,14 @@ test("V5: FocusCard renders errorCount + examWeightLabel meta badge", () => {
   assert.match(SOURCE, /amber/)
 })
 
+test("V7: FocusCard renders whyPicked + knowledgePoints tags", () => {
+  assert.match(SOURCE, /pick\.whyPicked/)
+  assert.match(SOURCE, /pick\.knowledgePoints/)
+  assert.match(SOURCE, /为什么先做这道/)
+  // meta badge mentions 涵盖 N 个知识点
+  assert.match(SOURCE, /涵盖.*知识点/)
+})
+
 test("V5: original-question evidence renders as image thumbnails via /api/uploads/", () => {
   assert.match(SOURCE, /\/api\/uploads\//)
   assert.match(SOURCE, /<img/)

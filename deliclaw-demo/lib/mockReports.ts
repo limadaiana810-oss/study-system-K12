@@ -3,7 +3,25 @@ import {
   buildEmotionTrendSkeleton,
 } from "./reportAggregation.ts"
 import { getScoresForWindow, MOCK_EMOTION_HISTORY } from "./mockScores.ts"
+import { MOCK_QUESTION_BANK } from "./mockQuestionBank.ts"
+import { selectFocusPicks } from "./focusPickSelector.ts"
 import type { GrowthReport, WrongQuestionReport } from "./reportTypes.ts"
+
+// 学生侧周界（"今天" = 2026-05-08）：
+//   W1: 04-13 — 04-19   W2: 04-20 — 04-26   W3: 04-27 — 05-03   W4: 05-04 — 05-08
+const WEEK_RANGES: { week: 1 | 2 | 3 | 4; from: string; to: string }[] = [
+  { week: 1, from: "2026-04-13", to: "2026-04-19" },
+  { week: 2, from: "2026-04-20", to: "2026-04-26" },
+  { week: 3, from: "2026-04-27", to: "2026-05-03" },
+  { week: 4, from: "2026-05-04", to: "2026-05-08" },
+]
+
+function bucketByWeek(date: string): 1 | 2 | 3 | 4 | null {
+  for (const r of WEEK_RANGES) {
+    if (date >= r.from && date <= r.to) return r.week
+  }
+  return null
+}
 
 function todayIso(): string {
   const d = new Date()
@@ -14,80 +32,15 @@ function todayIso(): string {
 }
 
 export function buildMockWrongQuestionReport(): WrongQuestionReport {
-  const focusPicks: WrongQuestionReport["focusPicks"] = [
-    {
-      knowledgePoint: "二次函数顶点式",
-      subject: "数学",
-      goal: "你知道 y = a(x-h)² + k 这个式子里，h 和 k 各管什么吗？",
-      stepDiagnosis: "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。",
-      tasks: [
-        {
-          id: "focus-0-task-0",
-          text: "重新做 4/12 那道二次函数题：把顶点 (-2, 3) 代进去重推一遍，看符号在哪里变。",
-          durationMinutes: 8,
-          isReDo: true,
-        },
-        {
-          id: "focus-0-task-1",
-          text: "翻 4/25 那道老错题，先圈出 h、k 的符号再开始解。",
-          durationMinutes: 6,
-          isReDo: true,
-        },
-      ],
-      closingLine: "下次再遇到顶点式——第一步先把 h、k 的符号锁死。",
-      fileRefs: ["数学-错题-2026-04-12.png", "数学-错题-2026-04-25.png"],
-      errorCount: 4,
-      examWeightLabel: "期中压轴 18 分",
-    },
-    {
-      knowledgePoint: "物理单位换算",
-      subject: "物理",
-      goal: "cm 换 m、g 换 kg 的时候，幂次怎么处理你心里有数吗？",
-      stepDiagnosis: "上次那道浮力题，你把密度从 g/cm³ 换到 kg/m³ 时漏乘了 1000，最后算出来的结果差了一个数量级。",
-      tasks: [
-        {
-          id: "focus-1-task-0",
-          text: "重做 4/15 和 4/22 那两道老错题，每一步把单位写在数字旁边。",
-          durationMinutes: 10,
-          isReDo: true,
-        },
-        {
-          id: "focus-1-task-1",
-          text: "记一遍单位换算口诀（cm³→m³ 是除以 10⁶，不是 10²）。",
-          durationMinutes: 5,
-          isReDo: false,
-        },
-      ],
-      closingLine: "下次遇到带单位的物理题——先把所有量统一换到 SI 制再列方程。",
-      fileRefs: ["物理-错题-2026-04-15.png", "物理-错题-2026-04-22.png"],
-      errorCount: 3,
-      examWeightLabel: "选填常考 6 分",
-    },
-    {
-      knowledgePoint: "电路图分析（串并联识别）",
-      subject: "物理",
-      goal: "电路图先看什么？是先找电源，还是先看电压表/电流表的位置？",
-      stepDiagnosis: "4/19 那道，你把并联看成了串联——少看了电压表跨在哪两个点上。整张图一开局就读错了。",
-      tasks: [
-        {
-          id: "focus-2-task-0",
-          text: "重做 4/19 那道电路图题：第一步把电压表/电流表所在位置标出来再判断串并联。",
-          durationMinutes: 10,
-          isReDo: true,
-        },
-        {
-          id: "focus-2-task-1",
-          text: "翻 4/28 那道实验题，画一遍等效电路图再算阻值。",
-          durationMinutes: 8,
-          isReDo: true,
-        },
-      ],
-      closingLine: "下次遇到电路图——第一步先把表跨在哪标出来，再判串并联。",
-      fileRefs: ["物理-错题-2026-04-19.png", "物理-错题-2026-04-28.png"],
-      errorCount: 3,
-      examWeightLabel: "实验题 12 分",
-    },
-  ]
+  // 1) 用 selector 从题库挑 3 道高密度错题
+  const { picks: focusPicks } = selectFocusPicks(MOCK_QUESTION_BANK)
+
+  // 2) 用题库的实际日期推趋势（按周分桶）
+  const erroredQuestions = MOCK_QUESTION_BANK.filter((q) => q.errored)
+  const series = WEEK_RANGES.map((r) => ({
+    week: r.week,
+    count: erroredQuestions.filter((q) => bucketByWeek(q.date) === r.week).length,
+  }))
 
   return {
     generatedAt: new Date().toISOString(),
@@ -96,12 +49,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
     gapSignal: "物理单位换算又冒头，第 3 次了",
     focusPicks,
     weeklyTrend: {
-      series: [
-        { week: 1, count: 4 },
-        { week: 2, count: 5 },
-        { week: 3, count: 3 },
-        { week: 4, count: 1 },
-      ],
+      series,
       summary: "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周追回来了。",
     },
     weakPoints: [
@@ -112,13 +60,13 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
         diagnosis: "顶点式的 h、k 符号常被写反，连带顶点坐标判断也会跟着错。",
       },
       {
-        knowledgePoint: "电路图分析（串并联识别）",
+        knowledgePoint: "串并联识别",
         subject: "物理",
         occurrences: 3,
         diagnosis: "串并联组合容易看错，电压表/电流表位置一忽略整张图就分析错了。",
       },
       {
-        knowledgePoint: "物理单位换算",
+        knowledgePoint: "单位换算",
         subject: "物理",
         occurrences: 3,
         diagnosis: "cm→m、g→kg 转换时漏除幂次，结果偏差一个数量级。",

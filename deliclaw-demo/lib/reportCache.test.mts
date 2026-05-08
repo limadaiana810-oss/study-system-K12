@@ -185,8 +185,8 @@ test("readCachedReport accepts V6 shape without todayPick field (TodayPickCard r
   assert.equal((result as any).generatedAt, "v6")
 })
 
-// V5 shape validation tests
-const V4_FOCUS_PICK = {
+// V5/V6/V7 shape validation
+const V5_FOCUS_PICK = {
   knowledgePoint: "二次函数顶点式",
   subject: "数学",
   goal: "g",
@@ -194,53 +194,62 @@ const V4_FOCUS_PICK = {
   tasks: [],
   closingLine: "c",
   fileRefs: [],
-  // V5 missing: errorCount, examWeightLabel
-}
-
-const V5_FOCUS_PICK = {
-  ...V4_FOCUS_PICK,
   errorCount: 4,
   examWeightLabel: "期中压轴 18 分",
+  // V7 missing: knowledgePoints, whyPicked
 }
 
-test("readCachedReport discards V4 shape with focusPicks missing errorCount/examWeightLabel", () => {
-  installShim()
-  const v4WithFocusPicks = {
-    ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    focusPicks: [V4_FOCUS_PICK],
-  }
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(v4WithFocusPicks)
-  )
-  assert.equal(readCachedReport("wrong-questions"), null, "V4 focusPick (no errorCount) must be rejected")
-})
+const V7_FOCUS_PICK = {
+  subject: "数学",
+  goal: "g",
+  stepDiagnosis: "s",
+  tasks: [],
+  closingLine: "c",
+  fileRefs: [],
+  errorCount: 4,
+  examWeightLabel: "期中压轴 18 分",
+  knowledgePoints: ["二次函数顶点式", "h-k 符号判断"],
+  whyPicked: "这道题考了 2 个 KP",
+}
 
-test("readCachedReport accepts V5 shape with focusPicks containing errorCount + examWeightLabel", () => {
+test("readCachedReport discards V5/V6 shape with focusPicks missing knowledgePoints/whyPicked", () => {
   installShim()
-  const v5Fixture = {
+  const oldFixture = {
     ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    generatedAt: "v5",
     focusPicks: [V5_FOCUS_PICK],
   }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(v5Fixture)
+    JSON.stringify(oldFixture)
   )
-  const result = readCachedReport("wrong-questions")
-  assert.notEqual(result, null, "V5 focusPick shape must be accepted")
-  assert.equal((result as any).generatedAt, "v5")
+  assert.equal(readCachedReport("wrong-questions"), null, "V5/V6 focusPick (no knowledgePoints) must be rejected")
 })
 
-test("readCachedReport rejects V5 shape when errorCount is a string", () => {
+test("readCachedReport accepts V7 shape with focusPicks containing knowledgePoints + whyPicked", () => {
+  installShim()
+  const v7Fixture = {
+    ...VALID_V4_WRONG_QUESTION_FIXTURE,
+    generatedAt: "v7",
+    focusPicks: [V7_FOCUS_PICK],
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(v7Fixture)
+  )
+  const result = readCachedReport("wrong-questions")
+  assert.notEqual(result, null, "V7 focusPick shape must be accepted")
+  assert.equal((result as any).generatedAt, "v7")
+})
+
+test("readCachedReport rejects V7 shape when knowledgePoints is not an array", () => {
   installShim()
   const badFixture = {
     ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    focusPicks: [{ ...V5_FOCUS_PICK, errorCount: "four" }],
+    focusPicks: [{ ...V7_FOCUS_PICK, knowledgePoints: "not an array" }],
   }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
     JSON.stringify(badFixture)
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "errorCount as string must be rejected")
+  assert.equal(readCachedReport("wrong-questions"), null, "knowledgePoints as string must be rejected")
 })

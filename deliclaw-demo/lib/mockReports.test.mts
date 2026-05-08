@@ -6,13 +6,13 @@ import {
   buildMockWrongQuestionReport,
 } from "./mockReports.ts"
 
-test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape (V3)", () => {
+test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape (V7)", () => {
   const r = buildMockWrongQuestionReport()
   assert.equal(r.windowDays, 30)
   assert.equal(typeof r.generatedAt, "string")
   assert.ok(r.progressSignal.length > 0, "progressSignal must be non-empty")
 
-  // focusPicks: V5 fixed at 3 (high-freq + high-weight picks)
+  // focusPicks: V7 selector picks 3 high-density questions
   assert.equal(r.focusPicks.length, 3, `focusPicks length ${r.focusPicks.length}`)
   for (let i = 0; i < r.focusPicks.length; i++) {
     const fp = r.focusPicks[i]
@@ -30,11 +30,15 @@ test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape 
     }
     assert.ok(hasReDo, `focusPicks[${i}] must have at least one isReDo task (retrieval practice)`)
     assert.ok(Array.isArray(fp.fileRefs))
-    // V5: errorCount + examWeightLabel
     assert.equal(typeof fp.errorCount, "number", `focusPicks[${i}].errorCount type`)
     assert.ok(fp.errorCount > 0, `focusPicks[${i}].errorCount must be > 0`)
     assert.equal(typeof fp.examWeightLabel, "string", `focusPicks[${i}].examWeightLabel type`)
     assert.ok(fp.examWeightLabel.length > 0, `focusPicks[${i}].examWeightLabel empty`)
+    // V7: knowledgePoints array + whyPicked
+    assert.ok(Array.isArray(fp.knowledgePoints), `focusPicks[${i}].knowledgePoints must be array`)
+    assert.ok(fp.knowledgePoints.length >= 1, `focusPicks[${i}] must cover at least 1 KP`)
+    assert.equal(typeof fp.whyPicked, "string", `focusPicks[${i}].whyPicked must be string`)
+    assert.ok(fp.whyPicked.length > 0, `focusPicks[${i}].whyPicked empty`)
   }
 
   // weeklyTrend
@@ -167,19 +171,31 @@ test("buildMockWrongQuestionReport: weeklyTrend.series sum equals weakPoints occ
   assert.equal(trendSum, weakSum, `weeklyTrend sum (${trendSum}) must equal weakPoints sum (${weakSum})`)
 })
 
-test("buildMockWrongQuestionReport V5: 3 focusPicks selected by frequency × exam weight", () => {
+test("buildMockWrongQuestionReport V7: 数学 hero pick has errorCount >= 4 (二次函数顶点式)", () => {
   const r = buildMockWrongQuestionReport()
-  // 二次函数 + 物理单位换算 + 物理电路图
-  const subjects = r.focusPicks.map((fp) => fp.subject)
-  assert.equal(subjects.filter((s) => s === "数学").length, 1, "should have 1 数学 pick")
-  assert.equal(subjects.filter((s) => s === "物理").length, 2, "should have 2 物理 picks")
-  // 数学 pick should have highest errorCount
   const math = r.focusPicks.find((fp) => fp.subject === "数学")
   assert.ok(math && math.errorCount >= 4, `数学 pick should have errorCount >= 4, got: ${math?.errorCount}`)
 })
 
-test("buildMockWrongQuestionReport stepDiagnosis matches V4 wording", () => {
+test("buildMockWrongQuestionReport stepDiagnosis matches V7 bank wording", () => {
   const r = buildMockWrongQuestionReport()
-  assert.equal(r.focusPicks[0].stepDiagnosis, "4/12 那道，你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。")
+  // V7: stepDiagnosis 来自题库，不带「4/X 那道」前缀（日期由视图层显示）
+  assert.equal(r.focusPicks[0].stepDiagnosis, "你顶点写对了，但 h = -2 写成了 2。这一翻，整道题就走偏了。")
   assert.equal(r.weeklyTrend.summary, "从 W2 最高的 5 道，到这周只错 1 道。W2 那周数学连错三天，后面两周追回来了。")
+})
+
+test("V7: focusPicks[0] hero is 数学-01 with 4 knowledge points (highest density)", () => {
+  const r = buildMockWrongQuestionReport()
+  const hero = r.focusPicks[0]
+  assert.equal(hero.subject, "数学")
+  assert.equal(hero.knowledgePoints.length, 4, "hero question must cover 4 KPs")
+  assert.ok(hero.whyPicked.includes("4 个知识点"), `whyPicked should mention 4 KPs, got: ${hero.whyPicked}`)
+})
+
+test("V7: focusPicks subject distribution from selector (max diversity)", () => {
+  const r = buildMockWrongQuestionReport()
+  const subjects = r.focusPicks.map((fp) => fp.subject)
+  // selector 应该挑出: 数学-01 (二次函数 hero) + 物理-01 (电路图) + 物理-04 (单位换算)
+  assert.equal(subjects.filter((s) => s === "数学").length, 1)
+  assert.equal(subjects.filter((s) => s === "物理").length, 2)
 })

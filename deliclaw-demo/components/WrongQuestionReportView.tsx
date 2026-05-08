@@ -210,7 +210,7 @@ function FocusCard({
       <div className="p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-700">
-          错 {pick.errorCount} 次 · {pick.examWeightLabel}
+          错 {pick.errorCount} 次 · 涵盖 {pick.knowledgePoints.length} 个知识点 · {pick.examWeightLabel}
         </span>
         <span className="shrink-0 text-[10px] text-slate-400">
           <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
@@ -221,6 +221,18 @@ function FocusCard({
       <div className="mb-3 flex items-baseline gap-2">
         <span className="text-lg font-black text-indigo-600">{numberLabel}</span>
         <h3 className="flex-1 text-sm font-bold leading-relaxed text-slate-800">{pick.goal}</h3>
+      </div>
+
+      <div className="mb-3 rounded-xl border border-slate-100 border-l-4 border-l-amber-300 bg-white/70 p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">为什么先做这道</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.whyPicked}</p>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {pick.knowledgePoints.map((kp) => (
+            <span key={kp} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
+              {kp}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="mb-3 rounded-xl border border-slate-100 bg-white/70 p-3">
@@ -459,7 +471,7 @@ function MoreToPracticeCard({
 }
 
 export default function WrongQuestionReportView({ report }: Props) {
-  const focusKPs = new Set(report.focusPicks.map((fp) => fp.knowledgePoint))
+  const focusKPs = new Set(report.focusPicks.flatMap((fp) => fp.knowledgePoints))
   const [taskState, setTaskState] = useState<Record<string, true>>({})
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null)
   const totalErrorCount = report.weakPoints.reduce((sum, wp) => sum + wp.occurrences, 0)

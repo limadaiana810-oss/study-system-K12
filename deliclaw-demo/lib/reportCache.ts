@@ -17,7 +17,9 @@ function isFocusPickShape(x: any): boolean {
     typeof x === "object" &&
     !Array.isArray(x) &&
     typeof x.errorCount === "number" &&
-    typeof x.examWeightLabel === "string"
+    typeof x.examWeightLabel === "string" &&
+    Array.isArray(x.knowledgePoints) &&
+    typeof x.whyPicked === "string"
   )
 }
 
