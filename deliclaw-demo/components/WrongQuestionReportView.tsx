@@ -45,20 +45,24 @@ function HeroSignalsBar({
 }) {
   if (!progressSignal && !gapSignal) return null
   return (
-    <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-sm">
+    <div className="space-y-2">
       {progressSignal && (
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-emerald-600 font-bold">✓</span>
-          <p className="text-sm font-bold leading-relaxed text-emerald-800">{progressSignal}</p>
-        </div>
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 text-base font-bold text-emerald-600">✓</span>
+            <p className="text-sm font-bold leading-relaxed text-emerald-800">{progressSignal}</p>
+          </div>
+        </section>
       )}
       {gapSignal && (
-        <div className={`flex items-center gap-2 ${progressSignal ? "mt-2" : ""}`}>
-          <span className="shrink-0 text-amber-600 font-bold">⚠</span>
-          <p className="text-sm font-semibold leading-relaxed text-amber-800">{gapSignal}</p>
-        </div>
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 text-base font-bold text-amber-600">⚠</span>
+            <p className="text-sm font-semibold leading-relaxed text-amber-800">{gapSignal}</p>
+          </div>
+        </section>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -76,23 +80,41 @@ function scrollToTask(taskId: string) {
 function ThumbnailImage({
   src,
   alt,
+  subject,
   onClick,
 }: {
   src: string
   alt: string
+  subject: string
   onClick: () => void
 }) {
   const [errored, setErrored] = useState(false)
+  const accentColor = SUBJECT_HEX[subject] ?? "#94A3B8"
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 transition hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100"
+      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100"
+      style={errored ? { borderLeftWidth: "3px", borderLeftColor: accentColor } : undefined}
       aria-label={`查看原题 ${alt}`}
     >
       {errored ? (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-1 text-center text-[8px] leading-tight text-slate-500">
-          {alt}
+        <div className="flex h-full w-full flex-col items-center justify-center bg-white px-1 text-center leading-tight">
+          <svg
+            className="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={accentColor}
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <span className="mt-0.5 text-[8px] text-slate-500" style={{ wordBreak: "break-all" }}>
+            {alt.replace(/\.\w+$/, "")}
+          </span>
         </div>
       ) : (
         <img
@@ -217,6 +239,7 @@ function FocusCard({
                   key={f}
                   src={src}
                   alt={f}
+                  subject={pick.subject}
                   onClick={() => onPreview(src, f)}
                 />
               )
@@ -257,9 +280,9 @@ function FocusCard({
         </ul>
       </div>
 
-      <div className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">解题要点</p>
-        <p className="mt-1 text-xs leading-relaxed text-emerald-800">{pick.closingLine}</p>
+      <div className="mb-3 rounded-xl border border-slate-100 border-l-4 border-l-indigo-300 bg-white/70 p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">解题要点</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.closingLine}</p>
       </div>
 
       <button
@@ -274,13 +297,21 @@ function FocusCard({
   )
 }
 
-function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] }) {
+function WeeklyTrendCard({
+  trend,
+  totalErrorCount,
+}: {
+  trend: WrongQuestionReport["weeklyTrend"]
+  totalErrorCount: number
+}) {
   const data = trend.series.map((p) => ({ week: `W${p.week}`, count: p.count }))
   return (
-    <section className="flex-[1.4] min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="flex flex-[1.4] min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">本月错题趋势</h3>
+        <h3 className="text-sm font-bold text-slate-800">
+          本月错题趋势 <span className="text-slate-400 font-normal">· 共 {totalErrorCount} 道</span>
+        </h3>
       </div>
       <div className="h-40 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -305,7 +336,13 @@ function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] 
   )
 }
 
-function SubjectShareCard({ weakPoints }: { weakPoints: WrongQuestionReport["weakPoints"] }) {
+function SubjectShareCard({
+  weakPoints,
+  subjectsCount,
+}: {
+  weakPoints: WrongQuestionReport["weakPoints"]
+  subjectsCount: number
+}) {
   const totals = new Map<string, number>()
   for (const wp of weakPoints) {
     totals.set(wp.subject, (totals.get(wp.subject) ?? 0) + wp.occurrences)
@@ -319,12 +356,14 @@ function SubjectShareCard({ weakPoints }: { weakPoints: WrongQuestionReport["wea
   const total = data.reduce((sum, d) => sum + d.count, 0)
 
   return (
-    <section className="flex-1 min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="flex flex-1 min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">学科占比</h3>
+        <h3 className="text-sm font-bold text-slate-800">
+          学科占比 <span className="text-slate-400 font-normal">· {subjectsCount} 学科</span>
+        </h3>
       </div>
-      <div className="h-32 w-full min-w-0">
+      <div className="h-40 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -333,8 +372,8 @@ function SubjectShareCard({ weakPoints }: { weakPoints: WrongQuestionReport["wea
               nameKey="subject"
               cx="50%"
               cy="50%"
-              innerRadius={28}
-              outerRadius={52}
+              innerRadius={32}
+              outerRadius={62}
               paddingAngle={2}
               stroke="#fff"
               strokeWidth={2}
@@ -383,27 +422,27 @@ function MoreToPracticeCard({
   if (others.length === 0) return null
 
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/30 p-4 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 text-left"
       >
         <div className="h-3 w-1 rounded-full bg-amber-400" />
-        <h3 className="flex-1 text-sm font-bold text-amber-700">
+        <h3 className="flex-1 text-sm font-bold text-slate-700">
           次要错题（{others.length}）
         </h3>
-        <span className="text-xs text-amber-600">{open ? "▴" : "▾"}</span>
+        <span className="text-xs text-slate-400">{open ? "▴" : "▾"}</span>
       </button>
       {!open && (
-        <p className="mt-1 ml-3 text-[11px] leading-relaxed text-amber-700/70">
+        <p className="mt-1 ml-3 text-[11px] leading-relaxed text-slate-500">
           次要不等于不重要，挨个收尾，不能跳过
         </p>
       )}
       {open && (
         <div className="mt-3 space-y-2">
           {others.map((wp) => (
-            <div key={wp.knowledgePoint} className="rounded-xl border border-amber-100 bg-white p-3">
+            <div key={wp.knowledgePoint} className="rounded-xl border border-slate-100 bg-white p-3">
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-slate-800">{wp.knowledgePoint}</span>
                 <span className="text-[10px] text-slate-500">
@@ -443,7 +482,7 @@ export default function WrongQuestionReportView({ report }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <HeroSignalsBar
         progressSignal={report.progressSignal}
         gapSignal={report.gapSignal}
@@ -467,14 +506,13 @@ export default function WrongQuestionReportView({ report }: Props) {
         ))}
       </div>
 
-      <div className="flex flex-row gap-3">
-        <WeeklyTrendCard trend={report.weeklyTrend} />
-        <SubjectShareCard weakPoints={report.weakPoints} />
+      <div className="flex flex-row items-stretch gap-3">
+        <WeeklyTrendCard trend={report.weeklyTrend} totalErrorCount={totalErrorCount} />
+        <SubjectShareCard weakPoints={report.weakPoints} subjectsCount={subjectsCount} />
       </div>
       <MoreToPracticeCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
 
       <footer className="pt-2 pb-4 text-center text-[11px] text-slate-400 leading-relaxed">
-        <p>本月一共 {totalErrorCount} 道错题，覆盖 {subjectsCount} 个学科</p>
         <p>下次错题进来，会自动加进这份报告</p>
       </footer>
 
