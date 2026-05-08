@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react"
 import type { WrongQuestionReport, FocusPick } from "@/lib/reportTypes"
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -36,33 +34,70 @@ const SUBJECT_HEX: Record<string, string> = {
   语文: "#A855F7",
 }
 
-function HeroSignalsBar({
-  progressSignal,
-  gapSignal,
-}: {
-  progressSignal: string
-  gapSignal: string
-}) {
-  if (!progressSignal && !gapSignal) return null
+function IconCheck({ className = "" }: { className?: string }) {
   return (
-    <div className="space-y-2">
-      {progressSignal && (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-          <div className="flex items-start gap-2">
-            <span className="shrink-0 text-base font-bold text-emerald-600">✓</span>
-            <p className="text-sm font-bold leading-relaxed text-emerald-800">{progressSignal}</p>
-          </div>
-        </section>
-      )}
-      {gapSignal && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-          <div className="flex items-start gap-2">
-            <span className="shrink-0 text-base font-bold text-amber-600">⚠</span>
-            <p className="text-sm font-semibold leading-relaxed text-amber-800">{gapSignal}</p>
-          </div>
-        </section>
-      )}
-    </div>
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 11 8 15 16 6" />
+    </svg>
+  )
+}
+
+function IconAlert({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2.5 L18 16 H2 Z" />
+      <line x1="10" y1="8" x2="10" y2="12" />
+      <circle cx="10" cy="14.5" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function IconBolt({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M11 2 L4 12 H9 L8 18 L16 7 H11 Z" />
+    </svg>
+  )
+}
+
+function IconClock({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="10" r="7.2" />
+      <polyline points="10 6 10 10 13 11.5" />
+    </svg>
+  )
+}
+
+function IconArrowRight({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="10" x2="15" y2="10" />
+      <polyline points="11 6 15 10 11 14" />
+    </svg>
+  )
+}
+
+function IconChevron({ open, className = "" }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      className={`${className} transition-transform ${open ? "rotate-180" : ""}`}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="5 8 10 13 15 8" />
+    </svg>
+  )
+}
+
+function TopPattern({ topPattern }: { topPattern: string }) {
+  if (!topPattern) return null
+  return (
+    <p className="text-sm leading-relaxed text-slate-700">{topPattern}</p>
   )
 }
 
@@ -172,95 +207,121 @@ function LightboxModal({
   )
 }
 
-function FocusCard({
+function formatMonthDay(iso: string): string {
+  const [, m, d] = iso.split("-")
+  return `${parseInt(m, 10)}/${parseInt(d, 10)}`
+}
+
+function QuestionBlock({
+  excerpt,
+  questionDate,
+  fileRefs,
+  onPreview,
+}: {
+  excerpt: string
+  questionDate: string
+  fileRefs: string[]
+  onPreview: (src: string, alt: string) => void
+}) {
+  const [imgErrored, setImgErrored] = useState(false)
+  const primary = fileRefs[0]
+  const primarySrc = primary ? `/api/uploads/${encodeURIComponent(primary)}` : null
+  return (
+    <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="mb-1.5 flex items-baseline gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">题目</span>
+        <span className="text-[10px] tabular-nums text-slate-400">{formatMonthDay(questionDate)}</span>
+      </div>
+      <p className="text-[15px] font-semibold leading-snug text-slate-800" style={{ fontFamily: "'JetBrains Mono', 'Menlo', 'Cambria Math', serif" }}>
+        {excerpt}
+      </p>
+      {primarySrc && !imgErrored && (
+        <button
+          type="button"
+          onClick={() => onPreview(primarySrc, primary!)}
+          className="mt-3 block w-full overflow-hidden rounded-lg border border-slate-100 bg-slate-50 hover:border-indigo-300"
+          aria-label={`查看原题 ${primary}`}
+        >
+          <img
+            src={primarySrc}
+            alt={primary!}
+            className="h-auto max-h-40 w-full object-contain"
+            onError={() => setImgErrored(true)}
+          />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Diagnosis({
+  stepDiagnosis,
+  closingLine,
+}: {
+  stepDiagnosis: string
+  closingLine: string
+}) {
+  return (
+    <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+          <IconAlert className="h-2.5 w-2.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">错因回顾</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{stepDiagnosis}</p>
+        </div>
+      </div>
+      <div className="mt-2.5 flex items-start gap-2 border-t border-slate-200 pt-2.5">
+        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+          <IconCheck className="h-2.5 w-2.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">解题要点</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{closingLine}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FocusCardBody({
   pick,
-  index,
   taskState,
   onToggle,
   onPreview,
-  isHero,
 }: {
   pick: FocusPick
-  index: number
   taskState: Record<string, true>
   onToggle: (taskId: string) => void
   onPreview: (src: string, alt: string) => void
-  isHero: boolean
 }) {
-  function jumpToFirstTask() {
-    const first = pick.tasks[0]
-    if (!first) return
-    scrollToTask(first.id)
-  }
-
-  const numberLabel = ["❶", "❷", "❸"][index] ?? `#${index + 1}`
-
-  const sectionClass = isHero
-    ? "overflow-hidden rounded-2xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 to-white shadow-md"
-    : "overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 shadow-sm"
-
+  // V11: 数字标号 / 信息 tooltip / 选取理由 已从渲染中删除。字段保留以兼容数据形状。
   return (
-    <section className={sectionClass}>
-      {isHero && (
-        <div className="flex items-center gap-2 bg-indigo-600 px-5 py-2">
-          <span className="text-sm">⚡</span>
-          <span className="text-xs font-bold tracking-wide text-white">先做这件</span>
-        </div>
-      )}
-      <div className="p-5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-700">
-          错 {pick.errorCount} 次 · 涵盖 {pick.knowledgePoints.length} 个知识点 · {pick.examWeightLabel}
-        </span>
-        <span className="shrink-0 text-[10px] text-slate-400">
-          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
-          {pick.subject}
-        </span>
+    <div className="p-5">
+      <div className="mb-1 flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[11px] text-slate-500">
+        <span className={`inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
+        <span className="font-bold text-slate-700">{pick.subject}</span>
+        <span className="text-slate-300">·</span>
+        <span className="font-bold tabular-nums text-amber-700">错 {pick.errorCount} 次</span>
+        <span className="text-slate-300">·</span>
+        <span>涵盖 {pick.knowledgePoints.length} 个知识点</span>
+        <span className="text-slate-300">·</span>
+        <span>{pick.examWeightLabel}</span>
       </div>
 
-      <div className="mb-3 flex items-baseline gap-2">
-        <span className="text-lg font-black text-indigo-600">{numberLabel}</span>
-        <h3 className="flex-1 text-sm font-bold leading-relaxed text-slate-800">{pick.goal}</h3>
-      </div>
+      <p className="mb-3 text-[11px] italic leading-relaxed text-slate-500">{pick.goal}</p>
 
-      <div className="mb-3 rounded-xl border border-slate-100 border-l-4 border-l-amber-300 bg-white/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">为什么先做这道</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.whyPicked}</p>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {pick.knowledgePoints.map((kp) => (
-            <span key={kp} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-              {kp}
-            </span>
-          ))}
-        </div>
-      </div>
+      <QuestionBlock
+        excerpt={pick.excerpt}
+        questionDate={pick.questionDate}
+        fileRefs={pick.fileRefs}
+        onPreview={onPreview}
+      />
 
-      <div className="mb-3 rounded-xl border border-slate-100 bg-white/70 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">错因回顾</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.stepDiagnosis}</p>
-          </div>
-          {pick.fileRefs.length > 0 && (
-            <div className="flex shrink-0 gap-1.5">
-              {pick.fileRefs.map((f) => {
-                const src = `/api/uploads/${encodeURIComponent(f)}`
-                return (
-                  <ThumbnailImage
-                    key={f}
-                    src={src}
-                    alt={f}
-                    subject={pick.subject}
-                    onClick={() => onPreview(src, f)}
-                  />
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      <Diagnosis stepDiagnosis={pick.stepDiagnosis} closingLine={pick.closingLine} />
 
-      <ul className="mb-3 space-y-2">
+      <ul className="space-y-2">
         {pick.tasks.map((t) => {
           const isDone = !!taskState[t.id]
           return (
@@ -268,202 +329,177 @@ function FocusCard({
               <button
                 type="button"
                 onClick={() => onToggle(t.id)}
-                className="flex w-full items-start gap-2 rounded-lg border border-slate-100 bg-white p-2 text-left hover:border-indigo-200"
+                className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-indigo-300"
               >
                 <span
                   className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                     isDone ? "border-indigo-500 bg-indigo-500 text-white" : "border-slate-300 bg-white"
                   }`}
                 >
-                  {isDone ? "✓" : ""}
+                  {isDone && <IconCheck className="h-2.5 w-2.5" />}
                 </span>
                 <span className={`flex-1 text-xs leading-relaxed ${isDone ? "text-slate-400 line-through" : "text-slate-700"}`}>
                   {t.text}
                 </span>
-                <span className={`shrink-0 text-[10px] tabular-nums ${isDone ? "text-slate-300" : "text-slate-500"}`}>
-                  ⏱ {t.durationMinutes} 分钟
+                <span className={`inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums ${isDone ? "text-slate-300" : "text-slate-500"}`}>
+                  <IconClock className="h-3 w-3" />
+                  {t.durationMinutes} 分钟
                 </span>
               </button>
             </li>
           )
         })}
       </ul>
+    </div>
+  )
+}
 
-      <div className="mb-3 rounded-xl border border-slate-100 border-l-4 border-l-indigo-300 bg-white/70 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">解题要点</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-700">{pick.closingLine}</p>
+function FocusCard({
+  pick,
+  taskState,
+  onToggle,
+  onPreview,
+}: {
+  pick: FocusPick
+  taskState: Record<string, true>
+  onToggle: (taskId: string) => void
+  onPreview: (src: string, alt: string) => void
+}) {
+  // V11: hero is the only kind of FocusCard now (backups use BackupCard wrapping FocusCardBody).
+  return (
+    <section className="overflow-hidden rounded-2xl border-2 border-indigo-300 bg-white shadow-md">
+      <div className="flex items-center gap-1.5 bg-indigo-600 px-5 py-2">
+        <IconBolt className="h-3.5 w-3.5 text-amber-300" />
+        <span className="text-xs font-bold tracking-wide text-white">先做这件</span>
       </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={jumpToFirstTask}
-          className="rounded-md bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
-        >
-          现在就做
-        </button>
-      </div>
-      </div>
+      <FocusCardBody pick={pick} taskState={taskState} onToggle={onToggle} onPreview={onPreview} />
     </section>
   )
 }
 
-function WeeklyTrendCard({
+function BackupCard({
+  pick,
+  taskState,
+  onToggle,
+  onPreview,
+}: {
+  pick: FocusPick
+  taskState: Record<string, true>
+  onToggle: (taskId: string) => void
+  onPreview: (src: string, alt: string) => void
+}) {
+  const truncated = pick.excerpt.length > 28 ? pick.excerpt.slice(0, 28) + "…" : pick.excerpt
+  return (
+    <details className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 open:bg-white">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+        <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
+        <span className="text-xs font-bold text-slate-700">{pick.subject}</span>
+        <span className="text-[10px] tabular-nums text-amber-700">错 {pick.errorCount} 次</span>
+        <span className="flex-1 truncate text-xs text-slate-600">{truncated}</span>
+        <IconChevron open={false} className="h-3.5 w-3.5 shrink-0 text-slate-400 group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-200 bg-white">
+        <FocusCardBody pick={pick} taskState={taskState} onToggle={onToggle} onPreview={onPreview} />
+      </div>
+    </details>
+  )
+}
+
+function MonthlyErrorBreakdownCard({
   trend,
+  weakPoints,
+  focusKnowledgePoints,
   totalErrorCount,
+  subjectsCount,
 }: {
   trend: WrongQuestionReport["weeklyTrend"]
+  weakPoints: WrongQuestionReport["weakPoints"]
+  focusKnowledgePoints: Set<string>
   totalErrorCount: number
+  subjectsCount: number
 }) {
-  const data = trend.series.map((p) => ({ week: `W${p.week}`, count: p.count }))
+  const [open, setOpen] = useState(false)
+  const others = weakPoints.filter((wp) => !focusKnowledgePoints.has(wp.knowledgePoint))
+
+  // Build chart data: [{ week: "W1", 数学: 3, 物理: 1, ... }, ...]
+  const subjects = trend.seriesBySubject.map((e) => e.subject)
+  const data = trend.series.map((p, i) => {
+    const row: Record<string, string | number> = { week: `W${p.week}` }
+    for (const entry of trend.seriesBySubject) {
+      row[entry.subject] = entry.counts[i] ?? 0
+    }
+    return row
+  })
+
   return (
-    <section className="flex flex-[1.4] min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
         <h3 className="text-sm font-bold text-slate-800">
-          本月错题趋势 <span className="text-slate-400 font-normal">· 共 {totalErrorCount} 道</span>
+          本月错题分布{" "}
+          <span className="font-normal text-slate-400">
+            · 共 {totalErrorCount} 道 · {subjectsCount} 学科
+          </span>
         </h3>
       </div>
-      <div className="h-40 w-full min-w-0">
+      <div className="h-44 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
             <XAxis dataKey="week" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="count"
-              stroke="#6366F1"
-              strokeWidth={2}
-              dot={{ r: 4, fill: "#6366F1", stroke: "#fff", strokeWidth: 1 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            {subjects.map((subject) => (
+              <Bar
+                key={subject}
+                dataKey={subject}
+                stackId="errors"
+                fill={SUBJECT_HEX[subject] ?? "#94A3B8"}
+                radius={[3, 3, 0, 0]}
+              />
+            ))}
+          </BarChart>
         </ResponsiveContainer>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-slate-600">{trend.summary}</p>
-    </section>
-  )
-}
 
-function SubjectShareCard({
-  weakPoints,
-  subjectsCount,
-}: {
-  weakPoints: WrongQuestionReport["weakPoints"]
-  subjectsCount: number
-}) {
-  const totals = new Map<string, number>()
-  for (const wp of weakPoints) {
-    totals.set(wp.subject, (totals.get(wp.subject) ?? 0) + wp.occurrences)
-  }
-  const data = Array.from(totals.entries())
-    .map(([subject, count]) => ({ subject, count }))
-    .sort((a, b) => b.count - a.count)
-
-  if (data.length === 0) return null
-
-  const total = data.reduce((sum, d) => sum + d.count, 0)
-
-  return (
-    <section className="flex flex-1 min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">
-          学科占比 <span className="text-slate-400 font-normal">· {subjectsCount} 学科</span>
-        </h3>
-      </div>
-      <div className="h-40 w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="count"
-              nameKey="subject"
-              cx="50%"
-              cy="50%"
-              innerRadius={32}
-              outerRadius={62}
-              paddingAngle={2}
-              stroke="#fff"
-              strokeWidth={2}
-            >
-              {data.map((d) => (
-                <Cell key={d.subject} fill={SUBJECT_HEX[d.subject] ?? "#94A3B8"} />
+      {others.length > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full items-center gap-2 text-left"
+          >
+            <h4 className="flex-1 text-xs font-bold text-slate-600">
+              次要错题（{others.length}）
+            </h4>
+            <IconChevron open={open} className="h-4 w-4 text-slate-400" />
+          </button>
+          {!open && (
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              次要不等于不重要，挨个收尾，不能跳过
+            </p>
+          )}
+          {open && (
+            <ul className="mt-2 space-y-1.5">
+              {others.map((wp) => (
+                <li
+                  key={wp.knowledgePoint}
+                  className="flex items-baseline gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5"
+                >
+                  <span
+                    className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SUBJECT_DOT[wp.subject] ?? "bg-slate-400"}`}
+                  />
+                  <span className="text-xs font-bold text-slate-700">{wp.knowledgePoint}</span>
+                  <span className="text-[10px] tabular-nums text-slate-500">
+                    {wp.subject} · 错 {wp.occurrences} 次
+                  </span>
+                  <span className="flex-1 truncate text-[11px] text-slate-500">{wp.diagnosis}</span>
+                </li>
               ))}
-            </Pie>
-            <Tooltip
-              formatter={(value, _name, item) => {
-                const n = typeof value === "number" ? value : Number(value) || 0
-                const subject = (item as { payload?: { subject?: string } } | undefined)?.payload?.subject ?? ""
-                return [`${n} 道（${Math.round((n / total) * 100)}%）`, subject]
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="mt-2 space-y-1">
-        {data.map((d) => (
-          <li key={d.subject} className="flex items-center gap-1.5 text-[11px] text-slate-600">
-            <span
-              className="inline-block h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: SUBJECT_HEX[d.subject] ?? "#94A3B8" }}
-            />
-            <span className="flex-1">{d.subject}</span>
-            <span className="tabular-nums text-slate-500">
-              {d.count} · {Math.round((d.count / total) * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-function MoreToPracticeCard({
-  weakPoints,
-  focusKnowledgePoints,
-}: {
-  weakPoints: WrongQuestionReport["weakPoints"]
-  focusKnowledgePoints: Set<string>
-}) {
-  const [open, setOpen] = useState(false)
-  const others = weakPoints.filter((wp) => !focusKnowledgePoints.has(wp.knowledgePoint))
-  if (others.length === 0) return null
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 text-left"
-      >
-        <div className="h-3 w-1 rounded-full bg-amber-400" />
-        <h3 className="flex-1 text-sm font-bold text-slate-700">
-          次要错题（{others.length}）
-        </h3>
-        <span className="text-xs text-slate-400">{open ? "▴" : "▾"}</span>
-      </button>
-      {!open && (
-        <p className="mt-1 ml-3 text-[11px] leading-relaxed text-slate-500">
-          次要不等于不重要，挨个收尾，不能跳过
-        </p>
-      )}
-      {open && (
-        <div className="mt-3 space-y-2">
-          {others.map((wp) => (
-            <div key={wp.knowledgePoint} className="rounded-xl border border-slate-100 bg-white p-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-bold text-slate-800">{wp.knowledgePoint}</span>
-                <span className="text-[10px] text-slate-500">
-                  <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[wp.subject] ?? "bg-slate-400"}`} />
-                  {wp.subject} · 错 {wp.occurrences} 次
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-slate-600">{wp.diagnosis}</p>
-            </div>
-          ))}
+            </ul>
+          )}
         </div>
       )}
     </section>
@@ -471,7 +507,9 @@ function MoreToPracticeCard({
 }
 
 export default function WrongQuestionReportView({ report }: Props) {
-  const focusKPs = new Set(report.focusPicks.flatMap((fp) => fp.knowledgePoints))
+  const focusKPs = new Set(
+    [report.hero, ...report.backups].flatMap((fp) => fp.knowledgePoints),
+  )
   const [taskState, setTaskState] = useState<Record<string, true>>({})
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null)
   const totalErrorCount = report.weakPoints.reduce((sum, wp) => sum + wp.occurrences, 0)
@@ -494,38 +532,39 @@ export default function WrongQuestionReportView({ report }: Props) {
 
   return (
     <div className="space-y-4">
-      <HeroSignalsBar
-        progressSignal={report.progressSignal}
-        gapSignal={report.gapSignal}
+      <TopPattern topPattern={report.topPattern} />
+
+      <FocusCard
+        pick={report.hero}
+        taskState={taskState}
+        onToggle={toggleTask}
+        onPreview={(src, alt) => setPreview({ src, alt })}
       />
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-1 rounded-full bg-indigo-500" />
-          <h2 className="text-sm font-bold text-slate-800">本周聚焦</h2>
+      {report.backups.length > 0 && (
+        <div className="space-y-2">
+          {report.backups.map((pick, i) => (
+            <BackupCard
+              key={i}
+              pick={pick}
+              taskState={taskState}
+              onToggle={toggleTask}
+              onPreview={(src, alt) => setPreview({ src, alt })}
+            />
+          ))}
+          <p className="pl-1 text-[11px] leading-relaxed text-slate-400">
+            做完上面那道再翻这两张
+          </p>
         </div>
-        {report.focusPicks.map((pick, i) => (
-          <FocusCard
-            key={i}
-            pick={pick}
-            index={i}
-            taskState={taskState}
-            onToggle={toggleTask}
-            onPreview={(src, alt) => setPreview({ src, alt })}
-            isHero={i === 0}
-          />
-        ))}
-      </div>
+      )}
 
-      <div className="flex flex-row items-stretch gap-3">
-        <WeeklyTrendCard trend={report.weeklyTrend} totalErrorCount={totalErrorCount} />
-        <SubjectShareCard weakPoints={report.weakPoints} subjectsCount={subjectsCount} />
-      </div>
-      <MoreToPracticeCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
-
-      <footer className="pt-2 pb-4 text-center text-[11px] text-slate-400 leading-relaxed">
-        <p>下次错题进来，会自动加进这份报告</p>
-      </footer>
+      <MonthlyErrorBreakdownCard
+        trend={report.weeklyTrend}
+        weakPoints={report.weakPoints}
+        focusKnowledgePoints={focusKPs}
+        totalErrorCount={totalErrorCount}
+        subjectsCount={subjectsCount}
+      />
 
       <LightboxModal preview={preview} onClose={() => setPreview(null)} />
     </div>

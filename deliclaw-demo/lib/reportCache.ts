@@ -19,7 +19,9 @@ function isFocusPickShape(x: any): boolean {
     typeof x.errorCount === "number" &&
     typeof x.examWeightLabel === "string" &&
     Array.isArray(x.knowledgePoints) &&
-    typeof x.whyPicked === "string"
+    typeof x.whyPicked === "string" &&
+    typeof x.excerpt === "string" &&
+    typeof x.questionDate === "string"
   )
 }
 
@@ -27,13 +29,14 @@ function isWrongQuestionReportShape(r: any): r is WrongQuestionReport {
   return (
     !!r &&
     typeof r === "object" &&
-    typeof r.progressSignal === "string" &&
-    typeof r.gapSignal === "string" &&
-    Array.isArray(r.focusPicks) &&
-    r.focusPicks.every(isFocusPickShape) &&
+    typeof r.topPattern === "string" &&
+    isFocusPickShape(r.hero) &&
+    Array.isArray(r.backups) &&
+    r.backups.every(isFocusPickShape) &&
     !!r.weeklyTrend &&
     typeof r.weeklyTrend === "object" &&
     Array.isArray(r.weeklyTrend.series) &&
+    Array.isArray(r.weeklyTrend.seriesBySubject) &&
     typeof r.weeklyTrend.summary === "string" &&
     Array.isArray(r.weakPoints)
   )
@@ -43,9 +46,21 @@ function isGrowthReportShape(r: any): r is GrowthReport {
   return (
     !!r &&
     typeof r === "object" &&
+    typeof r.topInsight === "string" &&
+    typeof r.thisWeekAction === "string" &&
+    typeof r.focusSubject === "string" &&
     !!r.trajectory &&
     typeof r.trajectory === "object" &&
     Array.isArray(r.scores) &&
+    r.scores.every(
+      (s: any) =>
+        Array.isArray(s.weeklyHomeworkAvg) &&
+        s.weeklyHomeworkAvg.length === 4 &&
+        Array.isArray(s.weeklyExamAvg) &&
+        s.weeklyExamAvg.length === 4 &&
+        Array.isArray(s.weeklyErrorCount) &&
+        s.weeklyErrorCount.length === 4,
+    ) &&
     Array.isArray(r.emotionTrend) &&
     Array.isArray(r.highlights) &&
     !!r.parentAdvice &&

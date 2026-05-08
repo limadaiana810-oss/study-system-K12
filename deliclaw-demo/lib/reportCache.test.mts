@@ -24,26 +24,37 @@ test("REPORT_STORAGE_KEYS exposes both report keys", () => {
   assert.equal(REPORT_STORAGE_KEYS["growth"], "deliclaw_report_growth")
 })
 
+const VALID_HERO: any = {
+  subject: "数学",
+  goal: "g",
+  stepDiagnosis: "s",
+  tasks: [],
+  closingLine: "c",
+  fileRefs: [],
+  errorCount: 1,
+  examWeightLabel: "",
+  knowledgePoints: [],
+  whyPicked: "",
+  excerpt: "",
+  questionDate: "2026-01-01",
+}
+
 const VALID_WRONG_QUESTION_FIXTURE = {
   generatedAt: "x",
   windowDays: 30,
-  progressSignal: "",
-  gapSignal: "",
-  todayPick: {
-    taskId: "focus-0-task-0",
-    taskText: "5 分钟，重做",
-    durationMinutes: 5,
-    whyLine: "上次卡在这里",
-    fileRef: "test.png",
-  },
-  focusPicks: [],
-  weeklyTrend: { series: [], summary: "" },
+  topPattern: "",
+  hero: VALID_HERO,
+  backups: [],
+  weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
   weakPoints: [],
 }
 
 const VALID_GROWTH_FIXTURE = {
   generatedAt: "y",
   windowDays: 30,
+  topInsight: "",
+  thisWeekAction: "",
+  focusSubject: "",
   trajectory: { filesUploaded: 0, subjectsCovered: [], activeDays: 0 },
   scores: [],
   emotionTrend: [],
@@ -72,6 +83,25 @@ test("readCachedReport returns null when missing or invalid JSON", () => {
   assert.equal(readCachedReport("growth"), null)
 })
 
+test("V11: readCachedReport rejects V10 growth shape (no topInsight/thisWeekAction)", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify({
+      generatedAt: "v10",
+      windowDays: 30,
+      focusSubject: "数学",
+      trajectory: { filesUploaded: 0, subjectsCovered: [], activeDays: 0 },
+      scores: [],
+      emotionTrend: [],
+      highlights: [],
+      parentAdvice: { strengthen: [], remind: [], encourage: [] },
+      // missing topInsight + thisWeekAction
+    })
+  )
+  assert.equal(readCachedReport("growth"), null, "V10 growth shape must auto-evict under V11")
+})
+
 test("readCachedReport discards a cached growth report missing trajectory", () => {
   installShim()
   // Simulates a stale entry from earlier code paths (e.g. an LLM-mode partial write).
@@ -84,23 +114,59 @@ test("readCachedReport discards a cached growth report missing trajectory", () =
   assert.equal((globalThis as any).localStorage.getItem("deliclaw_report_growth"), null)
 })
 
-test("readCachedReport discards a cached wrong-questions report missing progressSignal", () => {
+test("V11: readCachedReport rejects V10 shape (progressHeadline-style, no topPattern/hero/backups)", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
     JSON.stringify({
-      generatedAt: "z",
+      generatedAt: "v10",
       windowDays: 30,
+      progressHeadline: "h",
+      progressReason: "r",
+      gapSignal: "g",
       focusPicks: [],
-      weeklyTrend: { series: [], summary: "" },
+      weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
       weakPoints: [],
-      // progressSignal missing
     })
   )
-  assert.equal(readCachedReport("wrong-questions"), null)
+  assert.equal(readCachedReport("wrong-questions"), null, "V10 shape must auto-evict under V11")
 })
 
-test("readCachedReport discards a V2 cached wrong-questions report (no progressSignal, has overview)", () => {
+test("V10: readCachedReport rejects V9 weeklyTrend shape (no seriesBySubject)", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify({
+      generatedAt: "v9",
+      windowDays: 30,
+      topPattern: "",
+      hero: VALID_HERO,
+      backups: [],
+      weeklyTrend: { series: [], summary: "" }, // missing seriesBySubject
+      weakPoints: [],
+    })
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "V9 weeklyTrend (no seriesBySubject) must auto-evict")
+})
+
+test("V8: readCachedReport rejects V7 shape with progressSignal", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify({
+      generatedAt: "v7",
+      windowDays: 30,
+      progressSignal: "merged headline + reason in one line",
+      gapSignal: "x",
+      focusPicks: [],
+      weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
+      weakPoints: [],
+    })
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "V7 progressSignal must auto-evict")
+})
+
+test("readCachedReport discards a V2 cached wrong-questions report (overview shape)", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
@@ -109,83 +175,35 @@ test("readCachedReport discards a V2 cached wrong-questions report (no progressS
       windowDays: 30,
       overview: { total: 12, bySubject: [], byQuestionType: [] },
       focusPicks: [],
-      weeklyTrend: { series: [], summary: "" },
+      weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
       weakPoints: [],
     })
   )
   assert.equal(readCachedReport("wrong-questions"), null)
 })
 
-// V4 shape validation tests
-const VALID_V3_WRONG_QUESTION_FIXTURE = {
-  generatedAt: "v3",
+const VALID_V11_WRONG_QUESTION_FIXTURE = {
+  generatedAt: "v11",
   windowDays: 30,
-  progressSignal: "good",
-  focusPicks: [],
-  weeklyTrend: { series: [], summary: "" },
-  weakPoints: [],
-  // missing gapSignal and todayPick (V3 shape — should be rejected as stale by V4 validator)
-}
-
-const VALID_V4_WRONG_QUESTION_FIXTURE = {
-  generatedAt: "v4",
-  windowDays: 30,
-  progressSignal: "good",
-  gapSignal: "物理单位换算又冒头，第 3 次了",
-  todayPick: {
-    taskId: "focus-0-task-0",
-    taskText: "5 分钟，重做 4/12 那道二次函数",
-    durationMinutes: 5,
-    whyLine: "上次你把 h = -2 写成了 2",
-    fileRef: "数学-错题-2026-04-12.png",
-  },
-  focusPicks: [],
-  weeklyTrend: { series: [], summary: "" },
+  topPattern: "这周 1 道错，月内最低。但物理单位换算又翻车，第 3 次了。",
+  hero: VALID_HERO,
+  backups: [],
+  weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
   weakPoints: [],
 }
 
-test("readCachedReport discards a V3 wrong-questions report missing gapSignal and todayPick", () => {
+test("V11: readCachedReport accepts a well-formed V11 wrong-questions report", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(VALID_V3_WRONG_QUESTION_FIXTURE)
-  )
-  assert.equal(readCachedReport("wrong-questions"), null, "V3 shape (no gapSignal/todayPick) must be rejected")
-})
-
-test("readCachedReport accepts a V4 wrong-questions report with gapSignal and todayPick", () => {
-  installShim()
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(VALID_V4_WRONG_QUESTION_FIXTURE)
+    JSON.stringify(VALID_V11_WRONG_QUESTION_FIXTURE)
   )
   const result = readCachedReport("wrong-questions")
-  assert.notEqual(result, null, "V4 shape must be accepted")
-  assert.equal((result as any).generatedAt, "v4")
+  assert.notEqual(result, null, "V11 shape must be accepted")
+  assert.equal((result as any).generatedAt, "v11")
 })
 
-test("readCachedReport accepts V6 shape without todayPick field (TodayPickCard removed)", () => {
-  installShim()
-  const v6Fixture = {
-    generatedAt: "v6",
-    windowDays: 30,
-    progressSignal: "this week 1 error",
-    gapSignal: "still working on units",
-    focusPicks: [],
-    weeklyTrend: { series: [], summary: "" },
-    weakPoints: [],
-    // no todayPick field — V6 deleted it
-  }
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(v6Fixture)
-  )
-  const result = readCachedReport("wrong-questions")
-  assert.notEqual(result, null, "V6 shape (no todayPick) must be accepted")
-  assert.equal((result as any).generatedAt, "v6")
-})
-
-// V5/V6/V7 shape validation
+// hero-shape validation
 const V5_FOCUS_PICK = {
   knowledgePoint: "二次函数顶点式",
   subject: "数学",
@@ -196,60 +214,38 @@ const V5_FOCUS_PICK = {
   fileRefs: [],
   errorCount: 4,
   examWeightLabel: "期中压轴 18 分",
-  // V7 missing: knowledgePoints, whyPicked
+  // missing: knowledgePoints, whyPicked, excerpt, questionDate
 }
 
-const V7_FOCUS_PICK = {
-  subject: "数学",
-  goal: "g",
-  stepDiagnosis: "s",
-  tasks: [],
-  closingLine: "c",
-  fileRefs: [],
-  errorCount: 4,
-  examWeightLabel: "期中压轴 18 分",
-  knowledgePoints: ["二次函数顶点式", "h-k 符号判断"],
-  whyPicked: "这道题考了 2 个 KP",
-}
-
-test("readCachedReport discards V5/V6 shape with focusPicks missing knowledgePoints/whyPicked", () => {
+test("V11: readCachedReport rejects when hero misses knowledgePoints/whyPicked/excerpt", () => {
   installShim()
-  const oldFixture = {
-    ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    focusPicks: [V5_FOCUS_PICK],
-  }
+  const bad = { ...VALID_V11_WRONG_QUESTION_FIXTURE, hero: V5_FOCUS_PICK }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(oldFixture)
+    JSON.stringify(bad)
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "V5/V6 focusPick (no knowledgePoints) must be rejected")
+  assert.equal(readCachedReport("wrong-questions"), null, "old FocusPick shape must be rejected")
 })
 
-test("readCachedReport accepts V7 shape with focusPicks containing knowledgePoints + whyPicked", () => {
+test("V11: readCachedReport rejects when hero.knowledgePoints is not an array", () => {
   installShim()
-  const v7Fixture = {
-    ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    generatedAt: "v7",
-    focusPicks: [V7_FOCUS_PICK],
+  const bad = {
+    ...VALID_V11_WRONG_QUESTION_FIXTURE,
+    hero: { ...VALID_HERO, knowledgePoints: "not an array" },
   }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(v7Fixture)
-  )
-  const result = readCachedReport("wrong-questions")
-  assert.notEqual(result, null, "V7 focusPick shape must be accepted")
-  assert.equal((result as any).generatedAt, "v7")
-})
-
-test("readCachedReport rejects V7 shape when knowledgePoints is not an array", () => {
-  installShim()
-  const badFixture = {
-    ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    focusPicks: [{ ...V7_FOCUS_PICK, knowledgePoints: "not an array" }],
-  }
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(badFixture)
+    JSON.stringify(bad)
   )
   assert.equal(readCachedReport("wrong-questions"), null, "knowledgePoints as string must be rejected")
+})
+
+test("V11: readCachedReport rejects when backups is not an array", () => {
+  installShim()
+  const bad = { ...VALID_V11_WRONG_QUESTION_FIXTURE, backups: "not an array" }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_wrong-questions",
+    JSON.stringify(bad)
+  )
+  assert.equal(readCachedReport("wrong-questions"), null, "backups must be an array")
 })

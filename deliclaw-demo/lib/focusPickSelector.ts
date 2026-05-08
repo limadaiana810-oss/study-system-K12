@@ -107,11 +107,14 @@ function buildFocusPick(
     whyPicked,
     errorCount,
     examWeightLabel: question.examWeightLabel ?? "选填常考",
+    excerpt: question.excerpt,
+    questionDate: question.date,
   }
 }
 
 export type FocusPickSelection = {
-  picks: FocusPick[]
+  hero: FocusPick | null
+  backups: FocusPick[]
   kpFrequency: Map<string, number>
 }
 
@@ -151,5 +154,9 @@ export function selectFocusPicks(questions: MockQuestion[]): FocusPickSelection 
     for (const kp of winner.q.knowledgePoints) covered.add(kp)
   }
 
-  return { picks, kpFrequency }
+  // 分层：第 0 道为 hero（density 最高的那道），剩下 0-2 道为 backups。
+  // 判断写在数据形状里，而不是延迟到视图层。
+  const hero = picks[0] ?? null
+  const backups = picks.slice(1)
+  return { hero, backups, kpFrequency }
 }

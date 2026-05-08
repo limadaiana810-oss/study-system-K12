@@ -1,6 +1,29 @@
 import type { ScoreEntry, WeeklyEmotion } from "./mockScores.ts"
 import type { GrowthReport } from "./reportTypes.ts"
 
+export type WeekRange = { week: 1 | 2 | 3 | 4; from: string; to: string }
+
+type DatedSubjectRow = { subject: string; date: string; errored: boolean }
+
+export function aggregateWeeklyErrorsBySubject<T extends DatedSubjectRow>(
+  bank: ReadonlyArray<T>,
+  ranges: ReadonlyArray<WeekRange>,
+): { perSubject: Record<string, number[]>; perWeek: number[] } {
+  const perSubject: Record<string, number[]> = {}
+  const perWeek = ranges.map(() => 0)
+  for (let i = 0; i < ranges.length; i++) {
+    const r = ranges[i]
+    for (const row of bank) {
+      if (!row.errored) continue
+      if (row.date < r.from || row.date > r.to) continue
+      perWeek[i] += 1
+      if (!perSubject[row.subject]) perSubject[row.subject] = ranges.map(() => 0)
+      perSubject[row.subject][i] += 1
+    }
+  }
+  return { perSubject, perWeek }
+}
+
 export type FileForOverview = {
   subject: string
   questionType: string
@@ -74,12 +97,16 @@ export function aggregateScores(
 
     // weeklySeries: index 0 = oldest week, index 3 = newest week (recent right side on chart)
     const buckets: number[][] = [[], [], [], []]
+    const homeworkBuckets: number[][] = [[], [], [], []]
+    const examBuckets: number[][] = [[], [], [], []]
     for (const s of list) {
       const w = weekIndexFromDate(s.date, todayIso)
       if (w === null) continue
-      // Translate so index 0 = oldest of last 4 weeks
       const oldestFirst = 3 - w
-      buckets[oldestFirst].push(pct(s.value, s.max))
+      const score = pct(s.value, s.max)
+      buckets[oldestFirst].push(score)
+      if (s.type === "homework") homeworkBuckets[oldestFirst].push(score)
+      if (s.type === "exam") examBuckets[oldestFirst].push(score)
     }
     const weeklySeries: number[] = []
     let lastSeen = homeworkAvg || 0
@@ -92,10 +119,49 @@ export function aggregateScores(
         lastSeen = avg
       }
     }
+    const weeklyHomeworkAvg: number[] = []
+    let hwLastSeen = homeworkAvg || 0
+    for (const bucket of homeworkBuckets) {
+      if (bucket.length === 0) {
+        weeklyHomeworkAvg.push(hwLastSeen)
+      } else {
+        const avg = Math.round((bucket.reduce((a, b) => a + b, 0) / bucket.length) * 10) / 10
+        weeklyHomeworkAvg.push(avg)
+        hwLastSeen = avg
+      }
+    }
+    const weeklyExamAvg: (number | null)[] = examBuckets.map((bucket) => {
+      if (bucket.length === 0) return null
+      return Math.round((bucket.reduce((a, b) => a + b, 0) / bucket.length) * 10) / 10
+    })
 
-    out.push({ subject, homeworkAvg, examLatest, weeklySeries })
+    out.push({
+      subject,
+      homeworkAvg,
+      examLatest,
+      weeklySeries,
+      weeklyHomeworkAvg,
+      weeklyExamAvg,
+      weeklyErrorCount: [0, 0, 0, 0],
+    })
   }
   return out.sort((a, b) => a.subject.localeCompare(b.subject))
+}
+
+export function pickFocusSubject(scores: GrowthReport["scores"]): string {
+  if (scores.length === 0) return ""
+  let bestSubject = scores[0].subject
+  let bestRange = -1
+  for (const s of scores) {
+    const max = Math.max(...s.weeklyHomeworkAvg)
+    const min = Math.min(...s.weeklyHomeworkAvg)
+    const range = max - min
+    if (range > bestRange) {
+      bestRange = range
+      bestSubject = s.subject
+    }
+  }
+  return bestSubject
 }
 
 export function buildEmotionTrendSkeleton(

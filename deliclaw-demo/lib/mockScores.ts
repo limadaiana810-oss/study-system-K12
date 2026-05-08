@@ -96,9 +96,9 @@ export const MOCK_SCORES: ScoreEntry[] = [
 
 export const MOCK_EMOTION_HISTORY: WeeklyEmotion[] = [
   { week: 1, dominant: "好奇" },
-  { week: 2, dominant: "焦虑" },
+  { week: 2, dominant: "沮丧" },
   { week: 3, dominant: "平静" },
-  { week: 4, dominant: "满足" },
+  { week: 4, dominant: "开心" },
 ]
 
 export function getScoresForWindow(days: number): ScoreEntry[] {

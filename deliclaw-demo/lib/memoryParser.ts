@@ -17,6 +17,7 @@ const EMOTION_DATA: ReadonlyArray<{ name: string; valence: number; color: string
   { name: `\u5e73\u9759`, valence:  0.3, color: `#60A5FA` },
   { name: `\u597d\u5947`, valence:  0.6, color: `#8B5CF6` },
   { name: `\u9ad8\u5174`, valence:  0.8, color: `#34D399` },
+  { name: `\u5f00\u5fc3`, valence:  0.9, color: `#10B981` }, // \u5f00\u5fc3
   { name: `\u6109\u60a6`, valence:  0.8, color: `#34D399` },
   { name: `\u6ee1\u8db3`, valence:  1.0, color: `#14B8A6` },
   { name: `\u7126\u8651`, valence: -0.7, color: `#F59E0B` },
@@ -27,6 +28,7 @@ const EMOTION_DATA: ReadonlyArray<{ name: string; valence: number; color: string
 
 const VALID_EMOTIONS = new Set(EMOTION_DATA.map(e => e.name))
 const VALENCE: Record<string, number> = Object.fromEntries(EMOTION_DATA.map(e => [e.name, e.valence]))
+export const EMOTION_VALENCE: Record<string, number> = VALENCE
 export const EMOTION_COLOR: Record<string, string> = Object.fromEntries(EMOTION_DATA.map(e => [e.name, e.color]))
 
 function parseEmotionSnapshot(raw: any): EmotionSnapshot | undefined {

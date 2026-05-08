@@ -29,18 +29,33 @@ function isValidReport(report: AnyReport | null, type: ReportType): boolean {
   if (type === "wrong-questions") {
     const r = report as WrongQuestionReport
     return (
-      typeof r.progressSignal === "string" &&
-      Array.isArray(r.focusPicks) &&
+      typeof r.topPattern === "string" &&
+      !!r.hero &&
+      typeof r.hero === "object" &&
+      Array.isArray(r.backups) &&
       !!r.weeklyTrend &&
       Array.isArray(r.weeklyTrend.series) &&
+      Array.isArray(r.weeklyTrend.seriesBySubject) &&
       typeof r.weeklyTrend.summary === "string" &&
       Array.isArray(r.weakPoints)
     )
   }
   const r = report as GrowthReport
   return (
+    typeof r.topInsight === "string" &&
+    typeof r.thisWeekAction === "string" &&
+    typeof r.focusSubject === "string" &&
     !!r.trajectory &&
     Array.isArray(r.scores) &&
+    r.scores.every(
+      (s) =>
+        Array.isArray(s.weeklyHomeworkAvg) &&
+        s.weeklyHomeworkAvg.length === 4 &&
+        Array.isArray(s.weeklyExamAvg) &&
+        s.weeklyExamAvg.length === 4 &&
+        Array.isArray(s.weeklyErrorCount) &&
+        s.weeklyErrorCount.length === 4,
+    ) &&
     Array.isArray(r.emotionTrend) &&
     Array.isArray(r.highlights) &&
     !!r.parentAdvice

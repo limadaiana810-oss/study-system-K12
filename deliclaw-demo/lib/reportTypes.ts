@@ -16,6 +16,8 @@ export type FocusPick = {
   whyPicked: string
   errorCount: number
   examWeightLabel: string
+  excerpt: string
+  questionDate: string
 }
 
 export type WeeklyTrendPoint = {
@@ -25,15 +27,16 @@ export type WeeklyTrendPoint = {
 
 export type WeeklyTrend = {
   series: WeeklyTrendPoint[]
+  seriesBySubject: { subject: string; counts: number[] }[]
   summary: string
 }
 
 export type WrongQuestionReport = {
   generatedAt: string
   windowDays: 30
-  progressSignal: string
-  gapSignal: string
-  focusPicks: FocusPick[]
+  topPattern: string
+  hero: FocusPick
+  backups: FocusPick[]
   weeklyTrend: WeeklyTrend
   weakPoints: {
     knowledgePoint: string
@@ -46,6 +49,9 @@ export type WrongQuestionReport = {
 export type GrowthReport = {
   generatedAt: string
   windowDays: 30
+  topInsight: string
+  thisWeekAction: string
+  focusSubject: string
   trajectory: {
     filesUploaded: number
     subjectsCovered: string[]
@@ -56,6 +62,9 @@ export type GrowthReport = {
     homeworkAvg: number
     examLatest: { value: number; max: number; date: string } | null
     weeklySeries: number[]
+    weeklyHomeworkAvg: number[]
+    weeklyExamAvg: (number | null)[]
+    weeklyErrorCount: number[]
   }[]
   emotionTrend: {
     week: 1 | 2 | 3 | 4
