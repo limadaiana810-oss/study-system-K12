@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react"
 import type { WrongQuestionReport, FocusPick, TodayPick } from "@/lib/reportTypes"
 import {
-  Bar,
-  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -22,6 +26,14 @@ const SUBJECT_DOT: Record<string, string> = {
   英语: "bg-amber-500",
   化学: "bg-red-500",
   语文: "bg-purple-500",
+}
+
+const SUBJECT_HEX: Record<string, string> = {
+  数学: "#6366F1",
+  物理: "#10B981",
+  英语: "#F59E0B",
+  化学: "#EF4444",
+  语文: "#A855F7",
 }
 
 function HeroSignalsBar({
@@ -204,22 +216,96 @@ function FocusCard({
 function WeeklyTrendCard({ trend }: { trend: WrongQuestionReport["weeklyTrend"] }) {
   const data = trend.series.map((p) => ({ week: `W${p.week}`, count: p.count }))
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="flex-[1.4] min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <div className="h-3 w-1 rounded-full bg-indigo-500" />
         <h3 className="text-sm font-bold text-slate-800">本月错题趋势</h3>
       </div>
       <div className="h-40 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
             <XAxis dataKey="week" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip />
-            <Bar dataKey="count" fill="#6366F1" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="#6366F1"
+              strokeWidth={2}
+              dot={{ r: 4, fill: "#6366F1", stroke: "#fff", strokeWidth: 1 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-slate-600">{trend.summary}</p>
+    </section>
+  )
+}
+
+function SubjectShareCard({ weakPoints }: { weakPoints: WrongQuestionReport["weakPoints"] }) {
+  const totals = new Map<string, number>()
+  for (const wp of weakPoints) {
+    totals.set(wp.subject, (totals.get(wp.subject) ?? 0) + wp.occurrences)
+  }
+  const data = Array.from(totals.entries())
+    .map(([subject, count]) => ({ subject, count }))
+    .sort((a, b) => b.count - a.count)
+
+  if (data.length === 0) return null
+
+  const total = data.reduce((sum, d) => sum + d.count, 0)
+
+  return (
+    <section className="flex-1 min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="h-3 w-1 rounded-full bg-indigo-500" />
+        <h3 className="text-sm font-bold text-slate-800">学科占比</h3>
+      </div>
+      <div className="h-32 w-full min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="subject"
+              cx="50%"
+              cy="50%"
+              innerRadius={28}
+              outerRadius={52}
+              paddingAngle={2}
+              stroke="#fff"
+              strokeWidth={2}
+            >
+              {data.map((d) => (
+                <Cell key={d.subject} fill={SUBJECT_HEX[d.subject] ?? "#94A3B8"} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, _name, item) => {
+                const n = typeof value === "number" ? value : Number(value) || 0
+                const subject = (item as { payload?: { subject?: string } } | undefined)?.payload?.subject ?? ""
+                return [`${n} 道（${Math.round((n / total) * 100)}%）`, subject]
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="mt-2 space-y-1">
+        {data.map((d) => (
+          <li key={d.subject} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+            <span
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: SUBJECT_HEX[d.subject] ?? "#94A3B8" }}
+            />
+            <span className="flex-1">{d.subject}</span>
+            <span className="tabular-nums text-slate-500">
+              {d.count} · {Math.round((d.count / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -314,7 +400,10 @@ export default function WrongQuestionReportView({ report }: Props) {
         ))}
       </div>
 
-      <WeeklyTrendCard trend={report.weeklyTrend} />
+      <div className="flex flex-row gap-3">
+        <WeeklyTrendCard trend={report.weeklyTrend} />
+        <SubjectShareCard weakPoints={report.weakPoints} />
+      </div>
       <MoreToPracticeCard weakPoints={report.weakPoints} focusKnowledgePoints={focusKPs} />
 
       <footer className="pt-2 pb-4 text-center text-[11px] text-slate-400 leading-relaxed">

@@ -24,11 +24,11 @@ test("WrongQuestionReportView renders the progress signal above the fold", () =>
   assert.match(SOURCE, /report\.progressSignal/)
 })
 
-test("WrongQuestionReportView uses recharts BarChart only", () => {
+test("WrongQuestionReportView uses recharts LineChart for trend and PieChart for subject share", () => {
   assert.match(SOURCE, /from ["']recharts["']/)
-  assert.match(SOURCE, /BarChart/)
-  assert.doesNotMatch(SOURCE, /PieChart/)
-  assert.doesNotMatch(SOURCE, /\bPie\b/)
+  assert.match(SOURCE, /LineChart/)
+  assert.match(SOURCE, /PieChart/)
+  assert.doesNotMatch(SOURCE, /BarChart/)
 })
 
 test("WrongQuestionReportView consumes V3 fields", () => {
@@ -63,6 +63,11 @@ test("WrongQuestionReportView no longer renders OverviewStripCard / 错题分布
   assert.doesNotMatch(SOURCE, /OverviewStripCard/)
   assert.doesNotMatch(SOURCE, /错题分布/)
   assert.doesNotMatch(SOURCE, /学科分布/)
+})
+
+test("WrongQuestionReportView renders SubjectShareCard with 学科占比 label", () => {
+  assert.match(SOURCE, /SubjectShareCard/)
+  assert.match(SOURCE, /学科占比/)
 })
 
 test("WrongQuestionReportView accepts a typed `report` prop", () => {
