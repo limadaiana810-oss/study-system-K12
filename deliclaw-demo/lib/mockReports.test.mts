@@ -106,6 +106,46 @@ test("buildMockWrongQuestionReport contains no V4 banned words", () => {
   }
 })
 
+test("buildMockWrongQuestionReport contains no V6 AI-tone words", () => {
+  // V6 新增的「AI 报告腔」词。覆盖：模糊评价、伪学术、捧杀腔、collective voice
+  const r = buildMockWrongQuestionReport()
+  const allText = JSON.stringify(r)
+  const banned = [
+    "较强", "较为", "较高", "较低",  // 报告 hedge
+    "体现出", "体现了",              // 评价腔
+    "反映了", "反映出",              // 报告腔
+    "有所",                          // 报告 hedge
+    "拆开来看", "稳稳", "捧杀",      // 用户点名 ban
+    "下一步我们", "我们要", "我们应",// collective voice
+  ]
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (AI-tone)`)
+  }
+})
+
+test("buildMockGrowthReport contains no AI-banned words", () => {
+  const r = buildMockGrowthReport()
+  const allText = JSON.stringify(r)
+  const banned = [
+    // V4 banned
+    "稳", "节奏", "拆", "提升", "持续", "整体呈", "立即", "马上",
+    // V3 legacy
+    "症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级",
+    // V6 AI-tone
+    "较强", "较为", "较高", "较低",
+    "体现出", "体现了",
+    "反映了", "反映出",
+    "有所",
+    "拆开来看", "稳稳", "捧杀",
+    "下一步我们", "我们要", "我们应",
+    // 家长侧特有
+    "正向反馈", "心理状态",
+  ]
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `growth mock should not contain "${word}"`)
+  }
+})
+
 test("buildMockWrongQuestionReport V5 progressSignal includes both result and method", () => {
   const r = buildMockWrongQuestionReport()
   // V5: progressSignal must convey BOTH the result AND the method/cause

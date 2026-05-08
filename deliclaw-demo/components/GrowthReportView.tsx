@@ -125,7 +125,7 @@ function HighlightsCard({ highlights }: { highlights: string[] }) {
     <section className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 shadow-sm">
       <SectionTitle>亮点与进步</SectionTitle>
       {highlights.length === 0 ? (
-        <p className="text-xs text-slate-400">暂未识别出明显亮点</p>
+        <p className="text-xs text-slate-400">这个月没看到明显进步</p>
       ) : (
         <ul className="space-y-1.5">
           {highlights.map((h, i) => (
@@ -142,9 +142,9 @@ function HighlightsCard({ highlights }: { highlights: string[] }) {
 
 function ParentAdviceCard({ advice }: { advice: GrowthReport["parentAdvice"] }) {
   const cols: { title: string; items: string[]; color: string }[] = [
-    { title: "需要加强", items: advice.strengthen, color: "bg-red-50 text-red-700 border-red-100" },
-    { title: "需要提醒", items: advice.remind, color: "bg-amber-50 text-amber-700 border-amber-100" },
-    { title: "需要鼓励", items: advice.encourage, color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+    { title: "重点补", items: advice.strengthen, color: "bg-red-50 text-red-700 border-red-100" },
+    { title: "留个心", items: advice.remind, color: "bg-amber-50 text-amber-700 border-amber-100" },
+    { title: "夸一夸", items: advice.encourage, color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
   ]
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
