@@ -86,18 +86,14 @@ test("buildMockWrongQuestionReport contains no banned diagnostic-report words", 
   }
 })
 
-test("buildMockWrongQuestionReport V4 new fields: gapSignal and todayPick", () => {
+test("buildMockWrongQuestionReport gapSignal", () => {
   const r = buildMockWrongQuestionReport()
-  // gapSignal
   assert.equal(r.gapSignal, "物理单位换算又冒头，第 3 次了")
-  // todayPick fields
-  assert.equal(r.todayPick.taskText, "5 分钟，重做 4/12 那道二次函数")
-  assert.equal(r.todayPick.durationMinutes, 5)
-  assert.equal(r.todayPick.whyLine, "上次你把 h = -2 写成了 2")
-  assert.equal(r.todayPick.taskId, "focus-0-task-0")
-  assert.ok(r.todayPick.fileRef.includes("数学-错题-2026-04-12"), `fileRef should contain "数学-错题-2026-04-12", got: ${r.todayPick.fileRef}`)
-  // consistency: todayPick.taskId must equal focusPicks[0].tasks[0].id
-  assert.equal(r.todayPick.taskId, r.focusPicks[0].tasks[0].id, "todayPick.taskId must match focusPicks[0].tasks[0].id")
+})
+
+test("buildMockWrongQuestionReport V6: todayPick field removed (TodayPickCard deleted)", () => {
+  const r = buildMockWrongQuestionReport()
+  assert.equal((r as any).todayPick, undefined, "todayPick should not exist in V6 mock")
 })
 
 test("buildMockWrongQuestionReport contains no V4 banned words", () => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { WrongQuestionReport, FocusPick, TodayPick } from "@/lib/reportTypes"
+import type { WrongQuestionReport, FocusPick } from "@/lib/reportTypes"
 import {
   CartesianGrid,
   Cell,
@@ -150,62 +150,20 @@ function LightboxModal({
   )
 }
 
-function TodayPickCard({
-  todayPick,
-  taskState,
-}: {
-  todayPick: TodayPick
-  taskState: Record<string, true>
-}) {
-  const isDone = !!taskState[todayPick.taskId]
-
-  if (isDone) {
-    return (
-      <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-indigo-600 font-bold">✓</span>
-          <h2 className="text-sm font-bold text-indigo-800">本周已完成</h2>
-        </div>
-        <p className="text-xs text-slate-600 leading-relaxed mb-1">{todayPick.fileRef}</p>
-        <p className="text-xs text-slate-500 leading-relaxed">下面还有 2 件，往下做，挨个拿下</p>
-      </section>
-    )
-  }
-
-  return (
-    <section className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-indigo-600 font-bold">▶</span>
-        <h2 className="text-sm font-bold text-indigo-900">本周重点</h2>
-      </div>
-      <p className="text-sm font-semibold text-slate-800 leading-relaxed mb-1">
-        {todayPick.taskText}
-      </p>
-      <p className="text-xs text-slate-600 leading-relaxed mb-4">{todayPick.whyLine}</p>
-      <button
-        type="button"
-        onClick={() => scrollToTask(todayPick.taskId)}
-        className="w-full rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white hover:bg-indigo-700"
-        style={{ minHeight: "48px" }}
-      >
-        开始
-      </button>
-    </section>
-  )
-}
-
 function FocusCard({
   pick,
   index,
   taskState,
   onToggle,
   onPreview,
+  isHero,
 }: {
   pick: FocusPick
   index: number
   taskState: Record<string, true>
   onToggle: (taskId: string) => void
   onPreview: (src: string, alt: string) => void
+  isHero: boolean
 }) {
   function jumpToFirstTask() {
     const first = pick.tasks[0]
@@ -215,8 +173,19 @@ function FocusCard({
 
   const numberLabel = ["❶", "❷", "❸"][index] ?? `#${index + 1}`
 
+  const sectionClass = isHero
+    ? "overflow-hidden rounded-2xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 to-white shadow-md"
+    : "overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 shadow-sm"
+
   return (
-    <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/40 p-5 shadow-sm">
+    <section className={sectionClass}>
+      {isHero && (
+        <div className="flex items-center gap-2 bg-indigo-600 px-5 py-2">
+          <span className="text-sm">⚡</span>
+          <span className="text-xs font-bold tracking-wide text-white">先做这件</span>
+        </div>
+      )}
+      <div className="p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-700">
           错 {pick.errorCount} 次 · {pick.examWeightLabel}
@@ -300,6 +269,7 @@ function FocusCard({
       >
         ▶ 现在就做
       </button>
+      </div>
     </section>
   )
 }
@@ -479,8 +449,6 @@ export default function WrongQuestionReportView({ report }: Props) {
         gapSignal={report.gapSignal}
       />
 
-      <TodayPickCard todayPick={report.todayPick} taskState={taskState} />
-
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-3 w-1 rounded-full bg-indigo-500" />
@@ -494,6 +462,7 @@ export default function WrongQuestionReportView({ report }: Props) {
             taskState={taskState}
             onToggle={toggleTask}
             onPreview={(src, alt) => setPreview({ src, alt })}
+            isHero={i === 0}
           />
         ))}
       </div>

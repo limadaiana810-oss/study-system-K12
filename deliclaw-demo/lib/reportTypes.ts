@@ -1,11 +1,3 @@
-export type TodayPick = {
-  taskId: string
-  taskText: string
-  durationMinutes: number
-  whyLine: string
-  fileRef: string
-}
-
 export type FocusTask = {
   id: string
   text: string
@@ -40,7 +32,6 @@ export type WrongQuestionReport = {
   windowDays: 30
   progressSignal: string
   gapSignal: string
-  todayPick: TodayPick
   focusPicks: FocusPick[]
   weeklyTrend: WeeklyTrend
   weakPoints: {

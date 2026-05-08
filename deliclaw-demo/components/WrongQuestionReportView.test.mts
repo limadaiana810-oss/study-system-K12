@@ -83,22 +83,18 @@ test("WrongQuestionReportView contains no banned diagnostic-report words (V3 stu
   }
 })
 
-// ── V4 tests (RED until HeroSignalsBar + TodayPickCard are implemented) ──
+// ── V6 tests (TodayPickCard removed; FocusCard ❶ becomes hero) ──
 
 test("V4: source defines HeroSignalsBar component", () => {
   assert.match(SOURCE, /HeroSignalsBar/)
 })
 
-test("V4: source defines TodayPickCard component", () => {
-  assert.match(SOURCE, /TodayPickCard/)
+test("V6: source no longer defines TodayPickCard (deleted, focusPicks[0] now hero)", () => {
+  assert.doesNotMatch(SOURCE, /TodayPickCard/)
 })
 
 test("V4: source does NOT contain ProgressSignalBar (replaced by HeroSignalsBar)", () => {
   assert.doesNotMatch(SOURCE, /ProgressSignalBar/)
-})
-
-test("V5: TodayPickCard header is '本周重点' (weekly report, not daily)", () => {
-  assert.match(SOURCE, /本周重点/)
 })
 
 test("V4: source references both progressSignal and gapSignal props", () => {
@@ -106,19 +102,19 @@ test("V4: source references both progressSignal and gapSignal props", () => {
   assert.match(SOURCE, /gapSignal/)
 })
 
-test("V4: source references todayPick and taskState completion lookup", () => {
-  assert.match(SOURCE, /todayPick/)
-  assert.match(SOURCE, /taskState\[todayPick/)
+test("V6: source no longer references todayPick (field deleted from contract)", () => {
+  assert.doesNotMatch(SOURCE, /todayPick/)
 })
 
-test("V4: source contains scroll target pattern #task-${...} for 开始 button", () => {
-  // The 开始 button must scroll to #task-${todayPick.taskId}
+test("V6: scrollToTask pattern still exists for FocusCard '现在就做' button", () => {
   assert.match(SOURCE, /`#task-\$\{|'task-' \+|"task-" \+|task-\$\{/)
 })
 
-test("V5: source contains '开始' button text and '本周已完成' done-state label", () => {
-  assert.match(SOURCE, /开始/)
-  assert.match(SOURCE, /本周已完成/)
+test("V6: FocusCard accepts isHero prop and renders '先做这件' flag for hero card", () => {
+  assert.match(SOURCE, /isHero/)
+  assert.match(SOURCE, /先做这件/)
+  // hero visual: border-2 distinguishes hero from regular cards
+  assert.match(SOURCE, /border-2/)
 })
 
 test("V5: FocusCard renders errorCount + examWeightLabel meta badge", () => {
@@ -168,21 +164,23 @@ test("page footer renders weakPoints aggregate counts", () => {
 
 test("chrome banned: removed casual section titles (formal pass)", () => {
   const removed = [
-    "现在做这一件",          // → 本日重点 (V4) → 本周重点 (V5)
-    "今天这件做完了",        // → 本日已完成 (V4) → 本周已完成 (V5)
-    "本日重点",              // V4 → 本周重点 (V5: weekly report)
-    "本日已完成",            // V4 → 本周已完成 (V5)
+    "现在做这一件",          // V3
+    "今天这件做完了",        // V3
+    "本日重点",              // V4 → 本周重点 (V5) → deleted (V6)
+    "本日已完成",            // V4 → 本周已完成 (V5) → deleted (V6)
+    "本周重点",              // V5 → deleted (V6: TodayPickCard removed)
+    "本周已完成",            // V5 → deleted (V6)
     "其他薄弱点",            // V4 → 次要错题 (V5)
-    "这周先把这两道拿下",    // → 本周聚焦
-    "做完这两道",            // subtitle removed
-    "本月错题，一周一根",    // → 本月错题趋势
-    "其他还在冒头的",        // V3 wording
-    "想看完整本周计划",      // divider removed
-    "上次卡在哪",            // → 错因回顾
-    "这周怎么补",            // → 本周练习
-    "下次再遇到",            // → 解题要点
-    "这周先拿下这道",        // V3 wording
-    "还可以再练这些",        // V3 wording
+    "这周先把这两道拿下",    // V3
+    "做完这两道",            // V3
+    "本月错题，一周一根",    // V3
+    "其他还在冒头的",        // V3
+    "想看完整本周计划",      // V3
+    "上次卡在哪",            // V3
+    "这周怎么补",            // V3
+    "下次再遇到",            // V3
+    "这周先拿下这道",        // V3
+    "还可以再练这些",        // V3
   ]
   for (const word of removed) {
     assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should no longer contain "${word}"`)

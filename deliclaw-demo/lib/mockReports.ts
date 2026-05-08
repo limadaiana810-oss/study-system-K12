@@ -3,7 +3,7 @@ import {
   buildEmotionTrendSkeleton,
 } from "./reportAggregation.ts"
 import { getScoresForWindow, MOCK_EMOTION_HISTORY } from "./mockScores.ts"
-import type { GrowthReport, TodayPick, WrongQuestionReport } from "./reportTypes.ts"
+import type { GrowthReport, WrongQuestionReport } from "./reportTypes.ts"
 
 function todayIso(): string {
   const d = new Date()
@@ -89,21 +89,11 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
     },
   ]
 
-  const firstTask = focusPicks[0].tasks[0]
-  const todayPick: TodayPick = {
-    taskId: firstTask.id,
-    taskText: "5 分钟，重做 4/12 那道二次函数",
-    durationMinutes: 5,
-    whyLine: "上次你把 h = -2 写成了 2",
-    fileRef: focusPicks[0].fileRefs[0],
-  }
-
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
     progressSignal: "这周只错 1 道，月内最高一周 5 道——连续 7 天打卡，二次函数顶点式啃下来，3 道老错题一起翻过去",
     gapSignal: "物理单位换算又冒头，第 3 次了",
-    todayPick,
     focusPicks,
     weeklyTrend: {
       series: [

@@ -164,20 +164,25 @@ test("readCachedReport accepts a V4 wrong-questions report with gapSignal and to
   assert.equal((result as any).generatedAt, "v4")
 })
 
-test("readCachedReport rejects V4 shape when todayPick.durationMinutes is a string", () => {
+test("readCachedReport accepts V6 shape without todayPick field (TodayPickCard removed)", () => {
   installShim()
-  const badFixture = {
-    ...VALID_V4_WRONG_QUESTION_FIXTURE,
-    todayPick: {
-      ...VALID_V4_WRONG_QUESTION_FIXTURE.todayPick,
-      durationMinutes: "five", // wrong type: should be number
-    },
+  const v6Fixture = {
+    generatedAt: "v6",
+    windowDays: 30,
+    progressSignal: "this week 1 error",
+    gapSignal: "still working on units",
+    focusPicks: [],
+    weeklyTrend: { series: [], summary: "" },
+    weakPoints: [],
+    // no todayPick field — V6 deleted it
   }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(badFixture)
+    JSON.stringify(v6Fixture)
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "todayPick.durationMinutes as string must be rejected")
+  const result = readCachedReport("wrong-questions")
+  assert.notEqual(result, null, "V6 shape (no todayPick) must be accepted")
+  assert.equal((result as any).generatedAt, "v6")
 })
 
 // V5 shape validation tests
