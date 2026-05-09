@@ -1,132 +1,187 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import type { GrowthReport } from "@/lib/reportTypes"
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 import { EMOTION_COLOR, EMOTION_VALENCE } from "@/lib/memoryParser"
+
+interface Props {
+  report: GrowthReport
+  printMode?: boolean
+}
+
+const SUBJECT_HEX: Record<string, string> = {
+  数学: "var(--s-math)",
+  物理: "var(--s-physics)",
+  英语: "var(--s-english)",
+  化学: "var(--s-chemistry)",
+  语文: "var(--s-chinese)",
+}
 
 function valenceFor(name: string): number {
   return EMOTION_VALENCE[name] ?? 0
 }
 
 function colorFor(name: string): string {
-  return EMOTION_COLOR[name] ?? "#94A3B8"
+  return EMOTION_COLOR[name] ?? "var(--ink-4)"
 }
 
-interface Props {
-  report: GrowthReport
+function formatMonthLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return `${d.getFullYear()} · ${d.getMonth() + 1}月`
 }
 
-function IconDoc({ className = "" }: { className?: string }) {
+// ── Custom SVG: 双轴图（作业线 + 考试线 + 错题柱）──
+function ScoreErrorChart({ subjectData }: { subjectData: GrowthReport["scores"][number] }) {
+  const W = 600,
+    H = 240,
+    padL = 44,
+    padR = 44,
+    padT = 18,
+    padB = 36
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
+
+  const scoreMin = 60,
+    scoreMax = 100
+  const errs = subjectData.weeklyErrorCount ?? []
+  const errMax = Math.max(5, ...errs)
+
+  const xFor = (i: number) => padL + (i + 0.5) * (innerW / 4)
+  const yScore = (v: number) => padT + innerH - ((v - scoreMin) / (scoreMax - scoreMin)) * innerH
+  const yErr = (v: number) => padT + innerH - (v / errMax) * innerH
+  const barW = (innerW / 4) * 0.32
+
+  const hwPts = subjectData.weeklyHomeworkAvg
+    .map((v, i) => (v != null ? `${xFor(i)},${yScore(v)}` : null))
+    .filter(Boolean)
+    .join(" ")
+  const exPts = subjectData.weeklyExamAvg
+    .map((v, i) => (v != null ? `${xFor(i)},${yScore(v)}` : null))
+    .filter(Boolean)
+    .join(" ")
+
   return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 3 H12 L15 6 V17 H5 Z" />
-      <polyline points="12 3 12 6 15 6" />
-      <line x1="7" y1="10" x2="13" y2="10" />
-      <line x1="7" y1="13" x2="13" y2="13" />
-    </svg>
-  )
-}
-
-function IconBook({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 4 H8 a2 2 0 0 1 2 2 V17 a2 2 0 0 0 -2 -2 H3 Z" />
-      <path d="M17 4 H12 a2 2 0 0 0 -2 2 V17 a2 2 0 0 1 2 -2 H17 Z" />
-    </svg>
-  )
-}
-
-function IconCalendar({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="14" height="12" rx="1.5" />
-      <line x1="3" y1="9" x2="17" y2="9" />
-      <line x1="7" y1="3" x2="7" y2="6" />
-      <line x1="13" y1="3" x2="13" y2="6" />
-    </svg>
-  )
-}
-
-function IconCheck({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="4 11 8 15 16 6" />
-    </svg>
-  )
-}
-
-function IconEye({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 10 C5 5 8 4 10 4 C12 4 15 5 18 10 C15 15 12 16 10 16 C8 16 5 15 2 10 Z" />
-      <circle cx="10" cy="10" r="2.4" />
-    </svg>
-  )
-}
-
-function IconArrowRight({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" y1="10" x2="15" y2="10" />
-      <polyline points="11 6 15 10 11 14" />
-    </svg>
-  )
-}
-
-function TrajectoryCard({ trajectory }: { trajectory: GrowthReport["trajectory"] }) {
-  const stats: { value: number; label: string; icon: React.ReactNode; color: string }[] = [
-    {
-      value: trajectory.filesUploaded,
-      label: "整理错题",
-      icon: <IconDoc className="h-4 w-4" />,
-      color: "text-indigo-500",
-    },
-    {
-      value: trajectory.subjectsCovered.length,
-      label: "覆盖学科",
-      icon: <IconBook className="h-4 w-4" />,
-      color: "text-emerald-500",
-    },
-    {
-      value: trajectory.activeDays,
-      label: "活跃天数",
-      icon: <IconCalendar className="h-4 w-4" />,
-      color: "text-amber-500",
-    },
-  ]
-  // V11: chrome 由 <BackupSection> 提供；这里只返回内容 body。
-  return (
-    <div className="grid grid-cols-3 gap-3">
-      {stats.map((s) => (
-        <div key={s.label} className="rounded-xl bg-slate-50 p-3 text-center">
-          <div className={`mb-1 flex items-center justify-center ${s.color}`}>{s.icon}</div>
-          <p className="text-xl font-black text-slate-800">{s.value}</p>
-          <p className="text-[10px] text-slate-500">{s.label}</p>
-        </div>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 240, display: "block" }}>
+      {[60, 70, 80, 90, 100].map((t) => (
+        <g key={t}>
+          <line
+            x1={padL}
+            x2={W - padR}
+            y1={yScore(t)}
+            y2={yScore(t)}
+            stroke="var(--rule)"
+            strokeDasharray={t === 60 ? "0" : "2 4"}
+          />
+          <text
+            x={padL - 8}
+            y={yScore(t) + 3}
+            textAnchor="end"
+            fontSize="10"
+            fontFamily="var(--font-num)"
+            fill="var(--ink-3)"
+          >
+            {t}
+          </text>
+        </g>
       ))}
-    </div>
+      <text
+        x={W - padR + 6}
+        y={padT + 6}
+        fontSize="10"
+        fontFamily="var(--font-num)"
+        fill="var(--ink-3)"
+      >
+        {errMax}
+      </text>
+      <text
+        x={W - padR + 6}
+        y={padT + innerH + 4}
+        fontSize="10"
+        fontFamily="var(--font-num)"
+        fill="var(--ink-3)"
+      >
+        0
+      </text>
+
+      {errs.map((v, i) => (
+        <rect
+          key={i}
+          x={xFor(i) - barW / 2}
+          y={yErr(v)}
+          width={barW}
+          height={padT + innerH - yErr(v)}
+          fill="var(--amber)"
+          opacity={0.32}
+          rx={2}
+        />
+      ))}
+
+      <polyline
+        points={hwPts}
+        fill="none"
+        stroke="var(--brand)"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {subjectData.weeklyHomeworkAvg.map(
+        (v, i) =>
+          v != null && (
+            <circle
+              key={i}
+              cx={xFor(i)}
+              cy={yScore(v)}
+              r={3.6}
+              fill="var(--brand)"
+              stroke="#fff"
+              strokeWidth={1.5}
+            />
+          ),
+      )}
+
+      <polyline
+        points={exPts}
+        fill="none"
+        stroke="var(--sage)"
+        strokeWidth={2.2}
+        strokeDasharray="5 4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {subjectData.weeklyExamAvg.map(
+        (v, i) =>
+          v != null && (
+            <circle
+              key={i}
+              cx={xFor(i)}
+              cy={yScore(v)}
+              r={4.2}
+              fill="var(--sage)"
+              stroke="#fff"
+              strokeWidth={1.5}
+            />
+          ),
+      )}
+
+      {[1, 2, 3, 4].map((w, i) => (
+        <text
+          key={w}
+          x={xFor(i)}
+          y={H - padB + 18}
+          textAnchor="middle"
+          fontSize="11"
+          fontFamily="var(--font-display)"
+          fill="var(--ink-3)"
+        >
+          第 {w} 周
+        </text>
+      ))}
+    </svg>
   )
 }
 
-function ExamDot(props: { cx?: number; cy?: number; payload?: { 考试均分?: number | null } }) {
-  const { cx, cy, payload } = props
-  if (cx == null || cy == null) return <g />
-  if (payload?.考试均分 == null) return <g />
-  return <circle cx={cx} cy={cy} r={4} fill="#10B981" stroke="#fff" strokeWidth={1.5} />
-}
-
+// ── HomeworkExamErrorChart wrapper（保留组件名，内部委托 ScoreErrorChart + 学科切换） ──
 function HomeworkExamErrorChart({
   scores,
   focusSubject,
@@ -134,298 +189,395 @@ function HomeworkExamErrorChart({
   scores: GrowthReport["scores"]
   focusSubject: string
 }) {
-  const [selected, setSelected] = useState<string>(focusSubject)
+  const [selected, setSelected] = useState(focusSubject)
   const focus = scores.find((s) => s.subject === selected) ?? scores[0]
-  const others = scores.filter((s) => s.subject !== focus?.subject)
   if (!focus) return null
 
-  const weeks = ["W1", "W2", "W3", "W4"]
-  const data = weeks.map((label, i) => ({
-    week: label,
-    作业均分: focus.weeklyHomeworkAvg[i] ?? null,
-    考试均分: focus.weeklyExamAvg[i],
-    错题数: focus.weeklyErrorCount[i] ?? 0,
-  }))
-  const maxErrors = Math.max(1, ...scores.flatMap((s) => s.weeklyErrorCount))
-
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="h-3 w-1 rounded-full bg-emerald-500" />
-        <h3 className="text-sm font-bold text-slate-800">
-          本月分数对比 <span className="font-normal text-slate-400">· {focus.subject}</span>
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+        <h3
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-display)",
+            fontSize: 24,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          本月分数对比
         </h3>
-      </div>
+        <span style={{ color: "var(--ink-4)", fontFamily: "var(--font-display)", fontStyle: "italic" }}>
+          · {focus.subject}
+        </span>
 
-      {/* 一键切换学科 */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {scores.map((s) => {
-          const active = s.subject === focus.subject
-          return (
-            <button
-              key={s.subject}
-              type="button"
-              onClick={() => setSelected(s.subject)}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition ${
-                active
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {s.subject}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="h-56 w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="score" domain={[60, 100]} tick={{ fontSize: 11 }} />
-            <YAxis
-              yAxisId="errors"
-              orientation="right"
-              domain={[0, Math.max(maxErrors, 5)]}
-              tick={{ fontSize: 11 }}
-              allowDecimals={false}
-            />
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar
-              yAxisId="errors"
-              dataKey="错题数"
-              fill="#F59E0B"
-              fillOpacity={0.45}
-              radius={[3, 3, 0, 0]}
-              barSize={14}
-            />
-            <Line
-              yAxisId="score"
-              type="monotone"
-              dataKey="作业均分"
-              stroke="#6366F1"
-              strokeWidth={2.5}
-              dot={{ r: 4, fill: "#6366F1", stroke: "#fff", strokeWidth: 1 }}
-              activeDot={{ r: 5 }}
-              connectNulls
-            />
-            <Line
-              yAxisId="score"
-              type="monotone"
-              dataKey="考试均分"
-              stroke="#10B981"
-              strokeWidth={2.5}
-              strokeDasharray="5 4"
-              dot={<ExamDot />}
-              activeDot={{ r: 5 }}
-              connectNulls
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2">
-        <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">作业 ↑</span>
-        <IconArrowRight className="h-3.5 w-3.5 text-slate-400" />
-        <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">错题 ↓</span>
-        <IconArrowRight className="h-3.5 w-3.5 text-slate-400" />
-        <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">考试 ↑</span>
-      </div>
-      <p className="mt-1.5 text-center text-[10px] leading-relaxed text-slate-400">
-        三者通常一起动；偶有一两周断联，看大趋势就好
-      </p>
-
-      {others.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-xl border border-slate-100">
-          <table className="w-full text-left text-[11px]">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-2 py-1.5 font-bold">学科</th>
-                <th className="px-2 py-1.5 font-bold tabular-nums">作业均分</th>
-                <th className="px-2 py-1.5 font-bold tabular-nums">最近考试</th>
-                <th className="px-2 py-1.5 font-bold tabular-nums">月内错题</th>
-              </tr>
-            </thead>
-            <tbody>
-              {others.map((s) => {
-                const errorTotal = s.weeklyErrorCount.reduce((a, b) => a + b, 0)
-                return (
-                  <tr
-                    key={s.subject}
-                    onClick={() => setSelected(s.subject)}
-                    className="cursor-pointer border-t border-slate-100 hover:bg-emerald-50/40"
-                  >
-                    <td className="px-2 py-1.5 font-bold text-slate-700">{s.subject}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-slate-600">{s.homeworkAvg}</td>
-                    <td className="px-2 py-1.5 tabular-nums text-slate-600">
-                      {s.examLatest ? `${s.examLatest.value}/${s.examLatest.max}` : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 tabular-nums text-slate-600">{errorTotal}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <p className="border-t border-slate-100 bg-slate-50/60 px-2 py-1 text-center text-[10px] text-slate-400">
-            点击学科可切换查看
-          </p>
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            gap: 4,
+            padding: 3,
+            background: "var(--paper)",
+            borderRadius: 999,
+          }}
+        >
+          {scores.map((s) => {
+            const active = s.subject === focus.subject
+            return (
+              <button
+                key={s.subject}
+                onClick={() => setSelected(s.subject)}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: active ? "var(--ink-1)" : "transparent",
+                  color: active ? "#fff" : "var(--ink-3)",
+                  border: 0,
+                  borderRadius: 999,
+                  transition: "all .15s",
+                  cursor: "pointer",
+                }}
+              >
+                {s.subject}
+              </button>
+            )
+          })}
         </div>
-      )}
-    </section>
-  )
-}
+      </div>
 
-function EmotionDot(props: { cx?: number; cy?: number; payload?: { color?: string } }) {
-  const { cx, cy, payload } = props
-  if (cx == null || cy == null) return <g />
-  const color = payload?.color ?? "#94A3B8"
-  return <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={1.5} />
-}
+      <div style={{ marginTop: 14 }}>
+        <ScoreErrorChart subjectData={focus} />
+      </div>
 
-function EmotionTooltip({ active, payload }: {
-  active?: boolean
-  payload?: Array<{ payload?: { emotion?: string; valence?: number; summary?: string; color?: string } }>
-}) {
-  if (!active || !payload || payload.length === 0) return null
-  const p = payload[0]?.payload
-  if (!p) return null
-  const valence = p.valence ?? 0
-  return (
-    <div className="max-w-[220px] rounded-md border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-      <div className="flex items-center gap-1.5">
-        <span
-          className="inline-block h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: p.color ?? "#94A3B8" }}
-        />
-        <span className="text-xs font-bold text-slate-800">{p.emotion}</span>
-        <span className="text-[10px] tabular-nums text-slate-400">
-          {valence > 0 ? "+" : ""}
-          {valence.toFixed(1)}
+      <div
+        style={{
+          display: "flex",
+          gap: 24,
+          padding: "10px 4px 4px",
+          fontSize: 11.5,
+          color: "var(--ink-3)",
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 16, height: 2, background: "var(--brand)", borderRadius: 1 }} />
+          作业均分
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              width: 16,
+              height: 0,
+              borderTop: "2px dashed var(--sage)",
+            }}
+          />
+          考试均分
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 12, height: 8, background: "var(--amber)", opacity: 0.32, borderRadius: 1 }} />
+          错题数（右轴）
         </span>
       </div>
-      {p.summary && <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{p.summary}</p>}
+
+      {/* Causal ribbon */}
+      <div
+        style={{
+          marginTop: 16,
+          padding: "10px 14px",
+          background: "var(--sage-soft)",
+          border: "1px solid #D6E2C8",
+          borderRadius: "var(--r-md)",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 12,
+          color: "var(--ink-2)",
+          fontStyle: "italic",
+          fontFamily: "var(--font-display)",
+        }}
+      >
+        <span style={{ color: "var(--brand)", fontWeight: 600, fontStyle: "normal", fontFamily: "var(--font-body)" }}>
+          作业 ↑
+        </span>
+        <span style={{ color: "var(--ink-4)" }}>──→</span>
+        <span style={{ color: "var(--amber)", fontWeight: 600, fontStyle: "normal", fontFamily: "var(--font-body)" }}>
+          错题 ↓
+        </span>
+        <span style={{ color: "var(--ink-4)" }}>──→</span>
+        <span style={{ color: "var(--sage)", fontWeight: 600, fontStyle: "normal", fontFamily: "var(--font-body)" }}>
+          考试 ↑
+        </span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 11, color: "var(--ink-3)", fontStyle: "normal" }}>
+          三者通常一起动，看大趋势就好
+        </span>
+      </div>
     </div>
   )
 }
 
+// ── EmotionTrendCard（custom SVG 折线 + chip 列表）──
 function EmotionTrendCard({ emotionTrend }: { emotionTrend: GrowthReport["emotionTrend"] }) {
+  const W = 540,
+    H = 130,
+    padL = 36,
+    padR = 12,
+    padT = 12,
+    padB = 24
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
+
   const data = emotionTrend.map((w) => ({
-    week: `W${w.week}`,
+    ...w,
     valence: valenceFor(w.dominant),
-    emotion: w.dominant,
     color: colorFor(w.dominant),
-    summary: w.summary,
   }))
-  // V11: chrome 由 <BackupSection> 提供。
+  const xFor = (i: number) => padL + (i + 0.5) * (innerW / Math.max(1, data.length))
+  const yFor = (v: number) => padT + innerH - ((v + 1) / 2) * innerH
+  const pts = data.map((d, i) => `${xFor(i)},${yFor(d.valence)}`).join(" ")
+
   return (
     <div>
-      <div className="h-44 w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-            <YAxis
-              domain={[-1, 1]}
-              ticks={[-1, 0, 1]}
-              tickFormatter={(v) => (v === 1 ? "积极" : v === -1 ? "低落" : "平")}
-              tick={{ fontSize: 10 }}
-              width={40}
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 130, display: "block" }}>
+        {[1, 0, -1].map((t) => (
+          <g key={t}>
+            <line
+              x1={padL}
+              x2={W - padR}
+              y1={yFor(t)}
+              y2={yFor(t)}
+              stroke="var(--rule)"
+              strokeDasharray={t === 0 ? "0" : "2 4"}
             />
-            <Tooltip content={<EmotionTooltip />} />
-            <Line
-              type="monotone"
-              dataKey="valence"
-              stroke="#A855F7"
-              strokeWidth={2}
-              dot={<EmotionDot />}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="mt-3 space-y-1.5">
-        {emotionTrend.map((w) => {
-          const color = colorFor(w.dominant)
-          return (
-            <li key={w.week} className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
-              <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-                W{w.week} · {w.dominant}
-              </span>
-              <span className="flex-1">{w.summary}</span>
-            </li>
-          )
-        })}
+            <text
+              x={padL - 6}
+              y={yFor(t) + 3}
+              textAnchor="end"
+              fontSize="10"
+              fill="var(--ink-3)"
+            >
+              {t === 1 ? "积极" : t === -1 ? "低落" : "平"}
+            </text>
+          </g>
+        ))}
+        <polyline
+          points={pts}
+          fill="none"
+          stroke="var(--brand)"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+        />
+        {data.map((d, i) => (
+          <circle
+            key={i}
+            cx={xFor(i)}
+            cy={yFor(d.valence)}
+            r={5}
+            fill={d.color}
+            stroke="#fff"
+            strokeWidth={1.6}
+          />
+        ))}
+        {data.map((d, i) => (
+          <text
+            key={i}
+            x={xFor(i)}
+            y={H - padB + 14}
+            textAnchor="middle"
+            fontSize="10"
+            fontFamily="var(--font-display)"
+            fill="var(--ink-3)"
+          >
+            W{d.week}
+          </text>
+        ))}
+      </svg>
+      <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "grid", gap: 8 }}>
+        {data.map((w, i) => (
+          <li
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 10,
+              fontSize: 12.5,
+              color: "var(--ink-2)",
+              lineHeight: 1.55,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "2px 8px",
+                background: "var(--paper)",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--ink-2)",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: w.color }} />
+              W{w.week} · {w.dominant}
+            </span>
+            <span>{w.summary}</span>
+          </li>
+        ))}
       </ul>
     </div>
   )
 }
 
+// ── TrajectoryCard（3 列大数字） ──
+function TrajectoryCard({ trajectory }: { trajectory: GrowthReport["trajectory"] }) {
+  const stats = [
+    { v: trajectory.filesUploaded, l: "整理错题", c: "var(--brand)" },
+    { v: trajectory.subjectsCovered.length, l: "覆盖学科", c: "var(--sage)" },
+    { v: trajectory.activeDays, l: "活跃天数", c: "var(--clay)" },
+  ]
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: 0,
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-md)",
+        overflow: "hidden",
+      }}
+    >
+      {stats.map((s, i) => (
+        <div
+          key={s.l}
+          style={{
+            padding: "18px 16px",
+            background: "var(--card-warm)",
+            borderRight: i < stats.length - 1 ? "1px solid var(--rule)" : 0,
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-num)",
+              fontSize: 36,
+              fontWeight: 400,
+              lineHeight: 1,
+              color: s.c,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {s.v}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.05em" }}>
+            {s.l}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── HighlightsCard（编号列表） ──
 function HighlightsCard({ highlights }: { highlights: string[] }) {
-  // V11: chrome 由 <BackupSection> 提供。
   if (highlights.length === 0) {
-    return <p className="text-xs text-slate-400">这个月没看到明显进步</p>
+    return (
+      <p style={{ fontSize: 12.5, color: "var(--ink-3)", margin: 0 }}>这个月没看到明显进步。</p>
+    )
   }
   return (
-    <ul className="space-y-2">
+    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
       {highlights.map((h, i) => (
-        <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
-          <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-            <IconCheck className="h-2.5 w-2.5" />
+        <li
+          key={i}
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 14,
+            padding: "10px 0",
+            borderBottom: i < highlights.length - 1 ? "1px dashed var(--rule)" : 0,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 22,
+              fontWeight: 300,
+              color: "var(--sage)",
+              letterSpacing: "-0.02em",
+              minWidth: 28,
+            }}
+          >
+            0{i + 1}
           </span>
-          <span className="leading-relaxed">{h}</span>
+          <span style={{ flex: 1, fontSize: 13, lineHeight: 1.55, color: "var(--ink-1)" }}>{h}</span>
         </li>
       ))}
     </ul>
   )
 }
 
+// ── ParentAdviceCard（3 列：下一步学习计划 / 沟通重点 / 家长行动计划） ──
+// V11 doctrine: 第二列从临床味标题改为「沟通重点」（沟通是双向）。
+//                配色从 amber 警示改为 teal 信息（var(--teal)），匹配 doctrine #5 镜像。
 function ParentAdviceCard({ advice }: { advice: GrowthReport["parentAdvice"] }) {
-  // V11: 第二列重命名为「沟通重点」，配色从 amber 警示色 → sky 信息色。
-  // 第一列首条已被 thisWeekAction 抽走，剩余 strengthen 在这里继续展示。
-  const cols: {
-    title: string
-    items: string[]
-    color: string
-    icon: React.ReactNode
-  }[] = [
-    {
-      title: "下一步学习计划",
-      items: advice.strengthen,
-      color: "bg-indigo-50 text-indigo-700 border-indigo-100",
-      icon: <IconCalendar className="h-3.5 w-3.5" />,
-    },
-    {
-      title: "沟通重点",
-      items: advice.remind,
-      color: "bg-sky-50 text-sky-700 border-sky-100",
-      icon: <IconEye className="h-3.5 w-3.5" />,
-    },
-    {
-      title: "家长行动计划",
-      items: advice.encourage,
-      color: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      icon: <IconCheck className="h-3.5 w-3.5" />,
-    },
+  const cols = [
+    { t: "下一步学习计划", items: advice.strengthen, c: "var(--brand)", soft: "var(--brand-paper)" },
+    { t: "沟通重点", items: advice.remind, c: "var(--teal)", soft: "#E0EFEF" },
+    { t: "家长行动计划", items: advice.encourage, c: "var(--sage)", soft: "var(--sage-soft)" },
   ]
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
       {cols.map((c) => (
-        <div key={c.title} className={`rounded-xl border p-3 ${c.color}`}>
-          <p className="mb-2 flex items-center gap-1 text-xs font-bold">
-            {c.icon}
-            <span>{c.title}</span>
-          </p>
+        <div
+          key={c.t}
+          style={{
+            padding: 14,
+            background: c.soft,
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--rule)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.12em",
+              fontWeight: 700,
+              color: c.c,
+              marginBottom: 8,
+            }}
+          >
+            {c.t}
+          </div>
           {c.items.length === 0 ? (
-            <p className="text-[11px] opacity-70">暂无</p>
+            <p style={{ margin: 0, fontSize: 11, color: "var(--ink-4)" }}>暂无</p>
           ) : (
-            <ul className="space-y-1.5">
-              {c.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-[11px] leading-relaxed">
-                  <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-current opacity-60" />
-                  <span>{item}</span>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+              {c.items.map((it, i) => (
+                <li
+                  key={i}
+                  style={{
+                    fontSize: 12,
+                    lineHeight: 1.55,
+                    color: "var(--ink-2)",
+                    display: "flex",
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      color: c.c,
+                      marginTop: 8,
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      background: c.c,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>{it}</span>
                 </li>
               ))}
             </ul>
@@ -436,30 +588,98 @@ function ParentAdviceCard({ advice }: { advice: GrowthReport["parentAdvice"] }) 
   )
 }
 
+// ── TopInsight（一句话本月定义） ──
 function TopInsight({ insight }: { insight: string }) {
-  if (!insight) return null
-  return <p className="text-sm leading-relaxed text-slate-700">{insight}</p>
+  return (
+    <p
+      style={{
+        fontFamily: "var(--font-display)",
+        fontSize: 28,
+        lineHeight: 1.4,
+        fontWeight: 400,
+        color: "var(--ink-1)",
+        margin: "20px 0 0",
+        letterSpacing: "-0.01em",
+        maxWidth: 640,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 56,
+          lineHeight: 0.5,
+          color: "var(--clay)",
+          verticalAlign: "-0.05em",
+          marginRight: 4,
+        }}
+      >
+        “
+      </span>
+      {insight}
+    </p>
+  )
 }
 
+// ── ThisWeekAction（深色 ribbon，hero 卡底） ──
 function ThisWeekAction({ action }: { action: string }) {
-  if (!action) return null
   return (
-    <div className="border-t border-slate-100 bg-indigo-50/40 px-4 py-3">
-      <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
-          <IconArrowRight className="h-3 w-3" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">
-            这周一件事
-          </p>
-          <p className="mt-0.5 text-xs font-semibold leading-relaxed text-slate-800">{action}</p>
-        </div>
+    <div
+      className="ink-splash"
+      style={{
+        background: "var(--wash-brand)",
+        color: "#fff",
+        padding: "16px 32px 18px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          right: -20,
+          top: -30,
+          fontFamily: "var(--font-display)",
+          fontStyle: "italic",
+          fontSize: 120,
+          fontWeight: 300,
+          color: "rgba(255,255,255,.06)",
+          lineHeight: 1,
+          pointerEvents: "none",
+        }}
+      >
+        this week
       </div>
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          fontWeight: 800,
+          color: "#FFD8B5",
+          marginBottom: 4,
+        }}
+      >
+        这周一件事
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontFamily: "var(--font-display)",
+          fontSize: 17,
+          fontWeight: 400,
+          lineHeight: 1.55,
+          letterSpacing: "-0.005em",
+          color: "#fff",
+          maxWidth: 540,
+        }}
+      >
+        {action}
+      </p>
     </div>
   )
 }
 
+// ── HeroCard（Chart + ThisWeekAction） ──
 function HeroCard({
   scores,
   focusSubject,
@@ -470,38 +690,155 @@ function HeroCard({
   thisWeekAction: string
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <HomeworkExamErrorChart scores={scores} focusSubject={focusSubject} />
+    <section
+      style={{
+        marginTop: 28,
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-xl)",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-2)",
+      }}
+    >
+      <div style={{ padding: "26px 32px 18px" }}>
+        <HomeworkExamErrorChart scores={scores} focusSubject={focusSubject} />
+      </div>
       <ThisWeekAction action={thisWeekAction} />
     </section>
   )
 }
 
-function BackupSection({ title, children }: { title: string; children: React.ReactNode }) {
+// ── BackupSection（折叠 details） ──
+function BackupSection({
+  title,
+  en,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  en: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 [&::-webkit-details-marker]:hidden">
-        <span className="flex-1 text-xs font-bold text-slate-700">{title}</span>
-        <svg
-          className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <details
+      className="print-card"
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-lg)",
+        overflow: "hidden",
+      }}
+    >
+      <summary
+        style={{
+          listStyle: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "14px 18px",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: 13,
+            color: "var(--ink-4)",
+            fontWeight: 400,
+            minWidth: 88,
+          }}
         >
-          <polyline points="5 8 10 13 15 8" />
-        </svg>
+          {en}
+        </span>
+        <span style={{ width: 1, height: 14, background: "var(--rule)" }} />
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-1)", flex: 1 }}>
+          {title}
+        </span>
+        <span
+          aria-hidden
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            border: "1px solid var(--rule)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--ink-3)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform .2s",
+            flexShrink: 0,
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="2,3.5 5,6.5 8,3.5" />
+          </svg>
+        </span>
       </summary>
-      <div className="border-t border-slate-100 p-4">{children}</div>
+      <div style={{ padding: "16px 18px 18px", borderTop: "1px solid var(--rule-soft)" }}>
+        {children}
+      </div>
     </details>
   )
 }
 
-export default function GrowthReportView({ report }: Props) {
+// ── default export ──
+export default function GrowthReportView({ report, printMode }: Props) {
   return (
-    <div className="space-y-3">
+    <div
+      className="paper-tooth"
+      style={{
+        background: "var(--wash-paper)",
+        padding: "40px 44px 56px",
+        minHeight: "100%",
+        fontFamily: "var(--font-body)",
+        color: "var(--ink-1)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 11,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--ink-3)",
+          fontWeight: 700,
+        }}
+      >
+        <span>成长报告</span>
+        <span style={{ width: 14, height: 1, background: "var(--ink-4)" }} />
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            letterSpacing: "0.04em",
+            textTransform: "none",
+            fontWeight: 400,
+            color: "var(--ink-3)",
+          }}
+        >
+          Growth Report · For Parents
+        </span>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontFamily: "var(--font-num)",
+            fontWeight: 400,
+            letterSpacing: "0.05em",
+            color: "var(--ink-3)",
+          }}
+        >
+          {formatMonthLabel(report.generatedAt)}
+        </span>
+      </div>
+
       <TopInsight insight={report.topInsight} />
 
       <HeroCard
@@ -510,21 +847,63 @@ export default function GrowthReportView({ report }: Props) {
         thisWeekAction={report.thisWeekAction}
       />
 
-      <BackupSection title="看小凯这个月情绪怎么走的">
-        <EmotionTrendCard emotionTrend={report.emotionTrend} />
-      </BackupSection>
+      <div style={{ marginTop: 24, display: "grid", gap: 10 }}>
+        <BackupSection title="小凯的情绪" en="Emotion" defaultOpen={printMode}>
+          <EmotionTrendCard emotionTrend={report.emotionTrend} />
+        </BackupSection>
+        <BackupSection title="月度学习记录" en="Trajectory" defaultOpen={printMode}>
+          <TrajectoryCard trajectory={report.trajectory} />
+        </BackupSection>
 
-      <BackupSection title="小凯这个月做了多少">
-        <TrajectoryCard trajectory={report.trajectory} />
-      </BackupSection>
+        {printMode && <div className="print-page-break" aria-hidden="true" />}
 
-      <BackupSection title="做得好的几件事">
-        <HighlightsCard highlights={report.highlights} />
-      </BackupSection>
+        <BackupSection title="本月亮点" en="Highlights" defaultOpen={printMode}>
+          <HighlightsCard highlights={report.highlights} />
+        </BackupSection>
+        <BackupSection title="与小凯沟通" en="Advice" defaultOpen={printMode}>
+          <ParentAdviceCard advice={report.parentAdvice} />
+        </BackupSection>
+      </div>
 
-      <BackupSection title="其余可以陪小凯这么聊">
-        <ParentAdviceCard advice={report.parentAdvice} />
-      </BackupSection>
+      {printMode && (
+        <aside
+          className="print-card"
+          style={{
+            marginTop: 24,
+            padding: "20px 24px",
+            background: "var(--card)",
+            border: "1px solid var(--rule-soft)",
+            borderRadius: "var(--r-md)",
+            boxShadow: "var(--shadow-1)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              color: "var(--ink-3)",
+              marginBottom: 8,
+            }}
+          >
+            DeliClaw · 月报附言
+          </p>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+              fontSize: 14,
+              lineHeight: 1.7,
+              color: "var(--ink-2)",
+            }}
+          >
+            小凯这个月一点点在往前，下个月咱们再一起看一次。
+          </p>
+        </aside>
+      )}
     </div>
   )
 }

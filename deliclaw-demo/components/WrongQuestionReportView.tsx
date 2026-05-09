@@ -1,115 +1,68 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import type { CSSProperties } from "react"
 import type { WrongQuestionReport, FocusPick } from "@/lib/reportTypes"
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 import { readTaskState, setTaskDone } from "@/lib/reportTaskState"
 
 interface Props {
   report: WrongQuestionReport
-}
-
-const SUBJECT_DOT: Record<string, string> = {
-  数学: "bg-indigo-500",
-  物理: "bg-emerald-500",
-  英语: "bg-amber-500",
-  化学: "bg-red-500",
-  语文: "bg-purple-500",
+  printMode?: boolean
 }
 
 const SUBJECT_HEX: Record<string, string> = {
-  数学: "#6366F1",
-  物理: "#10B981",
-  英语: "#F59E0B",
-  化学: "#EF4444",
-  语文: "#A855F7",
+  数学: "var(--s-math)",
+  物理: "var(--s-physics)",
+  英语: "var(--s-english)",
+  化学: "var(--s-chemistry)",
+  语文: "var(--s-chinese)",
 }
 
-function IconCheck({ className = "" }: { className?: string }) {
+function SubjectDot({ subject, size = 8 }: { subject: string; size?: number }) {
   return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="4 11 8 15 16 6" />
-    </svg>
+    <span
+      style={{
+        display: "inline-block",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: SUBJECT_HEX[subject] ?? "var(--ink-4)",
+        flexShrink: 0,
+      }}
+    />
   )
 }
 
-function IconAlert({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 2.5 L18 16 H2 Z" />
-      <line x1="10" y1="8" x2="10" y2="12" />
-      <circle cx="10" cy="14.5" r="0.6" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
-function IconBolt({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path d="M11 2 L4 12 H9 L8 18 L16 7 H11 Z" />
-    </svg>
-  )
-}
-
-function IconClock({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="7.2" />
-      <polyline points="10 6 10 10 13 11.5" />
-    </svg>
-  )
-}
-
-function IconArrowRight({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" y1="10" x2="15" y2="10" />
-      <polyline points="11 6 15 10 11 14" />
-    </svg>
-  )
-}
-
-function IconChevron({ open, className = "" }: { open: boolean; className?: string }) {
+function IconChevron({ open }: { open: boolean }) {
   return (
     <svg
-      className={`${className} transition-transform ${open ? "rotate-180" : ""}`}
       viewBox="0 0 20 20"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{
+        width: 10,
+        height: 10,
+        transform: open ? "rotate(180deg)" : "none",
+        transition: "transform .2s",
+      }}
     >
       <polyline points="5 8 10 13 15 8" />
     </svg>
   )
 }
 
-function TopPattern({ topPattern }: { topPattern: string }) {
-  if (!topPattern) return null
-  return (
-    <p className="text-sm leading-relaxed text-slate-700">{topPattern}</p>
-  )
+function formatMonthDay(iso: string): string {
+  const [, m, d] = iso.split("-")
+  return `${parseInt(m, 10)}/${parseInt(d, 10)}`
 }
 
-function scrollToTask(taskId: string) {
-  if (typeof document !== "undefined") {
-    const el = document.getElementById(`task-${taskId}`)
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" })
-      el.classList.add("ring-2", "ring-indigo-400")
-      setTimeout(() => el.classList.remove("ring-2", "ring-indigo-400"), 1500)
-    }
-  }
+function formatMonthLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return `${d.getFullYear()} · ${d.getMonth() + 1}月`
 }
 
 function ThumbnailImage({
@@ -124,30 +77,44 @@ function ThumbnailImage({
   onClick: () => void
 }) {
   const [errored, setErrored] = useState(false)
-  const accentColor = SUBJECT_HEX[subject] ?? "#94A3B8"
+  const accent = SUBJECT_HEX[subject] ?? "var(--ink-4)"
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100"
-      style={errored ? { borderLeftWidth: "3px", borderLeftColor: accentColor } : undefined}
       aria-label={`查看原题 ${alt}`}
+      style={{
+        position: "relative",
+        height: 64,
+        width: 64,
+        flexShrink: 0,
+        overflow: "hidden",
+        borderRadius: "var(--r-md)",
+        border: errored ? `1px solid var(--rule)` : "1px solid var(--rule)",
+        borderLeft: errored ? `3px solid ${accent}` : "1px solid var(--rule)",
+        background: "var(--card)",
+        cursor: "pointer",
+        padding: 0,
+      }}
     >
       {errored ? (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-white px-1 text-center leading-tight">
-          <svg
-            className="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={accentColor}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+        <div
+          style={{
+            display: "flex",
+            height: "100%",
+            width: "100%",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 4px",
+            textAlign: "center",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.6">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
           </svg>
-          <span className="mt-0.5 text-[8px] text-slate-500" style={{ wordBreak: "break-all" }}>
+          <span style={{ marginTop: 2, fontSize: 8, color: "var(--ink-3)", wordBreak: "break-all" }}>
             {alt.replace(/\.\w+$/, "")}
           </span>
         </div>
@@ -155,7 +122,7 @@ function ThumbnailImage({
         <img
           src={src}
           alt={alt}
-          className="h-full w-full object-cover"
+          style={{ height: "100%", width: "100%", objectFit: "cover" }}
           onError={() => setErrored(true)}
         />
       )}
@@ -183,69 +150,171 @@ function LightboxModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(26,26,31,.86)",
+        padding: 16,
+      }}
     >
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
         aria-label="关闭"
+        style={{
+          position: "absolute",
+          right: 16,
+          top: 16,
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          border: 0,
+          background: "rgba(255,255,255,.1)",
+          color: "#fff",
+          fontSize: 16,
+          cursor: "pointer",
+        }}
       >
         ✕
       </button>
       <img
         src={preview.src}
         alt={preview.alt}
-        className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
         onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: "90vh", maxWidth: "90vw", objectFit: "contain", borderRadius: "var(--r-md)" }}
       />
-      <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/70">{preview.alt}</p>
+      <p
+        style={{
+          position: "absolute",
+          bottom: 16,
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontSize: 11,
+          color: "rgba(255,255,255,.7)",
+          fontFamily: "var(--font-num)",
+        }}
+      >
+        {preview.alt}
+      </p>
     </div>
   )
 }
 
-function formatMonthDay(iso: string): string {
-  const [, m, d] = iso.split("-")
-  return `${parseInt(m, 10)}/${parseInt(d, 10)}`
+function TopPattern({ topPattern }: { topPattern: string }) {
+  if (!topPattern) return null
+  return (
+    <p
+      style={{
+        fontFamily: "var(--font-display)",
+        fontSize: 26,
+        lineHeight: 1.45,
+        fontWeight: 400,
+        color: "var(--ink-1)",
+        margin: "20px 0 0",
+        letterSpacing: "-0.01em",
+        maxWidth: 620,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 48,
+          lineHeight: 0.5,
+          color: "var(--clay)",
+          verticalAlign: "-0.05em",
+          marginRight: 4,
+        }}
+      >
+        “
+      </span>
+      {topPattern}
+    </p>
+  )
 }
 
 function QuestionBlock({
   excerpt,
   questionDate,
   fileRefs,
+  subject,
   onPreview,
 }: {
   excerpt: string
   questionDate: string
   fileRefs: string[]
+  subject: string
   onPreview: (src: string, alt: string) => void
 }) {
   const [imgErrored, setImgErrored] = useState(false)
   const primary = fileRefs[0]
   const primarySrc = primary ? `/api/uploads/${encodeURIComponent(primary)}` : null
   return (
-    <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3">
-      <div className="mb-1.5 flex items-baseline gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">题目</span>
-        <span className="text-[10px] tabular-nums text-slate-400">{formatMonthDay(questionDate)}</span>
+    <div
+      style={{
+        marginTop: 22,
+        border: "1px solid var(--rule)",
+        borderLeft: "3px solid var(--clay)",
+        background: "var(--card-warm)",
+        padding: "18px 20px 18px 22px",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontWeight: 800,
+            color: "var(--ink-3)",
+          }}
+        >
+          题目
+        </span>
+        <span className="num" style={{ fontSize: 11, color: "var(--ink-4)" }}>
+          {formatMonthDay(questionDate)}
+        </span>
       </div>
-      <p className="text-[15px] font-semibold leading-snug text-slate-800" style={{ fontFamily: "'JetBrains Mono', 'Menlo', 'Cambria Math', serif" }}>
+      <p
+        style={{
+          margin: 0,
+          fontFamily: "var(--mono)",
+          fontSize: 15,
+          fontWeight: 500,
+          lineHeight: 1.55,
+          color: "var(--ink-1)",
+        }}
+      >
         {excerpt}
       </p>
       {primarySrc && !imgErrored && (
         <button
           type="button"
           onClick={() => onPreview(primarySrc, primary!)}
-          className="mt-3 block w-full overflow-hidden rounded-lg border border-slate-100 bg-slate-50 hover:border-indigo-300"
           aria-label={`查看原题 ${primary}`}
+          style={{
+            marginTop: 12,
+            display: "block",
+            width: "100%",
+            border: "1px solid var(--rule)",
+            background: "var(--card)",
+            borderRadius: "var(--r-md)",
+            overflow: "hidden",
+            padding: 0,
+            cursor: "pointer",
+          }}
         >
           <img
             src={primarySrc}
             alt={primary!}
-            className="h-auto max-h-40 w-full object-contain"
+            style={{ display: "block", maxHeight: 160, width: "100%", objectFit: "contain" }}
             onError={() => setImgErrored(true)}
           />
         </button>
@@ -261,25 +330,50 @@ function Diagnosis({
   stepDiagnosis: string
   closingLine: string
 }) {
+  const labelStyle: CSSProperties = {
+    fontSize: 10,
+    letterSpacing: "0.2em",
+    textTransform: "uppercase",
+    fontWeight: 800,
+    color: "var(--ink-3)",
+  }
+  const dot = (bg: string, ch: string): CSSProperties => ({
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    background: bg,
+    color: "#fff",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 9,
+    fontWeight: 800,
+  })
   return (
-    <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
-          <IconAlert className="h-2.5 w-2.5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">错因回顾</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{stepDiagnosis}</p>
+    <div
+      style={{
+        marginTop: 18,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 0,
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-md)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "14px 18px", background: "var(--card)", borderRight: "1px solid var(--rule)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <span style={dot("var(--rose)", "!")}>!</span>
+          <span style={labelStyle}>错因回顾</span>
         </div>
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: "var(--ink-2)" }}>{stepDiagnosis}</p>
       </div>
-      <div className="mt-2.5 flex items-start gap-2 border-t border-slate-200 pt-2.5">
-        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-          <IconCheck className="h-2.5 w-2.5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">解题要点</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{closingLine}</p>
+      <div style={{ padding: "14px 18px", background: "var(--card)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <span style={dot("var(--sage)", "✓")}>✓</span>
+          <span style={labelStyle}>解题要点</span>
         </div>
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: "var(--ink-2)" }}>{closingLine}</p>
       </div>
     </div>
   )
@@ -296,60 +390,131 @@ function FocusCardBody({
   onToggle: (taskId: string) => void
   onPreview: (src: string, alt: string) => void
 }) {
-  // V11: 数字标号 / 信息 tooltip / 选取理由 已从渲染中删除。字段保留以兼容数据形状。
   return (
-    <div className="p-5">
-      <div className="mb-1 flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[11px] text-slate-500">
-        <span className={`inline-block h-1.5 w-1.5 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
-        <span className="font-bold text-slate-700">{pick.subject}</span>
-        <span className="text-slate-300">·</span>
-        <span className="font-bold tabular-nums text-amber-700">错 {pick.errorCount} 次</span>
-        <span className="text-slate-300">·</span>
+    <div style={{ padding: "26px 28px 24px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          fontSize: 12,
+          color: "var(--ink-2)",
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+          <SubjectDot subject={pick.subject} size={9} />
+          {pick.subject}
+        </span>
+        <span style={{ color: "var(--rule)" }}>/</span>
+        <span className="num" style={{ fontWeight: 600, color: "var(--clay)" }}>
+          错 {pick.errorCount} 次
+        </span>
+        <span style={{ color: "var(--rule)" }}>/</span>
         <span>涵盖 {pick.knowledgePoints.length} 个知识点</span>
-        <span className="text-slate-300">·</span>
-        <span>{pick.examWeightLabel}</span>
+        <span style={{ color: "var(--rule)" }}>/</span>
+        <span style={{ background: "var(--paper)", padding: "1px 8px", borderRadius: 999, color: "var(--amber)", fontWeight: 600 }}>
+          {pick.examWeightLabel}
+        </span>
       </div>
 
-      <p className="mb-3 text-[11px] italic leading-relaxed text-slate-500">{pick.goal}</p>
+      <p
+        style={{
+          margin: "8px 0 0",
+          fontFamily: "var(--font-display)",
+          fontStyle: "italic",
+          fontWeight: 400,
+          fontSize: 14,
+          color: "var(--ink-3)",
+          lineHeight: 1.5,
+        }}
+      >
+        {pick.goal}
+      </p>
 
       <QuestionBlock
         excerpt={pick.excerpt}
         questionDate={pick.questionDate}
         fileRefs={pick.fileRefs}
+        subject={pick.subject}
         onPreview={onPreview}
       />
 
       <Diagnosis stepDiagnosis={pick.stepDiagnosis} closingLine={pick.closingLine} />
 
-      <ul className="space-y-2">
-        {pick.tasks.map((t) => {
-          const isDone = !!taskState[t.id]
-          return (
-            <li key={t.id} id={`task-${t.id}`}>
-              <button
-                type="button"
-                onClick={() => onToggle(t.id)}
-                className="flex w-full items-start gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-indigo-300"
-              >
-                <span
-                  className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                    isDone ? "border-indigo-500 bg-indigo-500 text-white" : "border-slate-300 bg-white"
-                  }`}
+      <div style={{ marginTop: 18 }}>
+        <div
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontWeight: 800,
+            color: "var(--ink-3)",
+            marginBottom: 8,
+          }}
+        >
+          本日重做任务
+        </div>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+          {pick.tasks.map((t) => {
+            const isDone = !!taskState[t.id]
+            return (
+              <li key={t.id} id={`task-${t.id}`}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(t.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "11px 14px",
+                    background: isDone ? "var(--card-warm)" : "var(--card)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: "var(--r-md)",
+                    transition: "all .15s",
+                    cursor: "pointer",
+                  }}
                 >
-                  {isDone && <IconCheck className="h-2.5 w-2.5" />}
-                </span>
-                <span className={`flex-1 text-xs leading-relaxed ${isDone ? "text-slate-400 line-through" : "text-slate-700"}`}>
-                  {t.text}
-                </span>
-                <span className={`inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums ${isDone ? "text-slate-300" : "text-slate-500"}`}>
-                  <IconClock className="h-3 w-3" />
-                  {t.durationMinutes} 分钟
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 5,
+                      border: isDone ? "0" : "1.5px solid var(--ink-4)",
+                      background: isDone ? "var(--brand)" : "transparent",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isDone && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>✓</span>}
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: isDone ? "var(--ink-4)" : "var(--ink-1)",
+                      textDecoration: isDone ? "line-through" : "none",
+                    }}
+                  >
+                    {t.text}
+                  </span>
+                  <span
+                    className="num"
+                    style={{ fontSize: 12, color: "var(--ink-3)", flexShrink: 0 }}
+                  >
+                    {t.durationMinutes} 分钟
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
     </div>
   )
 }
@@ -365,14 +530,84 @@ function FocusCard({
   onToggle: (taskId: string) => void
   onPreview: (src: string, alt: string) => void
 }) {
-  // V11: hero is the only kind of FocusCard now (backups use BackupCard wrapping FocusCardBody).
   return (
-    <section className="overflow-hidden rounded-2xl border-2 border-indigo-300 bg-white shadow-md">
-      <div className="flex items-center gap-1.5 bg-indigo-600 px-5 py-2">
-        <IconBolt className="h-3.5 w-3.5 text-amber-300" />
-        <span className="text-xs font-bold tracking-wide text-white">先做这件</span>
+    <section
+      className="ink-splash border-2 print-card"
+      style={{
+        marginTop: 28,
+        background: "var(--card)",
+        border: "2px solid var(--rule)",
+        borderRadius: "var(--r-xl)",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-2)",
+        position: "relative",
+      }}
+    >
+      <div
+        className="ink-splash"
+        style={{
+          background: "var(--wash-brand)",
+          color: "#fff",
+          padding: "14px 28px",
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontWeight: 400,
+            fontSize: 14,
+            letterSpacing: "0.02em",
+            color: "#FFD8B5",
+          }}
+        >
+          Today&apos;s one thing
+        </div>
+        <div style={{ width: 1, height: 14, background: "rgba(255,255,255,.25)" }} />
+        <div
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+          }}
+        >
+          先做这件
+        </div>
+        <div
+          style={{
+            marginLeft: "auto",
+            fontFamily: "var(--font-num)",
+            fontSize: 12,
+            color: "rgba(255,255,255,.6)",
+          }}
+        >
+          预计{" "}
+          {pick.tasks.reduce((s, t) => s + t.durationMinutes, 0)} 分钟
+        </div>
       </div>
-      <FocusCardBody pick={pick} taskState={taskState} onToggle={onToggle} onPreview={onPreview} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 28, padding: "0 32px" }}>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 96,
+            lineHeight: 0.85,
+            fontWeight: 300,
+            color: "var(--clay)",
+            letterSpacing: "-0.04em",
+            paddingTop: 28,
+            alignSelf: "start",
+          }}
+        >
+          01
+        </div>
+        <FocusCardBody pick={pick} taskState={taskState} onToggle={onToggle} onPreview={onPreview} />
+      </div>
     </section>
   )
 }
@@ -382,26 +617,179 @@ function BackupCard({
   taskState,
   onToggle,
   onPreview,
+  idx,
+  printMode,
 }: {
   pick: FocusPick
   taskState: Record<string, true>
   onToggle: (taskId: string) => void
   onPreview: (src: string, alt: string) => void
+  idx: number
+  printMode?: boolean
 }) {
-  const truncated = pick.excerpt.length > 28 ? pick.excerpt.slice(0, 28) + "…" : pick.excerpt
+  const truncated = pick.excerpt.length > 22 ? pick.excerpt.slice(0, 22) + "…" : pick.excerpt
   return (
-    <details className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 open:bg-white">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-        <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SUBJECT_DOT[pick.subject] ?? "bg-slate-400"}`} />
-        <span className="text-xs font-bold text-slate-700">{pick.subject}</span>
-        <span className="text-[10px] tabular-nums text-amber-700">错 {pick.errorCount} 次</span>
-        <span className="flex-1 truncate text-xs text-slate-600">{truncated}</span>
-        <IconChevron open={false} className="h-3.5 w-3.5 shrink-0 text-slate-400 group-open:rotate-180" />
+    <details
+      className="print-card"
+      open={printMode || undefined}
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-lg)",
+        overflow: "hidden",
+        height: "100%",
+      }}
+    >
+      <summary
+        style={{
+          listStyle: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "14px 16px",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            fontWeight: 300,
+            color: "var(--ink-3)",
+            letterSpacing: "-0.02em",
+            minWidth: 22,
+          }}
+        >
+          0{idx}
+        </span>
+        <SubjectDot subject={pick.subject} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>{pick.subject}</span>
+        <span className="num" style={{ fontSize: 11, color: "var(--clay)", fontWeight: 600 }}>
+          错 {pick.errorCount} 次
+        </span>
+        <span
+          style={{
+            flex: 1,
+            fontSize: 12,
+            color: "var(--ink-3)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {truncated}
+        </span>
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            border: "1px solid var(--rule)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--ink-3)",
+          }}
+        >
+          <IconChevron open={false} />
+        </span>
       </summary>
-      <div className="border-t border-slate-200 bg-white">
+      <div style={{ borderTop: "1px solid var(--rule-soft)" }}>
         <FocusCardBody pick={pick} taskState={taskState} onToggle={onToggle} onPreview={onPreview} />
       </div>
     </details>
+  )
+}
+
+function MonthlyChart({ trend }: { trend: WrongQuestionReport["weeklyTrend"] }) {
+  const W = 560,
+    H = 200,
+    padL = 44,
+    padR = 12,
+    padT = 10,
+    padB = 36
+  const totals = trend.series.map((_, i) =>
+    trend.seriesBySubject.reduce((s, e) => s + (e.counts[i] ?? 0), 0),
+  )
+  const max = Math.max(5, ...totals)
+  const yTicks = [0, Math.ceil(max / 2), max]
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
+  const barW = (innerW / Math.max(1, trend.series.length)) * 0.42
+  const xFor = (i: number) => padL + (i + 0.5) * (innerW / Math.max(1, trend.series.length))
+  const yFor = (v: number) => padT + innerH - (v / max) * innerH
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 200, display: "block" }}>
+      {yTicks.map((t) => (
+        <g key={t}>
+          <line
+            x1={padL}
+            x2={W - padR}
+            y1={yFor(t)}
+            y2={yFor(t)}
+            stroke="var(--rule)"
+            strokeDasharray={t === 0 ? "0" : "2 4"}
+          />
+          <text
+            x={padL - 8}
+            y={yFor(t) + 3}
+            textAnchor="end"
+            fontSize="10"
+            fontFamily="var(--font-num)"
+            fill="var(--ink-3)"
+          >
+            {t}
+          </text>
+        </g>
+      ))}
+      {trend.series.map((p, i) => {
+        let acc = 0
+        return (
+          <g key={i}>
+            {trend.seriesBySubject.map((entry) => {
+              const v = entry.counts[i] ?? 0
+              if (v === 0) return null
+              const y0 = yFor(acc + v)
+              const y1 = yFor(acc)
+              acc += v
+              return (
+                <rect
+                  key={entry.subject}
+                  x={xFor(i) - barW / 2}
+                  y={y0}
+                  width={barW}
+                  height={y1 - y0}
+                  fill={SUBJECT_HEX[entry.subject] ?? "var(--ink-4)"}
+                  rx="2"
+                />
+              )
+            })}
+            <text
+              x={xFor(i)}
+              y={yFor(totals[i]) - 6}
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="var(--font-num)"
+              fontWeight="600"
+              fill="var(--ink-2)"
+            >
+              {totals[i]}
+            </text>
+            <text
+              x={xFor(i)}
+              y={H - padB + 18}
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="var(--font-display)"
+              fill="var(--ink-3)"
+            >
+              第 {p.week} 周
+            </text>
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
@@ -411,91 +799,167 @@ function MonthlyErrorBreakdownCard({
   focusKnowledgePoints,
   totalErrorCount,
   subjectsCount,
+  printMode,
 }: {
   trend: WrongQuestionReport["weeklyTrend"]
   weakPoints: WrongQuestionReport["weakPoints"]
   focusKnowledgePoints: Set<string>
   totalErrorCount: number
   subjectsCount: number
+  printMode?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(printMode ?? false)
   const others = weakPoints.filter((wp) => !focusKnowledgePoints.has(wp.knowledgePoint))
 
-  // Build chart data: [{ week: "W1", 数学: 3, 物理: 1, ... }, ...]
-  const subjects = trend.seriesBySubject.map((e) => e.subject)
-  const data = trend.series.map((p, i) => {
-    const row: Record<string, string | number> = { week: `W${p.week}` }
-    for (const entry of trend.seriesBySubject) {
-      row[entry.subject] = entry.counts[i] ?? 0
-    }
-    return row
-  })
-
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="h-3 w-1 rounded-full bg-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-800">
-          本月错题分布{" "}
-          <span className="font-normal text-slate-400">
-            · 共 {totalErrorCount} 道 · {subjectsCount} 学科
-          </span>
+    <section
+      className="print-card"
+      style={{
+        marginTop: 28,
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-xl)",
+        padding: "24px 28px 22px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
+        <h3
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          本月错题分布
         </h3>
+        <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+          共{" "}
+          <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>
+            {totalErrorCount}
+          </span>{" "}
+          道 · {subjectsCount} 学科
+        </span>
       </div>
-      <div className="h-44 w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            {subjects.map((subject) => (
-              <Bar
-                key={subject}
-                dataKey={subject}
-                stackId="errors"
-                fill={SUBJECT_HEX[subject] ?? "#94A3B8"}
-                radius={[3, 3, 0, 0]}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: 24,
+          alignItems: "start",
+        }}
+      >
+        <MonthlyChart trend={trend} />
+        <div style={{ minWidth: 140, paddingTop: 14 }}>
+          {trend.seriesBySubject.map((entry) => {
+            const count = entry.counts.reduce((a, b) => a + b, 0)
+            return (
+              <div
+                key={entry.subject}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "5px 0",
+                  borderBottom: "1px dashed var(--rule)",
+                  fontSize: 12,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: SUBJECT_HEX[entry.subject] ?? "var(--ink-4)",
+                  }}
+                />
+                <span style={{ flex: 1, color: "var(--ink-2)" }}>{entry.subject}</span>
+                <span className="num" style={{ color: "var(--ink-1)", fontWeight: 600 }}>
+                  {count}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-slate-600">{trend.summary}</p>
+
+      <p
+        style={{
+          margin: "16px 0 0",
+          padding: "12px 14px",
+          background: "var(--paper)",
+          borderRadius: "var(--r-md)",
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          color: "var(--ink-2)",
+        }}
+      >
+        {trend.summary}
+      </p>
 
       {others.length > 0 && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
+        <div style={{ marginTop: 18 }}>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex w-full items-center gap-2 text-left"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 16px",
+              background: "transparent",
+              border: "1px solid var(--rule)",
+              borderRadius: "var(--r-lg)",
+              color: "var(--ink-2)",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
-            <h4 className="flex-1 text-xs font-bold text-slate-600">
-              次要错题（{others.length}）
-            </h4>
-            <IconChevron open={open} className="h-4 w-4 text-slate-400" />
+            <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", color: "var(--ink-3)" }}>
+              and the rest
+            </span>
+            <span style={{ flex: 1, textAlign: "left", color: "var(--ink-3)", fontWeight: 400, fontStyle: "italic" }}>
+              次要错题（{others.length}） · 不重要不等于跳过
+            </span>
+            <IconChevron open={open} />
           </button>
-          {!open && (
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-              次要不等于不重要，挨个收尾，不能跳过
-            </p>
-          )}
           {open && (
-            <ul className="mt-2 space-y-1.5">
+            <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0", display: "grid", gap: 6 }}>
               {others.map((wp) => (
                 <li
                   key={wp.knowledgePoint}
-                  className="flex items-baseline gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5"
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 10,
+                    padding: "10px 14px",
+                    background: "var(--card)",
+                    border: "1px solid var(--rule-soft)",
+                    borderRadius: "var(--r-md)",
+                    fontSize: 12.5,
+                  }}
                 >
-                  <span
-                    className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${SUBJECT_DOT[wp.subject] ?? "bg-slate-400"}`}
-                  />
-                  <span className="text-xs font-bold text-slate-700">{wp.knowledgePoint}</span>
-                  <span className="text-[10px] tabular-nums text-slate-500">
+                  <SubjectDot subject={wp.subject} size={7} />
+                  <strong style={{ color: "var(--ink-1)", fontWeight: 700 }}>{wp.knowledgePoint}</strong>
+                  <span className="num" style={{ color: "var(--ink-3)", fontSize: 11 }}>
                     {wp.subject} · 错 {wp.occurrences} 次
                   </span>
-                  <span className="flex-1 truncate text-[11px] text-slate-500">{wp.diagnosis}</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      color: "var(--ink-3)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {wp.diagnosis}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -506,7 +970,7 @@ function MonthlyErrorBreakdownCard({
   )
 }
 
-export default function WrongQuestionReportView({ report }: Props) {
+export default function WrongQuestionReportView({ report, printMode }: Props) {
   const focusKPs = new Set(
     [report.hero, ...report.backups].flatMap((fp) => fp.knowledgePoints),
   )
@@ -531,7 +995,55 @@ export default function WrongQuestionReportView({ report }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="paper-tooth"
+      style={{
+        background: "var(--wash-paper)",
+        padding: "40px 44px 56px",
+        minHeight: "100%",
+        fontFamily: "var(--font-body)",
+        color: "var(--ink-1)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 11,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--ink-3)",
+          fontWeight: 700,
+        }}
+      >
+        <span>错题周报</span>
+        <span style={{ width: 14, height: 1, background: "var(--ink-4)" }} />
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            letterSpacing: "0.04em",
+            textTransform: "none",
+            fontWeight: 400,
+            color: "var(--ink-3)",
+          }}
+        >
+          Wrong Question Report
+        </span>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontFamily: "var(--font-num)",
+            fontWeight: 400,
+            letterSpacing: "0.05em",
+            color: "var(--ink-3)",
+          }}
+        >
+          {formatMonthLabel(report.generatedAt)}
+        </span>
+      </div>
+
       <TopPattern topPattern={report.topPattern} />
 
       <FocusCard
@@ -542,21 +1054,47 @@ export default function WrongQuestionReportView({ report }: Props) {
       />
 
       {report.backups.length > 0 && (
-        <div className="space-y-2">
-          {report.backups.map((pick, i) => (
-            <BackupCard
-              key={i}
-              pick={pick}
-              taskState={taskState}
-              onToggle={toggleTask}
-              onPreview={(src, alt) => setPreview({ src, alt })}
-            />
-          ))}
-          <p className="pl-1 text-[11px] leading-relaxed text-slate-400">
-            做完上面那道再翻这两张
-          </p>
+        <div style={{ marginTop: 24 }}>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              fontWeight: 800,
+              color: "var(--ink-3)",
+              paddingLeft: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <span>做完上面那道再翻这两张</span>
+            <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: printMode ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 10,
+            }}
+          >
+            {report.backups.map((pick, i) => (
+              <BackupCard
+                key={i}
+                pick={pick}
+                idx={i + 2}
+                taskState={taskState}
+                onToggle={toggleTask}
+                onPreview={(src, alt) => setPreview({ src, alt })}
+                printMode={printMode}
+              />
+            ))}
+          </div>
         </div>
       )}
+
+      {printMode && <div className="print-page-break" aria-hidden="true" />}
 
       <MonthlyErrorBreakdownCard
         trend={report.weeklyTrend}
@@ -564,7 +1102,48 @@ export default function WrongQuestionReportView({ report }: Props) {
         focusKnowledgePoints={focusKPs}
         totalErrorCount={totalErrorCount}
         subjectsCount={subjectsCount}
+        printMode={printMode}
       />
+
+      {printMode && (
+        <aside
+          className="print-card"
+          style={{
+            marginTop: 24,
+            padding: "20px 24px",
+            background: "var(--card)",
+            border: "1px solid var(--rule-soft)",
+            borderRadius: "var(--r-md)",
+            boxShadow: "var(--shadow-1)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              color: "var(--ink-3)",
+              marginBottom: 8,
+            }}
+          >
+            DeliClaw · 周报附言
+          </p>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+              fontSize: 14,
+              lineHeight: 1.7,
+              color: "var(--ink-2)",
+            }}
+          >
+            先把第一道做完，错过的地方我都帮你盯着 — 下周见。
+          </p>
+        </aside>
+      )}
 
       <LightboxModal preview={preview} onClose={() => setPreview(null)} />
     </div>

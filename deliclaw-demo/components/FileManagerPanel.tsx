@@ -2,8 +2,13 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react"
 import type { ManagedFile } from "@/types"
-import { BUSINESS_SCENES, getDemoBusinessScenes, groupFilesByBusinessScene, type BusinessSceneLabel } from "@/lib/fileBusinessScene"
-import { SOURCE_CHANNELS, type SourceChannelLabel } from "@/lib/fileSourceChannel"
+import {
+  BUSINESS_SCENES,
+  getDemoBusinessScenes,
+  groupFilesByBusinessScene,
+  type BusinessSceneLabel,
+} from "@/lib/fileBusinessScene"
+import { SOURCE_CHANNELS } from "@/lib/fileSourceChannel"
 
 interface Props {
   onFileDeleted?: (id: string) => void
@@ -29,195 +34,53 @@ type FileSearchApiResult = {
 
 const HIDDEN_CATEGORY_LABELS = new Set(["un" + "known", "\u672a\u5206\u7c7b", "\u5f85\u5206\u7c7b"])
 
-type SourceVisualTone = {
-  shell: string
-  dot: string
-  count: string
-  tile: string
-  badge: string
-  document: string
-  documentIcon: string
-  overlay: string
+const SUBJECT_HEX: Record<string, string> = {
+  数学: "var(--s-math)",
+  物理: "var(--s-physics)",
+  英语: "var(--s-english)",
+  化学: "var(--s-chemistry)",
+  语文: "var(--s-chinese)",
 }
 
-type SceneVisualTone = {
-  sceneIcon: string
-  shell: string
-  activeShell: string
-  icon: string
-  count: string
-  badge: string
+const SCENE_ACCENT: Record<string, string> = {
+  全部: "var(--ink-1)",
+  最近错题: "var(--rose)",
+  本周作业: "var(--amber)",
+  考试资料: "var(--brand)",
+  学校通知: "var(--teal)",
+  旅游照片: "var(--sage)",
+  成长记录: "var(--clay)",
+  复习资料: "#6B4FB0",
 }
 
-type AIToolboxGroup = {
-  label: string
-  tone: string
-  tools: string[]
-}
+type ToolGroup = { group: string; tools: string[]; featured?: string }
+type Tier = { tier: string; badge: string; description: string; kicker: string; featuredAccent: string; groups: ToolGroup[] }
 
-const SOURCE_VISUAL_TONES: Record<SourceChannelLabel, SourceVisualTone> = {
-  微信: {
-    shell: "border-emerald-200/80 from-emerald-50 via-white to-lime-100 text-emerald-700 shadow-[0_10px_30px_rgba(16,185,129,0.14)]",
-    dot: "bg-emerald-500",
-    count: "bg-emerald-600 text-white",
-    tile: "bg-gradient-to-br from-emerald-100 via-white to-lime-100 ring-emerald-200/80 hover:ring-emerald-400 hover:shadow-[0_14px_32px_rgba(16,185,129,0.22)]",
-    badge: "bg-emerald-600/90 text-white shadow-[0_6px_16px_rgba(16,185,129,0.26)]",
-    document: "bg-gradient-to-br from-emerald-100 via-white to-lime-100 text-emerald-500",
-    documentIcon: "text-emerald-500",
-    overlay: "from-emerald-950/80 via-slate-900/20 to-transparent",
-  },
-  QQ: {
-    shell: "border-sky-200/80 from-sky-50 via-white to-cyan-100 text-sky-700 shadow-[0_10px_30px_rgba(14,165,233,0.14)]",
-    dot: "bg-sky-500",
-    count: "bg-sky-600 text-white",
-    tile: "bg-gradient-to-br from-sky-100 via-white to-cyan-100 ring-sky-200/80 hover:ring-sky-400 hover:shadow-[0_14px_32px_rgba(14,165,233,0.22)]",
-    badge: "bg-sky-600/90 text-white shadow-[0_6px_16px_rgba(14,165,233,0.26)]",
-    document: "bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-500",
-    documentIcon: "text-sky-500",
-    overlay: "from-sky-950/80 via-slate-900/20 to-transparent",
-  },
-  钉钉: {
-    shell: "border-blue-200/80 from-blue-50 via-white to-sky-100 text-blue-700 shadow-[0_10px_30px_rgba(37,99,235,0.14)]",
-    dot: "bg-blue-500",
-    count: "bg-blue-600 text-white",
-    tile: "bg-gradient-to-br from-blue-100 via-white to-sky-100 ring-blue-200/80 hover:ring-blue-400 hover:shadow-[0_14px_32px_rgba(37,99,235,0.22)]",
-    badge: "bg-blue-600/90 text-white shadow-[0_6px_16px_rgba(37,99,235,0.26)]",
-    document: "bg-gradient-to-br from-blue-100 via-white to-sky-100 text-blue-500",
-    documentIcon: "text-blue-500",
-    overlay: "from-blue-950/80 via-slate-900/20 to-transparent",
-  },
-  飞书: {
-    shell: "border-indigo-200/80 from-indigo-50 via-white to-violet-100 text-indigo-700 shadow-[0_10px_30px_rgba(79,70,229,0.14)]",
-    dot: "bg-indigo-500",
-    count: "bg-indigo-600 text-white",
-    tile: "bg-gradient-to-br from-indigo-100 via-white to-violet-100 ring-indigo-200/80 hover:ring-indigo-400 hover:shadow-[0_14px_32px_rgba(79,70,229,0.24)]",
-    badge: "bg-indigo-600/90 text-white shadow-[0_6px_16px_rgba(79,70,229,0.28)]",
-    document: "bg-gradient-to-br from-indigo-100 via-white to-violet-100 text-indigo-500",
-    documentIcon: "text-indigo-500",
-    overlay: "from-indigo-950/80 via-slate-900/20 to-transparent",
-  },
-  学校平台: {
-    shell: "border-amber-200/80 from-amber-50 via-white to-yellow-100 text-amber-700 shadow-[0_10px_30px_rgba(245,158,11,0.14)]",
-    dot: "bg-amber-500",
-    count: "bg-amber-600 text-white",
-    tile: "bg-gradient-to-br from-amber-100 via-white to-yellow-100 ring-amber-200/80 hover:ring-amber-400 hover:shadow-[0_14px_32px_rgba(245,158,11,0.22)]",
-    badge: "bg-amber-600/90 text-white shadow-[0_6px_16px_rgba(245,158,11,0.26)]",
-    document: "bg-gradient-to-br from-amber-100 via-white to-yellow-100 text-amber-500",
-    documentIcon: "text-amber-500",
-    overlay: "from-amber-950/80 via-slate-900/20 to-transparent",
-  },
-  相册拍照: {
-    shell: "border-rose-200/80 from-rose-50 via-white to-pink-100 text-rose-700 shadow-[0_10px_30px_rgba(244,63,94,0.14)]",
-    dot: "bg-rose-500",
-    count: "bg-rose-600 text-white",
-    tile: "bg-gradient-to-br from-rose-100 via-white to-pink-100 ring-rose-200/80 hover:ring-rose-400 hover:shadow-[0_14px_32px_rgba(244,63,94,0.22)]",
-    badge: "bg-rose-600/90 text-white shadow-[0_6px_16px_rgba(244,63,94,0.26)]",
-    document: "bg-gradient-to-br from-rose-100 via-white to-pink-100 text-rose-500",
-    documentIcon: "text-rose-500",
-    overlay: "from-rose-950/80 via-slate-900/20 to-transparent",
-  },
-  网盘收藏: {
-    shell: "border-violet-200/80 from-violet-50 via-white to-fuchsia-100 text-violet-700 shadow-[0_10px_30px_rgba(139,92,246,0.14)]",
-    dot: "bg-violet-500",
-    count: "bg-violet-600 text-white",
-    tile: "bg-gradient-to-br from-violet-100 via-white to-fuchsia-100 ring-violet-200/80 hover:ring-violet-400 hover:shadow-[0_14px_32px_rgba(139,92,246,0.23)]",
-    badge: "bg-violet-600/90 text-white shadow-[0_6px_16px_rgba(139,92,246,0.28)]",
-    document: "bg-gradient-to-br from-violet-100 via-white to-fuchsia-100 text-violet-500",
-    documentIcon: "text-violet-500",
-    overlay: "from-violet-950/80 via-slate-900/20 to-transparent",
-  },
-}
-
-const SCENE_VISUAL_TONES: Record<BusinessSceneLabel | "全部", SceneVisualTone> = {
-  全部: {
-    sceneIcon: "全",
-    shell: "border-slate-200 bg-white text-slate-600 ring-slate-200 hover:border-slate-300 hover:bg-slate-50",
-    activeShell: "border-slate-950 bg-slate-950 text-white ring-slate-950 shadow-[0_10px_24px_rgba(15,23,42,0.18)]",
-    icon: "bg-white text-slate-900",
-    count: "bg-slate-100 text-slate-500",
-    badge: "bg-slate-950/90 text-white shadow-[0_6px_16px_rgba(15,23,42,0.24)]",
-  },
-  最近错题: {
-    sceneIcon: "错",
-    shell: "border-rose-200 bg-rose-50/80 text-rose-700 ring-rose-100 hover:border-rose-300 hover:bg-rose-100",
-    activeShell: "border-rose-500 bg-rose-600 text-white ring-rose-500 shadow-[0_10px_24px_rgba(225,29,72,0.22)]",
-    icon: "bg-white text-rose-600",
-    count: "bg-rose-100 text-rose-600",
-    badge: "bg-rose-600/90 text-white shadow-[0_6px_16px_rgba(225,29,72,0.26)]",
-  },
-  本周作业: {
-    sceneIcon: "作",
-    shell: "border-amber-200 bg-amber-50/80 text-amber-700 ring-amber-100 hover:border-amber-300 hover:bg-amber-100",
-    activeShell: "border-amber-500 bg-amber-500 text-white ring-amber-500 shadow-[0_10px_24px_rgba(245,158,11,0.22)]",
-    icon: "bg-white text-amber-600",
-    count: "bg-amber-100 text-amber-700",
-    badge: "bg-amber-600/90 text-white shadow-[0_6px_16px_rgba(245,158,11,0.26)]",
-  },
-  考试资料: {
-    sceneIcon: "考",
-    shell: "border-sky-200 bg-sky-50/80 text-sky-700 ring-sky-100 hover:border-sky-300 hover:bg-sky-100",
-    activeShell: "border-sky-500 bg-sky-600 text-white ring-sky-500 shadow-[0_10px_24px_rgba(14,165,233,0.22)]",
-    icon: "bg-white text-sky-600",
-    count: "bg-sky-100 text-sky-600",
-    badge: "bg-sky-600/90 text-white shadow-[0_6px_16px_rgba(14,165,233,0.26)]",
-  },
-  学校通知: {
-    sceneIcon: "通",
-    shell: "border-blue-200 bg-blue-50/80 text-blue-700 ring-blue-100 hover:border-blue-300 hover:bg-blue-100",
-    activeShell: "border-blue-500 bg-blue-600 text-white ring-blue-500 shadow-[0_10px_24px_rgba(37,99,235,0.22)]",
-    icon: "bg-white text-blue-600",
-    count: "bg-blue-100 text-blue-600",
-    badge: "bg-blue-600/90 text-white shadow-[0_6px_16px_rgba(37,99,235,0.26)]",
-  },
-  旅游照片: {
-    sceneIcon: "旅",
-    shell: "border-teal-200 bg-teal-50/80 text-teal-700 ring-teal-100 hover:border-teal-300 hover:bg-teal-100",
-    activeShell: "border-teal-500 bg-teal-600 text-white ring-teal-500 shadow-[0_10px_24px_rgba(13,148,136,0.22)]",
-    icon: "bg-white text-teal-600",
-    count: "bg-teal-100 text-teal-600",
-    badge: "bg-teal-600/90 text-white shadow-[0_6px_16px_rgba(13,148,136,0.26)]",
-  },
-  成长记录: {
-    sceneIcon: "长",
-    shell: "border-fuchsia-200 bg-fuchsia-50/80 text-fuchsia-700 ring-fuchsia-100 hover:border-fuchsia-300 hover:bg-fuchsia-100",
-    activeShell: "border-fuchsia-500 bg-fuchsia-600 text-white ring-fuchsia-500 shadow-[0_10px_24px_rgba(192,38,211,0.22)]",
-    icon: "bg-white text-fuchsia-600",
-    count: "bg-fuchsia-100 text-fuchsia-600",
-    badge: "bg-fuchsia-600/90 text-white shadow-[0_6px_16px_rgba(192,38,211,0.26)]",
-  },
-  复习资料: {
-    sceneIcon: "习",
-    shell: "border-violet-200 bg-violet-50/80 text-violet-700 ring-violet-100 hover:border-violet-300 hover:bg-violet-100",
-    activeShell: "border-violet-500 bg-violet-600 text-white ring-violet-500 shadow-[0_10px_24px_rgba(124,58,237,0.22)]",
-    icon: "bg-white text-violet-600",
-    count: "bg-violet-100 text-violet-600",
-    badge: "bg-violet-600/90 text-white shadow-[0_6px_16px_rgba(124,58,237,0.26)]",
-  },
-}
-
-const AI_TOOLBOX_GROUPS: AIToolboxGroup[] = [
+const AI_TOOLBOX: Tier[] = [
   {
-    label: "图片处理类",
-    tone: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    tools: ["去背景", "去笔迹", "试卷切割", "试卷切题"],
+    tier: "通用处理",
+    badge: "UTILITY",
+    description: "面向任意文件的基础 AI 能力",
+    kicker: "Tier · I",
+    featuredAccent: "var(--ink-1)",
+    groups: [
+      { group: "图片处理", tools: ["去背景", "去笔迹", "试卷切割", "试卷切题", "内容提取"], featured: "去背景" },
+      { group: "文档处理", tools: ["PDF 转 Word", "Word 转 PDF"] },
+    ],
   },
   {
-    label: "文档处理类",
-    tone: "bg-sky-50 text-sky-700 border-sky-200",
-    tools: ["PDF转word", "word转PDF"],
+    tier: "学习场景",
+    badge: "LEARNING",
+    description: "理解题目并辅助学习的 AI 能力",
+    kicker: "Tier · II",
+    featuredAccent: "var(--brand)",
+    groups: [
+      { group: "学习场景", tools: ["错题回顾", "举一反三", "深度学习", "题目批改"], featured: "错题回顾" },
+    ],
   },
 ]
 
-function getSourceVisualTone(sourceChannel?: string) {
-  if (sourceChannel && sourceChannel in SOURCE_VISUAL_TONES) {
-    return SOURCE_VISUAL_TONES[sourceChannel as SourceChannelLabel]
-  }
-  return SOURCE_VISUAL_TONES["微信"]
-}
-
-function getSceneVisualTone(scene: BusinessSceneLabel | "全部") {
-  return SCENE_VISUAL_TONES[scene]
-}
+// ── Pure data helpers (preserved) ──
 
 function normalizeText(text: string) {
   return text.trim().toLowerCase().replace(/\s+/g, "")
@@ -259,14 +122,11 @@ function memorySignals(file: ManagedFile) {
 }
 
 function searchableText(file: ManagedFile) {
-  return normalizeText([
-    file.fileName,
-    file.description,
-    file.sourceChannel,
-    file.subject,
-    file.questionType,
-    ...file.knowledgePoints,
-  ].filter(Boolean).join(" "))
+  return normalizeText(
+    [file.fileName, file.description, file.sourceChannel, file.subject, file.questionType, ...file.knowledgePoints]
+      .filter(Boolean)
+      .join(" "),
+  )
 }
 
 function filterFiles(files: ManagedFile[], query: string) {
@@ -293,7 +153,41 @@ function searchResultToManagedFile(result: FileSearchApiResult, existing?: Manag
 }
 
 function isWrongQuestionCandidate(file: ManagedFile) {
-  return file.mimeType.startsWith("image/") && file.questionType === "错题" && getDemoBusinessScenes(file).includes("最近错题")
+  return (
+    file.mimeType.startsWith("image/") &&
+    file.questionType === "错题" &&
+    getDemoBusinessScenes(file).includes("最近错题")
+  )
+}
+
+// ── Editorial sub-components ──
+
+const CHANNEL_HEX: Record<string, string> = {
+  "微信": "#07C160",
+  "QQ": "#1296DB",
+  "钉钉": "#1A6FFF",
+  "飞书": "#3370FF",
+  "学校平台": "#A67C2D",
+  "相册拍照": "#8B5563",
+  "网盘收藏": "#6B4FB0",
+}
+
+function formatChannelTime(iso: string | undefined): string {
+  if (!iso) return ""
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ""
+  const d = new Date(t)
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const hh = String(d.getHours()).padStart(2, "0")
+  const mm = String(d.getMinutes()).padStart(2, "0")
+  if (sameDay) return `今日 ${hh}:${mm}`
+  const M = String(d.getMonth() + 1).padStart(2, "0")
+  const D = String(d.getDate()).padStart(2, "0")
+  return `${M}/${D} ${hh}:${mm}`
 }
 
 function SourceChips({ files }: { files: ManagedFile[] }) {
@@ -302,61 +196,398 @@ function SourceChips({ files }: { files: ManagedFile[] }) {
     const channel = file.sourceChannel || "微信"
     counts.set(channel, (counts.get(channel) || 0) + 1)
   }
+  const total = files.length
+  const channelsWithFiles = Array.from(counts.values()).filter((n) => n > 0).length
+  const maxCount = Math.max(1, ...Array.from(counts.values()))
+
+  // "本周新增" — files uploaded within the last 7 days
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const weekDelta = files.reduce((acc, f) => {
+    const t = f.uploadedAt ? Date.parse(f.uploadedAt) : NaN
+    return Number.isFinite(t) && t >= oneWeekAgo ? acc + 1 : acc
+  }, 0)
+
+  // 最近一次：latest file by uploadedAt
+  const latestFile = files.reduce<ManagedFile | null>((best, f) => {
+    const t = f.uploadedAt ? Date.parse(f.uploadedAt) : NaN
+    if (!Number.isFinite(t)) return best
+    const bestT = best?.uploadedAt ? Date.parse(best.uploadedAt) : NaN
+    return !Number.isFinite(bestT) || t > bestT ? f : best
+  }, null)
+  const latestLabel = latestFile
+    ? `最近一次：${formatChannelTime(latestFile.uploadedAt)} · ${latestFile.sourceChannel || "—"}`
+    : ""
 
   return (
-    <div data-onboarding-target="source-rail" className="min-w-0 flex-1 space-y-3">
-      <div className="min-w-0">
-        <p className="text-xs font-black text-slate-950">多渠道汇总</p>
+    <div data-onboarding-target="source-rail">
+      {/* Section header — serif + italic English + right N份/M渠道 badge */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-display)",
+            fontSize: 21,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          渠道汇总
+        </h2>
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: 12.5,
+            color: "var(--ink-3)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          multi-channel inbox
+        </span>
+        <span
+          className="num"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12,
+            color: "var(--ink-3)",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+          }}
+        >
+          <strong style={{ color: "var(--ink-1)", fontWeight: 600, fontFamily: "var(--font-num)" }}>{total}</strong> 份
+          {" / "}
+          <strong style={{ color: "var(--ink-1)", fontWeight: 600, fontFamily: "var(--font-num)" }}>{channelsWithFiles}</strong> 渠道
+        </span>
       </div>
-      <div className="iosSourceRail grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3 lg:grid-cols-7">
+
+      {/* Channel bars */}
+      <div style={{ display: "grid", gap: 10 }}>
         {SOURCE_CHANNELS.map((channel) => {
           const count = counts.get(channel.label) || 0
-          const tone = getSourceVisualTone(channel.label)
+          const accent = CHANNEL_HEX[channel.label] || "var(--ink-3)"
+          const fillPct = count > 0 ? (count / maxCount) * 100 : 0
           return (
-            <span
+            <div
               key={channel.label}
-              className={`flex min-h-12 min-w-0 items-center justify-between gap-2 rounded-[22px] border bg-gradient-to-br px-3 py-2 font-black backdrop-blur transition-transform hover:-translate-y-0.5 ${tone.shell}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "26px 64px 1fr 28px",
+                gap: 12,
+                alignItems: "center",
+                paddingBottom: 9,
+                borderBottom: "1px dashed var(--rule-soft)",
+              }}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
-                <span className="truncate">{channel.label}</span>
+              {/* Tinted icon block */}
+              <span
+                aria-hidden
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "var(--r-sm)",
+                  background: count > 0 ? accent : "var(--paper)",
+                  border: count > 0 ? "none" : "1px solid var(--rule-soft)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: count > 0 ? "#FFFFFF" : "var(--ink-4)",
+                  fontFamily: "var(--font-display)",
+                }}
+              >
+                {channel.label.slice(0, 1)}
               </span>
-              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${tone.count}`}>
-                {count}
+              {/* Label */}
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "var(--ink-2)",
+                  fontWeight: 600,
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {channel.label}
               </span>
-            </span>
+              {/* Progress bar */}
+              <span
+                style={{
+                  position: "relative",
+                  height: 6,
+                  background: "var(--paper)",
+                  borderRadius: 999,
+                  overflow: "hidden",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: `${fillPct}%`,
+                    background: count > 0 ? accent : "transparent",
+                    opacity: 0.85,
+                    transition: "width .25s ease",
+                  }}
+                />
+              </span>
+              {/* Count or em-dash for empty */}
+              <span
+                className="num"
+                style={{
+                  textAlign: "right",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: count > 0 ? "var(--ink-1)" : "var(--ink-4)",
+                }}
+              >
+                {count > 0 ? count : "—"}
+              </span>
+            </div>
           )
         })}
       </div>
 
-      <section className="rounded-[24px] border border-slate-200/70 bg-white/75 p-3 shadow-[0_12px_32px_rgba(15,23,42,0.06)] backdrop-blur">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-black text-white">
-            AI
-          </span>
-          <p className="text-xs font-black text-slate-950">AI 工具箱</p>
-        </div>
+      {/* Footer — 本周新增 (left) + 最近一次 italic (right) */}
+      <div
+        style={{
+          marginTop: 14,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span
+          className="num"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 12px",
+            background: "var(--card-warm)",
+            border: "1px solid var(--rule-soft)",
+            borderRadius: 999,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: "var(--ink-2)",
+          }}
+        >
+          本周新增 +{weekDelta}
+        </span>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: 11.5,
+            color: "var(--ink-4)",
+          }}
+        >
+          {latestLabel || "where files arrive"}
+        </span>
+      </div>
+    </div>
+  )
+}
 
-        <div className="mt-3 space-y-2.5">
-          {AI_TOOLBOX_GROUPS.map((group) => (
-            <div key={group.label} className="flex flex-col gap-2 md:flex-row md:items-center">
-              <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${group.tone}`}>
-                {group.label}
+function AIToolbox() {
+  const totalTools = AI_TOOLBOX.reduce(
+    (n, tier) => n + tier.groups.reduce((m, g) => m + g.tools.length, 0),
+    0,
+  )
+  return (
+    <div>
+      {/* Inner header — mirrors the SourceChips header treatment */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-display)",
+            fontSize: 21,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          AI 工具箱
+        </h2>
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: 12.5,
+            color: "var(--ink-3)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          smart actions
+        </span>
+        <span
+          className="num"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12,
+            color: "var(--ink-3)",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+          }}
+        >
+          <strong style={{ color: "var(--ink-1)", fontWeight: 600, fontFamily: "var(--font-num)" }}>{totalTools}</strong> 项
+          {" / "}
+          <strong style={{ color: "var(--ink-1)", fontWeight: 600, fontFamily: "var(--font-num)" }}>{AI_TOOLBOX.length}</strong> 类
+        </span>
+      </div>
+
+      {/* Tiers */}
+      <div style={{ display: "grid", gap: 0 }}>
+        {AI_TOOLBOX.map((tier, tierIdx) => (
+          <div
+            key={tier.tier}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "112px 1fr",
+              gap: 18,
+              paddingTop: tierIdx === 0 ? 0 : 16,
+              paddingBottom: tierIdx === AI_TOOLBOX.length - 1 ? 0 : 16,
+              borderTop: tierIdx === 0 ? "none" : "1px dashed var(--rule-soft)",
+            }}
+          >
+            {/* Left: tier label column */}
+            <div style={{ display: "grid", gap: 6, alignContent: "start" }}>
+              <span
+                style={{
+                  fontSize: 9.5,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--ink-4)",
+                  fontWeight: 700,
+                }}
+              >
+                {tier.kicker}
               </span>
-              <div className="flex flex-wrap gap-2">
-                {group.tools.map((tool) => (
-                  <span
-                    key={tool}
-                    className="rounded-full border border-slate-200 bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-[0_4px_12px_rgba(15,23,42,0.04)]"
-                  >
-                    {tool}
-                  </span>
-                ))}
-              </div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-display)",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: "var(--ink-1)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {tier.tier}
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11.5,
+                  fontFamily: "var(--font-display)",
+                  fontStyle: "italic",
+                  color: "var(--ink-3)",
+                  lineHeight: 1.55,
+                }}
+              >
+                {tier.description}
+              </p>
+              <span
+                style={{
+                  marginTop: 4,
+                  display: "inline-block",
+                  width: "fit-content",
+                  padding: "2px 8px",
+                  fontSize: 9.5,
+                  letterSpacing: "0.18em",
+                  fontWeight: 700,
+                  color: "#F5EFD9",
+                  background: tier.featuredAccent,
+                  border: `1px solid ${tier.featuredAccent}`,
+                  borderRadius: "var(--r-sm)",
+                }}
+              >
+                {tier.badge}
+              </span>
             </div>
-          ))}
-        </div>
-      </section>
+
+            {/* Right: groups + tool buttons */}
+            <div style={{ display: "grid", gap: 14 }}>
+              {tier.groups.map((g) => (
+                <div
+                  key={g.group}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "64px 1fr",
+                    gap: 12,
+                    alignItems: "baseline",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontFamily: "var(--font-display)",
+                      fontStyle: "italic",
+                      color: "var(--ink-3)",
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {g.group}
+                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {g.tools.map((t) => {
+                      const isFeatured = g.featured === t
+                      return (
+                        <span
+                          key={t}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 11px",
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            borderRadius: 999,
+                            border: isFeatured
+                              ? `1px solid ${tier.featuredAccent}`
+                              : "1px solid var(--rule-soft)",
+                            background: isFeatured ? tier.featuredAccent : "var(--paper)",
+                            color: isFeatured ? "#F5EFD9" : "var(--ink-2)",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 4,
+                              height: 4,
+                              borderRadius: "50%",
+                              background: isFeatured ? "#F5EFD9" : "var(--ink-3)",
+                              opacity: isFeatured ? 1 : 0.7,
+                            }}
+                          />
+                          {t}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -372,27 +603,41 @@ function SceneTabs({
 }) {
   const grouped = groupFilesByBusinessScene(files)
   const sceneItems: Array<BusinessSceneLabel | "全部"> = ["全部", ...BUSINESS_SCENES]
-
   return (
-    <div className="sceneTaskRail flex gap-2 overflow-x-auto pb-1">
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       {sceneItems.map((scene) => {
         const count = scene === "全部" ? files.length : grouped.get(scene)?.length || 0
         const active = activeScene === scene
-        const tone = getSceneVisualTone(scene)
+        const accent = SCENE_ACCENT[scene] ?? "var(--ink-3)"
         return (
           <button
             key={scene}
             type="button"
             onClick={() => onSceneChange(scene)}
-            className={`flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 text-[11px] font-black ring-1 transition-all hover:-translate-y-0.5 ${
-              active ? tone.activeShell : tone.shell
-            }`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: active ? accent : "transparent",
+              color: active ? "#fff" : "var(--ink-2)",
+              border: active ? `1px solid ${accent}` : "1px solid var(--rule)",
+              borderRadius: 999,
+              cursor: "pointer",
+              transition: "all .15s",
+            }}
           >
-            <span className={`sceneIcon flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${tone.icon}`}>
-              {tone.sceneIcon}
-            </span>
-            <span className="truncate">{scene}</span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${active ? "bg-white/20 text-white" : tone.count}`}>
+            <span>{scene}</span>
+            <span
+              className="num"
+              style={{
+                fontSize: 10.5,
+                color: active ? "rgba(255,255,255,.85)" : "var(--ink-3)",
+                fontWeight: 600,
+              }}
+            >
               {count}
             </span>
           </button>
@@ -418,11 +663,13 @@ function ThumbnailTile({
   const [confirming, setConfirming] = useState(false)
   const signals = memorySignals(file)
   const sourceChannel = file.sourceChannel || "微信"
-  const tone = getSourceVisualTone(sourceChannel)
   const shouldShowSceneBadge = thumbnailBadgeMode === "scene" || activeScene !== "全部"
   const badgeScene = activeScene === "全部" ? getDemoBusinessScenes(file)[0] : activeScene
   const badgeLabel = shouldShowSceneBadge ? badgeScene ?? "已分类" : sourceChannel
-  const badgeTone = shouldShowSceneBadge ? getSceneVisualTone(badgeScene ?? "全部").badge : tone.badge
+  const badgeAccent = shouldShowSceneBadge
+    ? SCENE_ACCENT[badgeScene ?? "全部"] ?? "var(--ink-3)"
+    : "var(--ink-3)"
+  const subjectAccent = SUBJECT_HEX[file.subject] ?? "var(--ink-4)"
 
   const handleDeleteClick = () => {
     if (confirming) {
@@ -437,38 +684,144 @@ function ThumbnailTile({
   return (
     <div
       data-onboarding-photo-origin={isOnboardingWrongQuestion ? "wrong-question" : undefined}
-      className={`group relative aspect-square overflow-hidden rounded-xl ring-1 transition-all hover:z-10 hover:scale-[1.025] ${tone.tile}`}
+      style={{
+        position: "relative",
+        aspectRatio: "1 / 1",
+        background: "var(--card-warm)",
+        borderRadius: "var(--r-md)",
+        overflow: "hidden",
+        border: "1px solid var(--rule)",
+        cursor: "pointer",
+      }}
+      className="group"
     >
       {file.mimeType.startsWith("image/") ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={file.url} alt={file.fileName} className="h-full w-full object-cover" loading="lazy" />
+        <img
+          src={file.url}
+          alt={file.fileName}
+          style={{ height: "100%", width: "100%", objectFit: "cover" }}
+          loading="lazy"
+        />
       ) : (
-        <div className={`flex h-full w-full items-center justify-center ${tone.document}`}>
-          <svg className={`h-6 w-6 ${tone.documentIcon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <div
+          style={{
+            display: "flex",
+            height: "100%",
+            width: "100%",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 56,
+              fontWeight: 300,
+              color: subjectAccent,
+              opacity: 0.18,
+              letterSpacing: "-0.05em",
+              userSelect: "none",
+            }}
+          >
+            {file.subject || "?"}
+          </span>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            style={{ position: "absolute", color: "var(--ink-3)" }}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
       )}
 
-      <span className={`absolute left-1 top-1 max-w-[80%] truncate rounded-full px-1.5 py-0.5 text-[8px] font-black backdrop-blur ${badgeTone}`}>
+      <span
+        style={{
+          position: "absolute",
+          top: 6,
+          left: 6,
+          padding: "2px 7px",
+          background: shouldShowSceneBadge ? badgeAccent : "rgba(255,255,255,.85)",
+          color: shouldShowSceneBadge ? "#fff" : "var(--ink-2)",
+          fontSize: 10,
+          fontWeight: 700,
+          borderRadius: 4,
+          maxWidth: "80%",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
         {badgeLabel}
       </span>
 
-      <div className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t p-2 opacity-0 transition-opacity group-hover:opacity-100 ${tone.overlay}`}>
-        <p className="truncate text-[10px] font-bold text-white" title={file.fileName}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          background: "linear-gradient(to top, rgba(26,26,31,.78), transparent 55%)",
+          padding: 8,
+          opacity: 0,
+          transition: "opacity .2s",
+        }}
+        className="hover-overlay"
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#fff",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={file.fileName}
+        >
           {file.fileName}
         </p>
         {signals.length > 0 && (
-          <p className="mt-0.5 truncate text-[8px] font-medium text-white/75">
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontSize: 9,
+              color: "rgba(255,255,255,.75)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             记忆线索 · {signals.join(" / ")}
           </p>
         )}
         <button
           type="button"
           onClick={handleDeleteClick}
-          className={`mt-1 w-fit rounded-full px-2 py-0.5 text-[8px] font-bold text-white ${
-            confirming ? "bg-red-500" : "bg-white/20 hover:bg-red-500"
-          }`}
+          style={{
+            marginTop: 6,
+            width: "fit-content",
+            padding: "2px 8px",
+            fontSize: 9,
+            fontWeight: 700,
+            color: "#fff",
+            background: confirming ? "var(--rose)" : "rgba(255,255,255,.18)",
+            border: 0,
+            borderRadius: 999,
+            cursor: "pointer",
+          }}
         >
           {confirming ? "确认删除" : "删除"}
         </button>
@@ -477,7 +830,11 @@ function ThumbnailTile({
   )
 }
 
-export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbnailBadgeMode = "default" }: Props) {
+export default function FileManagerPanel({
+  onFileDeleted,
+  onFilesCleared,
+  thumbnailBadgeMode = "default",
+}: Props) {
   const [files, setFiles] = useState<ManagedFile[]>([])
   const [loading, setLoading] = useState(true)
   const [draftQuery, setDraftQuery] = useState("")
@@ -512,9 +869,10 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
     if (activeScene === "全部") return baseFiles
     return baseFiles.filter((file) => getDemoBusinessScenes(file).includes(activeScene))
   }, [activeScene, files, searchResults, submittedQuery])
+
   const onboardingWrongQuestionId = useMemo(
     () => visibleFiles.find((file) => isWrongQuestionCandidate(file))?.id ?? null,
-    [visibleFiles]
+    [visibleFiles],
   )
 
   const handleQuerySubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -523,7 +881,6 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
     setSubmittedQuery(nextQuery)
     setSearchResults(null)
     if (!nextQuery) return
-
     setQuerying(true)
     try {
       const res = await fetch("/api/files/search", {
@@ -536,7 +893,9 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
       const existingById = new Map(files.map((file) => [file.id, file]))
       const results = Array.isArray(json.results) ? json.results : []
       setSearchResults(
-        results.map((result: FileSearchApiResult) => searchResultToManagedFile(result, existingById.get(result.id)))
+        results.map((result: FileSearchApiResult) =>
+          searchResultToManagedFile(result, existingById.get(result.id)),
+        ),
       )
     } catch {
       setSearchResults(filterFiles(files, nextQuery))
@@ -586,8 +945,8 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="dot-pulse flex gap-1.5">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 0" }}>
+        <div className="dot-pulse" style={{ display: "flex", gap: 6 }}>
           <span /><span /><span />
         </div>
       </div>
@@ -595,25 +954,238 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 text-slate-950">
-      <SourceChips files={files} />
+    <div
+      className="paper-tooth"
+      style={{
+        background: "var(--wash-paper)",
+        padding: "36px 44px 56px",
+        minHeight: "100%",
+        fontFamily: "var(--font-body)",
+        color: "var(--ink-1)",
+      }}
+    >
+      {/* Eyebrow */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 11,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--ink-3)",
+          fontWeight: 700,
+        }}
+      >
+        <span>文件中心</span>
+        <span style={{ width: 14, height: 1, background: "var(--ink-4)" }} />
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            letterSpacing: "0.04em",
+            textTransform: "none",
+            fontWeight: 400,
+            color: "var(--ink-3)",
+          }}
+        >
+          File Center · {files.length} files
+        </span>
+      </div>
 
-      <section data-onboarding-target="ai-search" className="commandSurface mx-auto max-w-3xl pt-2 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">AI 文件系统</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">想找哪份文件？</h2>
-        <form onSubmit={handleQuerySubmit} className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition-shadow focus-within:shadow-md">
-          <label className="min-w-0 flex-1">
-            <input
-              value={draftQuery}
-              onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="例如：找上周的英语错题，或者草原旅行照片"
-              className="w-full bg-transparent px-2 py-2 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-300"
-            />
-          </label>
+      {/* Workstation — 渠道汇总 (left) + AI 工具箱 (right) inside one editorial card */}
+      <section
+        style={{
+          marginTop: 24,
+          background: "var(--card)",
+          border: "1px solid var(--rule)",
+          borderRadius: "var(--r-lg)",
+          boxShadow: "var(--shadow-2)",
+          padding: "26px 30px 28px",
+        }}
+      >
+        {/* Workstation eyebrow — kicker + title + flex rule + italic English */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginBottom: 22,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 9.5,
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+              color: "var(--ink-4)",
+              fontWeight: 800,
+            }}
+          >
+            工作台
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 14,
+              fontWeight: 500,
+              color: "var(--ink-2)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            渠道汇总 & AI 工具箱
+          </span>
+          <span aria-hidden style={{ flex: 1, height: 1, background: "var(--rule-soft)" }} />
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+              fontSize: 11.5,
+              color: "var(--ink-4)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            where files arrive · how AI helps
+          </span>
+        </div>
+
+        {/* Two-column body, with a vertical binding rule between them */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "5fr 1px 7fr",
+            gap: 28,
+            alignItems: "start",
+          }}
+        >
+          <SourceChips files={files} />
+          <span style={{ alignSelf: "stretch", background: "var(--rule-soft)" }} aria-hidden />
+          <AIToolbox />
+        </div>
+      </section>
+
+      {/* Search tier — single-row eyebrow with subtitle inline; h1 below */}
+      <section style={{ marginTop: 28 }} data-onboarding-target="ai-search">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginBottom: 16,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 9.5,
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+              color: "var(--ink-4)",
+              fontWeight: 800,
+              whiteSpace: "nowrap",
+            }}
+          >
+            想到哪句说哪句
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 14,
+              fontWeight: 500,
+              color: "var(--ink-2)",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            说出印象，找回文件
+          </span>
+          <span aria-hidden style={{ flex: 1, height: 1, background: "var(--rule-soft)" }} />
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+              fontSize: 12.5,
+              color: "var(--ink-3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            describe what you remember
+          </span>
+        </div>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-display)",
+            fontSize: 38,
+            fontWeight: 400,
+            letterSpacing: "-0.015em",
+            lineHeight: 1.1,
+            color: "var(--ink-1)",
+          }}
+        >
+          我是小迪，
+          <span style={{ color: "var(--clay)", fontStyle: "italic" }}>你的文件助手。</span>
+        </h1>
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: 13.5,
+            color: "var(--ink-3)",
+            lineHeight: 1.5,
+          }}
+        >
+          可以说时间、来源、内容或场景。
+        </p>
+
+        <form
+          onSubmit={handleQuerySubmit}
+          style={{
+            marginTop: 18,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 8px 8px 18px",
+            background: "var(--card)",
+            border: "1px solid var(--rule)",
+            borderRadius: "var(--r-lg)",
+            boxShadow: "var(--shadow-1)",
+          }}
+        >
+          <span style={{ color: "var(--ink-4)", display: "flex", alignItems: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
+            placeholder="例如：找上周的英语错题，或者草原旅行照片"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              border: 0,
+              outline: "none",
+              background: "transparent",
+              fontSize: 15,
+              color: "var(--ink-1)",
+              padding: "10px 0",
+            }}
+          />
           <button
             type="submit"
             disabled={querying || files.length === 0}
-            className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            style={{
+              padding: "10px 22px",
+              background: "var(--ink-1)",
+              color: "#fff",
+              border: 0,
+              borderRadius: "var(--r-md)",
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              cursor: querying || files.length === 0 ? "not-allowed" : "pointer",
+              opacity: querying || files.length === 0 ? 0.5 : 1,
+            }}
           >
             {querying ? "查找中" : "查找"}
           </button>
@@ -621,53 +1193,159 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
             type="button"
             onClick={handleClearAll}
             disabled={files.length === 0}
-            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              clearConfirming ? "bg-red-50 text-red-600" : "text-slate-400 hover:bg-slate-100 hover:text-red-500"
-            }`}
+            style={{
+              padding: "10px 14px",
+              background: clearConfirming ? "var(--rose)" : "transparent",
+              color: clearConfirming ? "#fff" : "var(--ink-3)",
+              border: 0,
+              borderRadius: "var(--r-md)",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: files.length === 0 ? "not-allowed" : "pointer",
+              opacity: files.length === 0 ? 0.4 : 1,
+            }}
           >
             {clearConfirming ? "再次确认" : "清空"}
           </button>
         </form>
-        <p className="mt-2 text-xs font-medium text-slate-400">可以说时间、来源、内容或场景</p>
         {querying && (
-          <div className="mt-3 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
-            <div className="dot-pulse flex gap-1">
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "var(--ink-3)",
+            }}
+          >
+            <div className="dot-pulse" style={{ display: "flex", gap: 4 }}>
               <span /><span /><span />
             </div>
             <span>正在查找相关文件…</span>
           </div>
         )}
+
+        {/* Suggestion hints */}
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontSize: 11.5,
+              letterSpacing: "0.04em",
+              color: "var(--ink-3)",
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+            }}
+          >
+            比如这样说：
+          </span>
+          {[
+            "上周做错的那道英语题",
+            "妈妈在钉钉里发的考试通知",
+            "暑假在草原拍的那张照片",
+            "老师讲化学时的那份讲义",
+          ].map((hint) => (
+            <button
+              key={hint}
+              type="button"
+              onClick={() => setDraftQuery(hint)}
+              style={{
+                padding: "5px 12px",
+                background: "var(--paper)",
+                border: "1px solid var(--rule-soft)",
+                borderRadius: 999,
+                fontSize: 12,
+                color: "var(--ink-2)",
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              {hint}
+            </button>
+          ))}
+        </div>
       </section>
 
-      <div className="space-y-3 border-y border-slate-200/70 py-3">
+      {/* Tier 3 — Scene tabs + Photo grid */}
+      <div
+        style={{
+          marginTop: 28,
+          paddingTop: 16,
+          paddingBottom: 12,
+          borderTop: "1px solid var(--rule)",
+          borderBottom: "1px solid var(--rule)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
         <SceneTabs files={files} activeScene={activeScene} onSceneChange={setActiveScene} />
-
         {submittedQuery && (
-          <div className="flex items-center justify-between gap-3 text-xs">
-            <p className="min-w-0 truncate font-semibold text-slate-500">“{submittedQuery}”</p>
-            <button type="button" onClick={clearSubmittedQuery} className="shrink-0 font-bold text-slate-400 hover:text-indigo-600">
-              查看全部
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              fontSize: 12,
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                color: "var(--ink-3)",
+                fontStyle: "italic",
+                fontFamily: "var(--font-display)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              “{submittedQuery}”
+            </p>
+            <button
+              type="button"
+              onClick={clearSubmittedQuery}
+              style={{
+                background: "transparent",
+                border: 0,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--ink-3)",
+                cursor: "pointer",
+              }}
+            >
+              查看全部 →
             </button>
           </div>
         )}
-
       </div>
 
-      <div data-onboarding-target="photo-grid" className="min-h-32">
+      <div data-onboarding-target="photo-grid" style={{ marginTop: 18, minHeight: 128 }}>
         {files.length === 0 ? (
-          <p className="py-10 text-center text-sm font-medium text-slate-400">
+          <p style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "var(--ink-4)" }}>
             上传文件后，AI 会把来源、时间和内容线索放进这里。
           </p>
         ) : visibleFiles.length === 0 ? (
-          <p className="py-10 text-center text-sm font-medium text-slate-400">
-            {activeScene === "全部" ? "没找到相关文件。可以换个时间、来源或内容再试。" : "这个场景下暂时没有匹配文件。"}
+          <p style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "var(--ink-4)" }}>
+            {activeScene === "全部"
+              ? "没找到相关文件。可以换个时间、来源或内容再试。"
+              : "这个场景下暂时没有匹配文件。"}
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(118px, 1fr))",
+              gap: 8,
+            }}
+          >
             {visibleFiles.map((file) => {
               const shouldMarkOnboardingWrongQuestion = onboardingWrongQuestionId === file.id
-              const isOnboardingWrongQuestion = shouldMarkOnboardingWrongQuestion && isWrongQuestionCandidate(file)
-
+              const isOnboardingWrongQuestion =
+                shouldMarkOnboardingWrongQuestion && isWrongQuestionCandidate(file)
               return (
                 <ThumbnailTile
                   key={file.id}
@@ -682,6 +1360,10 @@ export default function FileManagerPanel({ onFileDeleted, onFilesCleared, thumbn
           </div>
         )}
       </div>
+
+      <style>{`
+        .group:hover > .hover-overlay { opacity: 1 !important; }
+      `}</style>
     </div>
   )
 }

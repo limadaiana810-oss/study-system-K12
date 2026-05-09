@@ -46,7 +46,7 @@ export function buildMockWrongQuestionReport(): WrongQuestionReport {
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    topPattern: "嗨，我是小迪。你这周只错 1 道，整月最低。物理单位换算又翻车了——第 3 次。我替你数着。",
+    topPattern: "小迪帮你看了一下：你这周才错 1 道，是这个月最少的。物理单位换算又栽了，第 3 次。",
     hero,
     backups,
     weeklyTrend: {
@@ -123,7 +123,7 @@ export function buildMockGrowthReport(): GrowthReport {
     windowDays: 30,
     // V11: hero 两字段
     topInsight: "小凯这个月数学回到 90+ 了。",
-    thisWeekAction: "这周陪小凯把数学最后一题写完，到一半会停。",
+    thisWeekAction: "这周陪小凯把数学最后一题写完——他容易做到一半放下，这次坚持写完一题，培养面对难题的习惯。",
     focusSubject,
     trajectory: {
       filesUploaded: 12,

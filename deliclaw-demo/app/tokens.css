@@ -1,0 +1,174 @@
+/* Editorial design tokens — 水墨 palette: 宣纸 / 浓墨 / 朱砂 */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Surfaces — 宣纸 paper (deeper rough base, lighter card on top for natural layering) */
+  --paper:      #DDD1B2;   /* 宣纸 base — deeper rough handmade paper */
+  --card:       #F4ECD6;   /* 浮起一层细纸 — laid above the rough sheet */
+  --card-warm:  #E2D7BC;   /* 旧纸 */
+  --rule:       #C0AE8A;
+  --rule-soft:  #D2C3A0;
+
+  /* Ink — 墨色五分 (warmer + darker on the deeper paper for legibility) */
+  --ink-1:      #14141A;   /* 浓墨 — text/heading */
+  --ink-2:      #3A3A42;   /* 重墨 — body */
+  --ink-3:      #5C5A52;   /* 中墨 — meta (warmed toward 赭 to read on cream) */
+  --ink-4:      #8C8678;   /* 淡墨 — hint */
+
+  /* 青黛 / 远山 — calm scholarly accent (replaces 朱砂 to avoid alarm/pressure tone) */
+  --brand:        #4A6B5C;   /* 青黛 — deep ink green, contemplative */
+  --brand-paper:  #DDE5D6;
+  --clay:         #7A4A2A;   /* 赭褐 — earthy warm, used sparingly */
+
+  /* Secondary — restrained traditional palette */
+  --sage:         #5C7059;   /* 青黛 sibling */
+  --sage-soft:    #D8DDC9;
+  --teal:         #3D5A6A;   /* 远山青 */
+  --amber:        #A67C2D;   /* 赭石 ochre */
+  --rose:         #8B5563;   /* 暗紫梅 — muted, no alarm red */
+
+  /* Subjects — quiet ink-tinted */
+  --s-math:      #4A6B5C;   /* 青黛 */
+  --s-physics:   #3D5A6A;   /* 远山青 */
+  --s-english:   #5C7059;   /* 青黛淡 */
+  --s-chemistry: #6B4F6E;   /* 紫绛 */
+  --s-chinese:   #7A4A2A;   /* 赭褐 */
+
+  /* Type */
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-body:    "Inter", -apple-system, "PingFang SC", system-ui, sans-serif;
+  --font-num:     "Noto Serif SC", "Songti SC", serif;
+  --mono:         "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radius — minimal, square-ish for ink feel */
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-xl: 10px;
+
+  /* Shadow — layered paper-card: inner top highlight + warm bottom shadow
+     so cards read as a separate sheet of finer paper laid over the rough base. */
+  --shadow-1:
+    inset 0 1px 0 rgba(255, 250, 232, 0.55),
+    0 1px 1px rgba(95, 70, 30, 0.07);
+  --shadow-2:
+    inset 0 1px 0 rgba(255, 250, 232, 0.6),
+    0 1px 2px rgba(95, 70, 30, 0.06),
+    0 8px 22px -6px rgba(95, 70, 30, 0.16);
+
+  /* 水墨浸染 gradients — soft ink-bleed washes
+     wash-paper bakes in handmade-paper texture: pulp clusters + 2 speckle
+     layers + bidirectional fiber stripes (102° + 18°) over the base wash.
+     Intensities kept low so legibility is preserved; the fractal-noise
+     "tooth" is layered on top via .paper-tooth (multiply, low opacity). */
+  --wash-paper:
+    radial-gradient(10px 6px at 23% 14%, rgba(120,90,55,0.06), transparent 70%),
+    radial-gradient(8px 5px at 67% 38%, rgba(110,82,50,0.05), transparent 70%),
+    radial-gradient(12px 8px at 12% 78%, rgba(125,95,60,0.06), transparent 70%),
+    radial-gradient(8px 6px at 84% 62%, rgba(115,85,55,0.05), transparent 70%),
+    radial-gradient(10px 6px at 48% 88%, rgba(120,90,55,0.05), transparent 70%),
+    radial-gradient(rgba(80,58,28,0.04) 0.8px, transparent 1.8px) 0 0 / 11px 11px,
+    radial-gradient(rgba(60,42,18,0.03) 1.2px, transparent 2.4px) 5px 7px / 23px 23px,
+    repeating-linear-gradient(102deg,
+      rgba(110,82,48,0.025) 0 1px,
+      transparent 1px 9px,
+      rgba(140,108,68,0.015) 9px 10px,
+      transparent 10px 17px),
+    repeating-linear-gradient(18deg,
+      rgba(110,82,48,0.022) 0 1px,
+      transparent 1px 11px,
+      rgba(80,58,28,0.012) 11px 12px,
+      transparent 12px 21px),
+    radial-gradient(120% 80% at 12% 8%, #E8DBBC 0%, #DDD1B2 38%, #CFC09A 100%);
+  --wash-card:  linear-gradient(165deg, #FAF3DF 0%, #F4ECD6 55%, #E6DAC0 100%);
+  --wash-warm:  radial-gradient(140% 100% at 90% 0%, #EFE2C2 0%, #E2D7BC 60%, #CDBE99 100%);
+  --wash-brand: radial-gradient(120% 120% at 20% 20%, #6B8C7A 0%, #4A6B5C 50%, #2A4A3A 100%);
+  --wash-ink:   radial-gradient(140% 100% at 70% 30%, #2A2A33 0%, #1A1A1F 60%, #07070A 100%);
+  --wash-sage:  radial-gradient(120% 100% at 80% 20%, #7A8C72 0%, #5C7059 60%, #3A4A38 100%);
+  --wash-mist:  radial-gradient(120% 80% at 50% 100%, rgba(61,90,106,.18) 0%, rgba(236,227,206,0) 60%);
+
+  /* Ink-bleed border (soft fade edge) */
+  --ink-edge:   inset 0 0 0 1px rgba(26,26,31,.08), inset 0 -20px 40px rgba(26,26,31,.03);
+}
+
+/* 水墨浸染 splash — drop on hero surfaces as ::before */
+.ink-splash {
+  position: relative;
+  isolation: isolate;
+}
+.ink-splash::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(40% 60% at 88% 12%, rgba(74,107,92,.10) 0%, transparent 60%),
+    radial-gradient(35% 50% at 8% 92%, rgba(26,26,31,.08) 0%, transparent 65%),
+    radial-gradient(60% 40% at 50% 0%, rgba(61,90,106,.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: multiply;
+}
+.ink-splash > * { position: relative; z-index: 1; }
+
+* { box-sizing: border-box; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Subtle paper grain — applied to .paper-grain element backgrounds */
+.paper-grain {
+  background-image:
+    radial-gradient(rgba(26,26,31,.03) 1px, transparent 1px),
+    radial-gradient(rgba(26,26,31,.02) 1px, transparent 1px);
+  background-size: 20px 20px, 11px 11px;
+  background-position: 0 0, 5px 5px;
+}
+
+/* Handmade paper fiber + speckles + pulp clusters.
+   Bidirectional fiber stripes (102° + 18°), two speckle densities,
+   five sparse pulp blobs. Pair with .paper-tooth for full roughness. */
+.paper-fiber {
+  background-image:
+    radial-gradient(10px 6px at 23% 14%, rgba(120,90,55,0.06), transparent 70%),
+    radial-gradient(8px 5px at 67% 38%, rgba(110,82,50,0.05), transparent 70%),
+    radial-gradient(12px 8px at 12% 78%, rgba(125,95,60,0.06), transparent 70%),
+    radial-gradient(8px 6px at 84% 62%, rgba(115,85,55,0.05), transparent 70%),
+    radial-gradient(10px 6px at 48% 88%, rgba(120,90,55,0.05), transparent 70%),
+    radial-gradient(rgba(80,58,28,0.04) 0.8px, transparent 1.8px),
+    radial-gradient(rgba(60,42,18,0.03) 1.2px, transparent 2.4px),
+    repeating-linear-gradient(102deg,
+      rgba(110,82,48,0.025) 0 1px,
+      transparent 1px 9px,
+      rgba(140,108,68,0.015) 9px 10px,
+      transparent 10px 17px),
+    repeating-linear-gradient(18deg,
+      rgba(110,82,48,0.022) 0 1px,
+      transparent 1px 11px,
+      rgba(80,58,28,0.012) 11px 12px,
+      transparent 12px 21px);
+  background-size: auto, auto, auto, auto, auto, 11px 11px, 23px 23px, auto, auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 5px 7px, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat;
+}
+
+/* SVG fractal-noise overlay for paper "tooth". Multiply blend so the noise
+   darkens the underlying paper instead of washing it out. Kept low-opacity
+   so it adds tactile feel without harming text contrast. */
+.paper-tooth { position: relative; isolation: isolate; }
+.paper-tooth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.34  0 0 0 0 0.25  0 0 0 0 0.12  0 0 0 0.32 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 260px 260px;
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+  z-index: 0;
+}
+.paper-tooth > * { position: relative; z-index: 1; }
+
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { content: ""; }
+details > summary { list-style: none; }
+details > summary::before, details > summary::after { content: none; }
+
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }

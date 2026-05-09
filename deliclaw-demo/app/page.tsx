@@ -270,29 +270,97 @@ export default function Home() {
   }
 
   if (isResetting) {
-    return <div className="h-screen bg-[#FAFAFA] flex items-center justify-center text-gray-400 text-sm">正在重新开始会话…</div>
+    return (
+      <div
+        className="h-screen flex items-center justify-center text-sm"
+        style={{ background: "var(--wash-paper)", color: "var(--ink-3)", fontFamily: "var(--font-body)" }}
+      >
+        正在重新开始会话…
+      </div>
+    )
   }
 
   if (!isLoaded) {
-    return <div className="h-screen bg-[#FAFAFA] flex items-center justify-center text-gray-400 text-sm">正在加载记忆...</div>
+    return (
+      <div
+        className="h-screen flex items-center justify-center text-sm"
+        style={{ background: "var(--wash-paper)", color: "var(--ink-3)", fontFamily: "var(--font-body)" }}
+      >
+        正在加载记忆...
+      </div>
+    )
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div
+      className="h-screen flex flex-col overflow-hidden paper-tooth"
+      style={{ background: "var(--wash-paper)", fontFamily: "var(--font-body)", color: "var(--ink-1)" }}
+    >
       {/* Top bar */}
-      <div className="h-11 bg-white border-b border-gray-100 flex items-center px-6 gap-2 flex-shrink-0">
-        <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 10h16M4 14h8" />
-          </svg>
+      <div
+        className="h-11 flex items-center px-6 gap-2 flex-shrink-0 paper-tooth"
+        style={{
+          background: "var(--paper)",
+          borderBottom: "1px solid var(--rule)",
+        }}
+      >
+        <div
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 4,
+            background: "var(--ink-1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--font-display)",
+            fontSize: 10,
+            color: "#fff",
+            fontStyle: "italic",
+            fontWeight: 700,
+          }}
+        >
+          D
         </div>
-        <span className="text-sm font-bold text-gray-900 tracking-tight">DeliClaw</span>
-        <span className="text-xs text-gray-300 font-medium ml-1">智能文件管理</span>
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.005em",
+          }}
+        >
+          DeliClaw
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--ink-3)",
+            marginLeft: 4,
+            fontStyle: "italic",
+            fontFamily: "var(--font-display)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          — 智能文件管理
+        </span>
 
         <div className="ml-auto">
           <button
             onClick={handleClearMemory}
-            className="text-[10px] px-2 py-1 rounded bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+            style={{
+              fontSize: 10,
+              padding: "3px 10px",
+              borderRadius: "var(--r-sm)",
+              background: "transparent",
+              border: "1px solid var(--rule)",
+              color: "var(--ink-3)",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--font-body)",
+              transition: "all .15s",
+            }}
           >
             重置会话
           </button>

@@ -33,13 +33,24 @@ test("V11: TopPattern replaces FocusHeader; one line at top", () => {
   assert.doesNotMatch(SOURCE, /<FocusHeader/, "V11 must drop FocusHeader")
 })
 
-test("V10: WrongQuestionReportView uses stacked BarChart for the monthly breakdown", () => {
-  assert.match(SOURCE, /from ["']recharts["']/)
-  assert.match(SOURCE, /BarChart/, "V10 needs BarChart for stacked breakdown")
-  assert.match(SOURCE, /stackId=/, "V10 stacked bars require stackId")
-  assert.doesNotMatch(SOURCE, /LineChart/, "V10 dropped weekly LineChart")
-  assert.doesNotMatch(SOURCE, /PieChart/, "V10 dropped subject-share PieChart")
-  assert.doesNotMatch(SOURCE, /<Pie /, "V10 must not render any Pie segments")
+test("V13 editorial: monthly breakdown uses inline custom SVG (no recharts)", () => {
+  // V13: dropped recharts in favor of paper-feel hand-drawn SVG charts.
+  assert.doesNotMatch(SOURCE, /from ["']recharts["']/, "V13 must not import recharts")
+  assert.doesNotMatch(SOURCE, /<BarChart/, "V13 dropped recharts BarChart")
+  assert.doesNotMatch(SOURCE, /<LineChart/)
+  assert.doesNotMatch(SOURCE, /<PieChart/)
+  // Inline SVG with stacked rects fills the role
+  assert.match(SOURCE, /function MonthlyChart/, "V13 needs inline MonthlyChart SVG")
+  assert.match(SOURCE, /<svg/, "V13 chart is rendered as inline <svg>")
+  assert.match(SOURCE, /<rect/, "V13 stacked bars are <rect> segments")
+})
+
+test("V13 editorial: source uses design tokens + serif italic English subtitles", () => {
+  assert.match(SOURCE, /var\(--paper\)|var\(--ink-1\)|var\(--brand\)/, "V13 must use design tokens")
+  assert.match(SOURCE, /var\(--font-display\)/, "V13 must reference serif display font token")
+  assert.match(SOURCE, /Today's one thing|Today&apos;s one thing/, "hero ribbon italic English subtitle")
+  assert.match(SOURCE, /and the rest/, "minor errors collapsible italic label")
+  assert.match(SOURCE, /Wrong Question Report/, "eyebrow italic English subtitle")
 })
 
 test("V11: WrongQuestionReportView consumes hero/backups/topPattern", () => {

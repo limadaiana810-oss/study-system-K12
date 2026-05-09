@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
   // - OPENROUTER_CHAT_MODEL_VISION：多模态（带图片）
   // - OPENROUTER_CHAT_MODEL_TEXT：纯文本
   const model = hasImage
-    ? (process.env.OPENROUTER_CHAT_MODEL_VISION || "qwen/qwen3-vl-8b-instruct")
-    : (process.env.OPENROUTER_CHAT_MODEL_TEXT || "qwen/qwen3.6-plus")
+    ? (process.env.OPENROUTER_CHAT_MODEL_VISION || "qwen/qwen2.5-vl-72b-instruct")
+    : (process.env.OPENROUTER_CHAT_MODEL_TEXT || "qwen/qwen-2.5-72b-instruct")
 
   const SYSTEM_PROMPT = buildSystemPrompt()
 

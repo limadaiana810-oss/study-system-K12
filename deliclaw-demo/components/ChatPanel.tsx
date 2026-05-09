@@ -824,9 +824,12 @@ export default function ChatPanel({
             })
           }
         } catch (err) {
-          const errMsg = err instanceof Error ? err.message : "请求失败"
+          const rawMsg = err instanceof Error ? err.message : "请求失败"
+          const display = rawMsg.length > 120
+            ? `⚠️ 请求失败（${rawMsg.slice(0, 120)}…）`
+            : `⚠️ ${rawMsg}`
           setMessages((prev) => {
-            const next = prev.map((m) => (m.id === aiMsgId ? { ...m, content: `⚠️ ${errMsg}`, isStreaming: false } : m))
+            const next = prev.map((m) => (m.id === aiMsgId ? { ...m, content: display, isStreaming: false } : m))
             messagesRef.current = next
             return next
           })
@@ -887,58 +890,171 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#F8F9FA]">
-      <div className="relative flex items-center border-b border-gray-100 bg-white px-6 py-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 shadow-sm">
-            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
+    <div
+      className="paper-tooth"
+      style={{
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        background: "var(--wash-paper)",
+        fontFamily: "var(--font-body)",
+        color: "var(--ink-1)",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          borderBottom: "1px solid var(--rule)",
+          background: "var(--paper)",
+          padding: "16px 24px",
+        }}
+      >
+        <div style={{ display: "flex", minWidth: 0, alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "var(--ink-1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: "var(--font-display)",
+              fontSize: 14,
+              color: "#fff",
+              fontStyle: "italic",
+              fontWeight: 600,
+            }}
+          >
+            D
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-900">DeliClaw</p>
-            <p className="flex items-center gap-1 text-[11px] font-medium text-emerald-500">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-display)",
+                fontSize: 18,
+                fontWeight: 500,
+                color: "var(--ink-1)",
+                letterSpacing: "-0.005em",
+              }}
+            >
+              DeliClaw
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "var(--sage)",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--sage)" }} />
               在线
             </p>
           </div>
         </div>
 
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-1 shadow-sm">
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            display: "inline-flex",
+            padding: 3,
+            border: "1px solid var(--rule)",
+            background: "var(--paper)",
+            borderRadius: 999,
+          }}
+        >
           <button
             type="button"
             onClick={() => onActiveViewChange("chat")}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-              activeView === "chat"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-slate-500 hover:text-indigo-700"
-            }`}
+            style={{
+              padding: "7px 16px",
+              borderRadius: 999,
+              border: 0,
+              background: activeView === "chat" ? "var(--ink-1)" : "transparent",
+              color: activeView === "chat" ? "#fff" : "var(--ink-3)",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              transition: "all .15s",
+            }}
           >
             对话
           </button>
           <button
             type="button"
             onClick={() => onActiveViewChange("files")}
-            className={`rounded-xl px-4 py-1.5 text-left transition-all ${
-              activeView === "files"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-indigo-600 hover:bg-white/70"
-            }`}
+            style={{
+              padding: "5px 14px",
+              borderRadius: 999,
+              border: 0,
+              background: activeView === "files" ? "var(--ink-1)" : "transparent",
+              color: activeView === "files" ? "#fff" : "var(--ink-3)",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              transition: "all .15s",
+              textAlign: "left",
+              lineHeight: 1.25,
+            }}
           >
-            <span className="block text-xs font-black">文件中心</span>
-            <span className="block text-[9px] font-semibold opacity-70">点我找文件</span>
+            <span style={{ display: "block" }}>文件中心</span>
+            <span
+              style={{
+                display: "block",
+                fontSize: 9,
+                opacity: activeView === "files" ? 0.75 : 0.6,
+                fontStyle: "italic",
+                fontFamily: "var(--font-display)",
+                fontWeight: 400,
+                marginTop: 1,
+              }}
+            >
+              点我找文件
+            </span>
           </button>
           <button
             type="button"
             onClick={() => onActiveViewChange("reports")}
-            className={`rounded-xl px-4 py-1.5 text-left transition-all ${
-              activeView === "reports"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-indigo-600 hover:bg-white/70"
-            }`}
+            style={{
+              padding: "5px 14px",
+              borderRadius: 999,
+              border: 0,
+              background: activeView === "reports" ? "var(--ink-1)" : "transparent",
+              color: activeView === "reports" ? "#fff" : "var(--ink-3)",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              transition: "all .15s",
+              textAlign: "left",
+              lineHeight: 1.25,
+            }}
           >
-            <span className="block text-xs font-black">报告中心</span>
-            <span className="block text-[9px] font-semibold opacity-70">错题 / 成长</span>
+            <span style={{ display: "block" }}>报告中心</span>
+            <span
+              style={{
+                display: "block",
+                fontSize: 9,
+                opacity: activeView === "reports" ? 0.75 : 0.6,
+                fontStyle: "italic",
+                fontFamily: "var(--font-display)",
+                fontWeight: 400,
+                marginTop: 1,
+              }}
+            >
+              错题 / 成长
+            </span>
           </button>
         </div>
       </div>
@@ -954,37 +1070,85 @@ export default function ChatPanel({
 
           <QuickReplyBar stage={stage} disabled={isStreaming} onSelect={handleQuickReply} />
 
-          <div className="px-4 pb-4">
-            <form onSubmit={handleSubmit} className="flex items-end gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div style={{ padding: "0 16px 16px" }}>
+            <form
+              onSubmit={handleSubmit}
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 8,
+                padding: "10px 14px",
+                border: "1px solid var(--rule)",
+                background: "var(--card)",
+                borderRadius: "var(--r-lg)",
+                boxShadow: "var(--shadow-1)",
+              }}
+            >
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="说点什么…"
                 disabled={isStreaming}
-                className="flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-300 disabled:opacity-50"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: "transparent",
+                  border: 0,
+                  outline: "none",
+                  fontSize: 14,
+                  color: "var(--ink-1)",
+                  padding: "6px 0",
+                  fontFamily: "var(--font-body)",
+                }}
               />
-              <label className="cursor-pointer text-gray-400 transition-colors hover:text-indigo-500">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              <label
+                style={{
+                  cursor: "pointer",
+                  color: "var(--ink-4)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: 4,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   multiple
-                  className="hidden"
+                  style={{ display: "none" }}
                   onChange={handleFileChange}
                 />
               </label>
               <button
                 type="submit"
                 disabled={isStreaming || (!input.trim() && pendingUploads.length === 0)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-30"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 32,
+                  padding: "0 14px",
+                  borderRadius: "var(--r-md)",
+                  background: "var(--ink-1)",
+                  color: "#fff",
+                  border: 0,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  cursor:
+                    isStreaming || (!input.trim() && pendingUploads.length === 0)
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity: isStreaming || (!input.trim() && pendingUploads.length === 0) ? 0.3 : 1,
+                  transition: "opacity .15s, background .15s",
+                }}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                送出
               </button>
             </form>
             {pendingUploads.length > 0 && (

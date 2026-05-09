@@ -9,7 +9,7 @@ interface Props {
 
 function TypingDots() {
   return (
-    <div className="dot-pulse flex gap-1.5 py-1">
+    <div className="dot-pulse" style={{ display: "flex", gap: 6, padding: "4px 0" }}>
       <span /><span /><span />
     </div>
   )
@@ -17,40 +17,100 @@ function TypingDots() {
 
 function AIAvatar() {
   return (
-    <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      </svg>
+    <div
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: "50%",
+        background: "var(--ink-1)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        fontFamily: "var(--font-display)",
+        fontSize: 12,
+        color: "#fff",
+        fontStyle: "italic",
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+      }}
+    >
+      迪
     </div>
   )
 }
 
 export default function MessageBubble({ message }: Props) {
   const isAI = message.role === "assistant"
+  const time = message.timestamp.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 
   if (isAI) {
     return (
-      <div className="flex items-start gap-3 animate-fade-in-up">
+      <div
+        className="animate-fade-in-up"
+        style={{ display: "flex", alignItems: "flex-start", gap: 12 }}
+      >
         <AIAvatar />
-        <div className="max-w-[80%]">
-          <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100">
+        <div style={{ maxWidth: "80%" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontStyle: "italic",
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              color: "var(--ink-3)",
+              marginBottom: 4,
+              marginLeft: 2,
+            }}
+          >
+            xiaodi · ai
+          </div>
+          <div
+            style={{
+              background: "var(--card)",
+              borderRadius: "var(--r-md)",
+              borderTopLeftRadius: 2,
+              padding: "12px 16px",
+              border: "1px solid var(--rule)",
+              boxShadow: "var(--shadow-1)",
+            }}
+          >
             {message.isStreaming && message.content === "" ? (
               <TypingDots />
             ) : (
-              <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: "var(--ink-1)",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
                 {message.content}
               </p>
             )}
           </div>
           {message.fileCards && message.fileCards.length > 0 && (
-            <div className="flex flex-col gap-2 mt-2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {message.fileCards.map((card, idx) => (
                 <FileThumbnailCard key={idx} file={card} />
               ))}
             </div>
           )}
-          <p className="text-[10px] text-gray-300 mt-1.5 ml-1">
-            {message.timestamp.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+          <p
+            className="num"
+            style={{
+              fontSize: 10,
+              color: "var(--ink-4)",
+              marginTop: 6,
+              marginLeft: 2,
+            }}
+          >
+            {time}
           </p>
         </div>
       </div>
@@ -58,25 +118,58 @@ export default function MessageBubble({ message }: Props) {
   }
 
   return (
-    <div className="flex items-end justify-end gap-3 animate-fade-in-up">
-      <div className="max-w-[75%]">
+    <div
+      className="animate-fade-in-up"
+      style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 12 }}
+    >
+      <div style={{ maxWidth: "75%" }}>
         {message.imageBase64 && (
-          <div className="mb-2 flex justify-end">
+          <div style={{ marginBottom: 8, display: "flex", justifyContent: "flex-end" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`data:${message.imageMime};base64,${message.imageBase64}`}
               alt="上传的文件"
-              className="max-h-40 rounded-xl object-cover shadow-sm"
+              style={{
+                maxHeight: 160,
+                borderRadius: "var(--r-md)",
+                objectFit: "cover",
+                boxShadow: "var(--shadow-1)",
+              }}
             />
           </div>
         )}
         {message.content && (
-          <div className="bg-gray-900 rounded-2xl rounded-br-sm px-4 py-3">
-            <p className="text-sm text-white leading-relaxed">{message.content}</p>
+          <div
+            style={{
+              background: "var(--ink-1)",
+              borderRadius: "var(--r-md)",
+              borderBottomRightRadius: 2,
+              padding: "12px 16px",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: "#fff",
+              }}
+            >
+              {message.content}
+            </p>
           </div>
         )}
-        <p className="text-[10px] text-gray-300 mt-1.5 text-right mr-1">
-          {message.timestamp.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+        <p
+          className="num"
+          style={{
+            fontSize: 10,
+            color: "var(--ink-4)",
+            marginTop: 6,
+            marginRight: 2,
+            textAlign: "right",
+          }}
+        >
+          {time}
         </p>
       </div>
     </div>

@@ -23,30 +23,81 @@ function getCurrentEmotion(memory: MemoryEntry, turnInsight: TurnInsight | null)
   return turnInsight?.emotion?.emotion || memory.psychState?.dominant || "平静"
 }
 
-function StudentStateAvatar({ memory, turnInsight }: { memory: MemoryEntry; turnInsight: TurnInsight | null }) {
+function StudentStateAvatar({
+  memory,
+  turnInsight,
+}: {
+  memory: MemoryEntry
+  turnInsight: TurnInsight | null
+}) {
   const state = getStudentStateAvatar(getCurrentEmotion(memory, turnInsight))
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-50 to-white shadow-sm"
-      style={{ borderColor: `${state.accent}33` }}
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--r-md)",
+        overflow: "hidden",
+      }}
     >
-      <div className="px-4 pt-4 text-center">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">用户状态</p>
-        <h2 className="mt-1 text-base font-black text-slate-900">{state.title}</h2>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{state.description}</p>
+      <div style={{ padding: "16px 16px 0", textAlign: "center" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--ink-3)",
+            fontWeight: 700,
+          }}
+        >
+          用户状态
+        </p>
+        <h2
+          style={{
+            margin: "4px 0 0",
+            fontFamily: "var(--font-display)",
+            fontSize: 20,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {state.title}
+        </h2>
+        <p
+          style={{
+            margin: "4px 0 0",
+            fontSize: 11,
+            lineHeight: 1.55,
+            color: "var(--ink-3)",
+          }}
+        >
+          {state.description}
+        </p>
       </div>
 
       <div
-        className="mx-4 mt-3 flex h-44 items-center justify-center overflow-hidden rounded-2xl border"
-        style={{ backgroundColor: `${state.accent}12`, borderColor: `${state.accent}22` }}
+        style={{
+          margin: "12px 16px 16px",
+          height: 176,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--card-warm)",
+          border: "1px solid var(--rule-soft)",
+          borderRadius: "var(--r-md)",
+          overflow: "hidden",
+        }}
       >
         <div key={state.src} className="student-avatar-enter">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={state.src}
             alt={`${state.title}状态的Q版学生`}
-            className="student-avatar-float h-52 w-52 object-contain"
+            className="student-avatar-float"
+            style={{ height: 208, width: 208, objectFit: "contain" }}
           />
         </div>
       </div>
@@ -58,14 +109,31 @@ function LongTermMemoryCards({ memory }: { memory: MemoryEntry }) {
   const factual = memory.factual || {}
   const inferred = memory.inferred || {}
   const hasLongTermMemory =
-    Object.values(factual).some(hasValue) ||
-    Object.values(inferred).some(hasValue)
+    Object.values(factual).some(hasValue) || Object.values(inferred).some(hasValue)
 
   if (!hasLongTermMemory) {
     return (
-      <section className="rounded-xl border border-slate-100 bg-slate-50 p-3.5">
-        <p className="text-xs font-bold text-slate-700">长期记忆会沉淀到这里</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+      <section
+        style={{
+          background: "var(--card)",
+          border: "1px dashed var(--rule)",
+          borderRadius: "var(--r-md)",
+          padding: 14,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--ink-2)",
+            fontFamily: "var(--font-display)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          长期记忆会沉淀到这里
+        </p>
+        <p style={{ margin: "6px 0 0", fontSize: 11, lineHeight: 1.55, color: "var(--ink-3)" }}>
           告诉我姓名、年级、学校、近期目标或爱好后，这里会生成稳定记忆卡片。
         </p>
       </section>
@@ -73,38 +141,65 @@ function LongTermMemoryCards({ memory }: { memory: MemoryEntry }) {
   }
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-1.5 px-1">
-        <div className="h-3 w-1 rounded-full bg-blue-500" />
-        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">长期记忆</p>
+    <section style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: 12,
+            color: "var(--ink-4)",
+          }}
+        >
+          long-term
+        </span>
+        <span style={{ width: 1, height: 12, background: "var(--rule)" }} />
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontWeight: 700,
+            color: "var(--ink-3)",
+          }}
+        >
+          长期记忆
+        </p>
       </div>
 
       {factual.name && (
-        <MemoryCard key={`name-${factual.name}`} label="姓名" value={factual.name} delay={0} accent="#3B82F6" />
+        <MemoryCard key={`name-${factual.name}`} label="姓名" value={factual.name} delay={0} accent="var(--brand)" />
       )}
       {factual.age && (
-        <MemoryCard key={`age-${factual.age}`} label="年龄" value={factual.age} delay={50} accent="#3B82F6" />
+        <MemoryCard key={`age-${factual.age}`} label="年龄" value={factual.age} delay={50} accent="var(--brand)" />
       )}
       {factual.grade && (
-        <MemoryCard key={`grade-${factual.grade}`} label="年级" value={factual.grade} delay={100} accent="#3B82F6" />
+        <MemoryCard key={`grade-${factual.grade}`} label="年级" value={factual.grade} delay={100} accent="var(--brand)" />
       )}
       {factual.school && (
-        <MemoryCard key={`school-${factual.school}`} label="学校" value={factual.school} delay={150} accent="#3B82F6" />
+        <MemoryCard key={`school-${factual.school}`} label="学校" value={factual.school} delay={150} accent="var(--brand)" />
       )}
       {factual.position && (
-        <MemoryCard key={`position-${factual.position}`} label="职位" value={factual.position} delay={200} accent="#3B82F6" />
+        <MemoryCard key={`position-${factual.position}`} label="职位" value={factual.position} delay={200} accent="var(--brand)" />
       )}
       {factual.recentGoal && (
-        <MemoryCard key={`recent-goal-${factual.recentGoal}`} label="近期目标" value={factual.recentGoal} delay={250} accent="#3B82F6" />
+        <MemoryCard key={`recent-goal-${factual.recentGoal}`} label="近期目标" value={factual.recentGoal} delay={250} accent="var(--brand)" />
       )}
       {inferred.sleepPattern && (
-        <MemoryCard key={`sleep-${inferred.sleepPattern}`} label="已确认作息" value={inferred.sleepPattern} delay={300} accent="#10B981" />
+        <MemoryCard key={`sleep-${inferred.sleepPattern}`} label="已确认作息" value={inferred.sleepPattern} delay={300} accent="var(--sage)" />
       )}
       {inferred.mood && (
-        <MemoryCard key={`mood-${inferred.mood}`} label="已确认状态" value={inferred.mood} delay={350} accent="#10B981" />
+        <MemoryCard key={`mood-${inferred.mood}`} label="已确认状态" value={inferred.mood} delay={350} accent="var(--sage)" />
       )}
       {inferred.preferences && inferred.preferences.length > 0 && (
-        <MemoryCard key={`preferences-${inferred.preferences.join("|")}`} label="爱好" tags={inferred.preferences} delay={400} accent="#10B981" />
+        <MemoryCard
+          key={`preferences-${inferred.preferences.join("|")}`}
+          label="爱好"
+          tags={inferred.preferences}
+          delay={400}
+          accent="var(--sage)"
+        />
       )}
     </section>
   )
@@ -117,31 +212,71 @@ export default function DatabaseHub({ memory, turnInsight }: Props) {
     !!memory.psychState?.snapshots.length
 
   return (
-    <div className="flex h-full flex-col border-l border-gray-100 bg-white">
-      <div className="border-b border-gray-50 px-5 pb-4 pt-5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600">
-            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 3 8 3s8-.79 8-3V7M4 7c0 2.21 3.582 3 8 3s8-.79 8-3M4 7c0-2.21 3.582-3 8-3s8 .79 8 3" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs font-bold leading-tight text-gray-800">记忆中心</p>
-            <p className="text-[10px] text-gray-400">孩子状态 + 成长记忆</p>
-          </div>
-        </div>
+    <div
+      className="paper-tooth"
+      style={{
+        display: "flex",
+        height: "100%",
+        flexDirection: "column",
+        borderLeft: "1px solid var(--rule)",
+        background: "var(--wash-paper)",
+      }}
+    >
+      <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--rule)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--ink-3)",
+            fontWeight: 700,
+          }}
+        >
+          Memory · For Reference
+        </p>
+        <h2
+          style={{
+            margin: "4px 0 0",
+            fontFamily: "var(--font-display)",
+            fontSize: 18,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.005em",
+          }}
+        >
+          记忆中心
+        </h2>
+        <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--ink-3)" }}>
+          孩子状态 + 成长记忆
+        </p>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "grid", gap: 16 }}>
         <StudentStateAvatar memory={memory} turnInsight={turnInsight} />
         <LongTermMemoryCards memory={memory} />
       </div>
 
-      <div className="border-t border-gray-50 px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <div className={`h-1.5 w-1.5 rounded-full ${hasAnyMemory ? "bg-emerald-400" : "bg-gray-300"}`} />
-          <p className="text-[10px] text-gray-400">{hasAnyMemory ? "记忆已同步" : "等待首次对话"}</p>
-        </div>
+      <div
+        style={{
+          padding: "10px 16px",
+          borderTop: "1px solid var(--rule)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: hasAnyMemory ? "var(--sage)" : "var(--ink-4)",
+          }}
+        />
+        <p style={{ margin: 0, fontSize: 10, color: "var(--ink-3)" }}>
+          {hasAnyMemory ? "记忆已同步" : "等待首次对话"}
+        </p>
       </div>
     </div>
   )

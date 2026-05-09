@@ -19,7 +19,10 @@ test("reset skips persistence writes while a controlled reset navigation is in p
 
   assert.match(source, /if \(!isLoaded \|\| isResetting\) return/)
   assert.match(source, /if \(isResettingRef\.current\) return/)
-  assert.match(source, /if \(isResetting\) {\s+return <div className="h-screen bg-\[#FAFAFA\] flex items-center justify-center text-gray-400 text-sm">正在重新开始会话…<\/div>/)
+  // V13 editorial: 重置过场用 var(--wash-paper) 替代旧 bg-[#FAFAFA]，避免白底断层
+  assert.match(source, /if \(isResetting\) {/)
+  assert.match(source, /正在重新开始会话…/)
+  assert.doesNotMatch(source, /bg-\[#FAFAFA\]/, "V13 dropped white-band loading screen background")
 })
 
 test("page owns the active view and passes it down to the chat panel", () => {
