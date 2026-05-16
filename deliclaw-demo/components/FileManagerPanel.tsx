@@ -604,11 +604,10 @@ function SceneTabs({
   const grouped = groupFilesByBusinessScene(files)
   const sceneItems: Array<BusinessSceneLabel | "全部"> = ["全部", ...BUSINESS_SCENES]
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "baseline" }}>
       {sceneItems.map((scene) => {
         const count = scene === "全部" ? files.length : grouped.get(scene)?.length || 0
         const active = activeScene === scene
-        const accent = SCENE_ACCENT[scene] ?? "var(--ink-3)"
         return (
           <button
             key={scene}
@@ -616,26 +615,27 @@ function SceneTabs({
             onClick={() => onSceneChange(scene)}
             style={{
               display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 12px",
-              fontSize: 12,
-              fontWeight: 600,
-              background: active ? accent : "transparent",
-              color: active ? "#fff" : "var(--ink-2)",
-              border: active ? `1px solid ${accent}` : "1px solid var(--rule)",
-              borderRadius: 999,
+              alignItems: "baseline",
+              gap: 6,
+              padding: 0,
+              border: 0,
+              background: "transparent",
+              fontSize: 13,
+              color: active ? "var(--ink-1)" : "var(--ink-3)",
+              fontWeight: active ? 700 : 500,
+              letterSpacing: "0.01em",
               cursor: "pointer",
-              transition: "all .15s",
+              fontFamily: "var(--font-body)",
+              transition: "color .15s",
             }}
           >
             <span>{scene}</span>
             <span
               className="num"
               style={{
-                fontSize: 10.5,
-                color: active ? "rgba(255,255,255,.85)" : "var(--ink-3)",
-                fontWeight: 600,
+                fontSize: 11,
+                fontWeight: active ? 700 : 500,
+                color: active ? "var(--ink-2)" : "var(--ink-4)",
               }}
             >
               {count}
@@ -842,7 +842,6 @@ export default function FileManagerPanel({
   const [searchResults, setSearchResults] = useState<ManagedFile[] | null>(null)
   const [activeScene, setActiveScene] = useState<BusinessSceneLabel | "全部">("全部")
   const [querying, setQuerying] = useState(false)
-  const [clearConfirming, setClearConfirming] = useState(false)
 
   const fetchFiles = async () => {
     setLoading(true)
@@ -920,26 +919,6 @@ export default function FileManagerPanel({
       }
     } catch {
       // ignore
-    }
-  }
-
-  const handleClearAll = async () => {
-    if (!clearConfirming) {
-      setClearConfirming(true)
-      setTimeout(() => setClearConfirming(false), 3000)
-      return
-    }
-    try {
-      const res = await fetch("/api/files/clear", { method: "POST" })
-      if (res.ok) {
-        setFiles([])
-        clearSubmittedQuery()
-        onFilesCleared?.()
-      }
-    } catch {
-      // ignore
-    } finally {
-      setClearConfirming(false)
     }
   }
 
@@ -1064,94 +1043,35 @@ export default function FileManagerPanel({
         </div>
       </section>
 
-      {/* Search tier — single-row eyebrow with subtitle inline; h1 below */}
+      {/* Search tier — minimal: small label + 52px input + hint chips */}
       <section style={{ marginTop: 28 }} data-onboarding-target="ai-search">
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            marginBottom: 16,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 9.5,
-              letterSpacing: "0.24em",
-              textTransform: "uppercase",
-              color: "var(--ink-4)",
-              fontWeight: 800,
-              whiteSpace: "nowrap",
-            }}
-          >
-            想到哪句说哪句
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 14,
-              fontWeight: 500,
-              color: "var(--ink-2)",
-              letterSpacing: "0.02em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            说出印象，找回文件
-          </span>
-          <span aria-hidden style={{ flex: 1, height: 1, background: "var(--rule-soft)" }} />
-          <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontStyle: "italic",
-              fontSize: 12.5,
-              color: "var(--ink-3)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            describe what you remember
-          </span>
-        </div>
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-display)",
-            fontSize: 38,
-            fontWeight: 400,
-            letterSpacing: "-0.015em",
-            lineHeight: 1.1,
-            color: "var(--ink-1)",
-          }}
-        >
-          我是小迪，
-          <span style={{ color: "var(--clay)", fontStyle: "italic" }}>你的文件助手。</span>
-        </h1>
-        <p
-          style={{
-            margin: "10px 0 0",
-            fontSize: 13.5,
+            fontSize: 13,
             color: "var(--ink-3)",
-            lineHeight: 1.5,
+            fontWeight: 500,
+            marginBottom: 10,
+            letterSpacing: "0.01em",
           }}
         >
-          可以说时间、来源、内容或场景。
-        </p>
+          小迪 · 文件助手
+        </div>
 
-        <form
-          onSubmit={handleQuerySubmit}
-          style={{
-            marginTop: 18,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 8px 8px 18px",
-            background: "var(--card)",
-            border: "1px solid var(--rule)",
-            borderRadius: "var(--r-lg)",
-            boxShadow: "var(--shadow-1)",
-          }}
-        >
-          <span style={{ color: "var(--ink-4)", display: "flex", alignItems: "center" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <form onSubmit={handleQuerySubmit} style={{ position: "relative", maxWidth: 480 }}>
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 18,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--ink-4)",
+              display: "flex",
+              alignItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
@@ -1159,62 +1079,62 @@ export default function FileManagerPanel({
           <input
             value={draftQuery}
             onChange={(e) => setDraftQuery(e.target.value)}
-            placeholder="例如：找上周的英语错题，或者草原旅行照片"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: 0,
-              outline: "none",
-              background: "transparent",
-              fontSize: 15,
-              color: "var(--ink-1)",
-              padding: "10px 0",
-            }}
-          />
-          <button
-            type="submit"
-            disabled={querying || files.length === 0}
-            style={{
-              padding: "10px 22px",
-              background: "var(--ink-1)",
-              color: "#fff",
-              border: 0,
-              borderRadius: "var(--r-md)",
-              fontSize: 13,
-              fontWeight: 700,
-              letterSpacing: "0.02em",
-              cursor: querying || files.length === 0 ? "not-allowed" : "pointer",
-              opacity: querying || files.length === 0 ? 0.5 : 1,
-            }}
-          >
-            {querying ? "查找中" : "查找"}
-          </button>
-          <button
-            type="button"
-            onClick={handleClearAll}
+            placeholder="时间、来源、内容、场景——说一句就行"
             disabled={files.length === 0}
             style={{
-              padding: "10px 14px",
-              background: clearConfirming ? "var(--rose)" : "transparent",
-              color: clearConfirming ? "#fff" : "var(--ink-3)",
-              border: 0,
-              borderRadius: "var(--r-md)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: files.length === 0 ? "not-allowed" : "pointer",
-              opacity: files.length === 0 ? 0.4 : 1,
+              width: "100%",
+              height: 52,
+              padding: draftQuery ? "0 46px 0 44px" : "0 22px 0 44px",
+              background: "var(--card)",
+              border: "1px solid var(--rule-soft)",
+              borderRadius: 999,
+              fontSize: 14.5,
+              color: "var(--ink-1)",
+              outline: "none",
+              boxShadow: "var(--shadow-1)",
+              fontFamily: "var(--font-body)",
+              opacity: files.length === 0 ? 0.55 : 1,
             }}
-          >
-            {clearConfirming ? "再次确认" : "清空"}
-          </button>
+          />
+          {draftQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraftQuery("")
+                clearSubmittedQuery()
+              }}
+              aria-label="清空输入"
+              style={{
+                position: "absolute",
+                right: 14,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 22,
+                height: 22,
+                padding: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: 0,
+                borderRadius: 999,
+                background: "var(--paper)",
+                color: "var(--ink-3)",
+                cursor: "pointer",
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M2 2l8 8M10 2l-8 8" />
+              </svg>
+            </button>
+          )}
         </form>
+
         {querying && (
           <div
             style={{
-              marginTop: 12,
+              marginTop: 10,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: 8,
               fontSize: 12,
               color: "var(--ink-3)",
@@ -1227,19 +1147,8 @@ export default function FileManagerPanel({
           </div>
         )}
 
-        {/* Suggestion hints */}
-        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontSize: 11.5,
-              letterSpacing: "0.04em",
-              color: "var(--ink-3)",
-              fontFamily: "var(--font-display)",
-              fontStyle: "italic",
-            }}
-          >
-            比如这样说：
-          </span>
+        {/* Suggestion hint chips — direct, no leading label */}
+        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
           {[
             "上周做错的那道英语题",
             "妈妈在钉钉里发的考试通知",
@@ -1251,12 +1160,12 @@ export default function FileManagerPanel({
               type="button"
               onClick={() => setDraftQuery(hint)}
               style={{
-                padding: "5px 12px",
+                padding: "6px 14px",
                 background: "var(--paper)",
                 border: "1px solid var(--rule-soft)",
                 borderRadius: 999,
-                fontSize: 12,
-                color: "var(--ink-2)",
+                fontSize: 13,
+                color: "var(--ink-3)",
                 fontWeight: 500,
                 cursor: "pointer",
                 fontFamily: "var(--font-body)",
@@ -1268,14 +1177,22 @@ export default function FileManagerPanel({
         </div>
       </section>
 
-      {/* Tier 3 — Scene tabs + Photo grid */}
+      {/* Hairline divider — separates "find new" from "browse existing" */}
       <div
+        aria-hidden
         style={{
           marginTop: 28,
-          paddingTop: 16,
-          paddingBottom: 12,
-          borderTop: "1px solid var(--rule)",
-          borderBottom: "1px solid var(--rule)",
+          marginBottom: 18,
+          height: 1,
+          background: "var(--rule-soft)",
+          opacity: 0.6,
+        }}
+      />
+
+      {/* Tier 3 — Scene tabs + Photo grid (hairline above lives in search-tier) */}
+      <div
+        style={{
+          paddingBottom: 8,
           display: "flex",
           flexDirection: "column",
           gap: 10,

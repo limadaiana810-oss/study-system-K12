@@ -133,8 +133,8 @@ Important boundary: chat/model responses may supplement memory, but file persist
    - optionally injects `memorySnapshot` (used for retrieval consistency; not to be repeated verbatim)
    - optionally injects a slimmed `pendingInferredSnapshot` (to avoid re-suggesting the same candidates)
 3. Model selection (current code):
-   - image present: `qwen/qwen2.5-vl-72b-instruct`
-   - text only: `qwen/qwen-2.5-72b-instruct`
+   - image present: `qwen/qwen3-vl-8b-instruct`
+   - text only: `qwen/qwen3.6-plus`
 4. Client reads SSE with `fetch` + `ReadableStream` — **not** `EventSource` (POST unsupported)
 5. While streaming, UI displays the assistant message with all hidden tags stripped:
    - `stripMemoryTags()` and `stripFileResultTags()`
@@ -294,9 +294,9 @@ OPENROUTER_API_KEY=sk-or-...   # deliclaw-demo/.env.local
 DEMO_ACCESS_TOKEN=wuyanzu
 
 # Optional model overrides (recommended to keep defaults unless testing)
-OPENROUTER_CHAT_MODEL_TEXT=qwen/qwen-2.5-72b-instruct
-OPENROUTER_CHAT_MODEL_VISION=qwen/qwen2.5-vl-72b-instruct
-OPENROUTER_TAGGER_MODEL=qwen/qwen-2.5-72b-instruct
+OPENROUTER_CHAT_MODEL_TEXT=qwen/qwen3.6-plus
+OPENROUTER_CHAT_MODEL_VISION=qwen/qwen3-vl-8b-instruct
+OPENROUTER_TAGGER_MODEL=qwen/qwen3.6-plus
 OPENROUTER_EMBED_MODEL=qwen/qwen3-embedding-0.6b
 ```
 

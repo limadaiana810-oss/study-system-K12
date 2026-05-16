@@ -9,17 +9,22 @@ const SOURCE = fs.readFileSync(
 )
 
 test("file manager presents an AI-native command surface (editorial)", () => {
-  // V14 editorial: workstation pattern — 工作台 wraps 渠道汇总 + AI 工具箱; search is its own tier below
-  assert.match(SOURCE, /我是小迪/)
-  assert.match(SOURCE, /你的文件助手/)
-  assert.match(SOURCE, /说出印象，找回文件/)
-  assert.match(SOURCE, /可以说时间、来源、内容或场景/)
+  // V15 minimal: workstation kept; search tier reduced to small label + 52px input + chip rail
+  assert.match(SOURCE, /小迪 · 文件助手/, "search tier carries the 小迪 · 文件助手 small label")
   assert.match(SOURCE, /工作台/)
   assert.match(SOURCE, /渠道汇总/)
   assert.match(SOURCE, /sourceChannel/)
   assert.match(SOURCE, /正在查找相关文件/)
-  // V14: editorial chrome 使用 design tokens
+  // V15: editorial chrome 使用 design tokens
   assert.match(SOURCE, /var\(--paper\)|var\(--ink-1\)|var\(--brand\)/)
+  // V15 dropped — heavy hero copy gone, replaced by single small label
+  assert.doesNotMatch(SOURCE, /我是小迪，/, "V15 dropped V14 'I am 小迪' hero")
+  assert.doesNotMatch(SOURCE, /你的文件助手。/, "V15 dropped V14 italic accent line")
+  assert.doesNotMatch(SOURCE, /说出印象，找回文件/, "V15 dropped V14 secondary subtitle")
+  assert.doesNotMatch(SOURCE, /describe what you remember/, "V15 dropped italic English eyebrow")
+  assert.doesNotMatch(SOURCE, /想到哪句说哪句/, "V15 dropped uppercase eyebrow")
+  assert.doesNotMatch(SOURCE, /可以说时间、来源、内容或场景。/, "V15 dropped subtitle paragraph")
+  assert.doesNotMatch(SOURCE, /比如这样说：/, "V15 dropped chip-rail leading label")
   // 旧 V13 hero 文案不复活
   assert.doesNotMatch(SOURCE, /想找哪份文件？/, "V14 dropped V13 hero question")
   assert.doesNotMatch(SOURCE, /多渠道汇总/, "V14 renamed to 渠道汇总 inside workstation")
@@ -100,8 +105,9 @@ test("V14: 渠道汇总 renders bars with 最近一次 footer + 本周新增 pil
   assert.match(SOURCE, / 渠道/)
 })
 
-test("V14: search tier carries 4 example hint pills", () => {
-  assert.match(SOURCE, /比如这样说：/)
+test("V15: search tier carries 4 example hint chips (no leading label)", () => {
+  // V15 dropped the "比如这样说：" prefix — chips stand alone below the input
+  assert.doesNotMatch(SOURCE, /比如这样说：/, "V15 chip rail has no leading label")
   assert.match(SOURCE, /上周做错的那道英语题/)
   assert.match(SOURCE, /妈妈在钉钉里发的考试通知/)
   assert.match(SOURCE, /暑假在草原拍的那张照片/)
@@ -152,17 +158,16 @@ test("file manager accepts thumbnailBadgeMode without changing default view", ()
 test("file manager submits natural language file queries", () => {
   assert.match(SOURCE, /handleQuerySubmit/)
   assert.match(SOURCE, /\/api\/files\/search/)
-  assert.match(SOURCE, /找上周的英语错题，或者草原旅行照片/)
-  // V14: hero copy is 我是小迪 + 你的文件助手 (replaces V13 想找哪份文件？)
-  assert.match(SOURCE, /我是小迪/)
-  assert.match(SOURCE, /你的文件助手/)
-  assert.match(SOURCE, /可以说时间、来源、内容或场景/)
-  assert.match(SOURCE, /type="submit"/)
-  assert.match(SOURCE, /查找/)
+  // V15: placeholder shortened — "时间、来源、内容、场景——说一句就行"
+  assert.match(SOURCE, /时间、来源、内容、场景/, "V15 placeholder uses minimal phrasing")
+  assert.match(SOURCE, /说一句就行/)
   assert.match(SOURCE, /submittedQuery/)
   assert.doesNotMatch(SOURCE, /placeholder="搜索文件"/)
   assert.doesNotMatch(SOURCE, /用你的记忆片段找到文件/)
   assert.doesNotMatch(SOURCE, /发送/)
+  // V15: 查找 button removed — Enter triggers submit; chip rail / × clear handle the rest
+  assert.doesNotMatch(SOURCE, />查找</, "V15 dropped 查找 button — Enter submits")
+  assert.doesNotMatch(SOURCE, /找上周的英语错题，或者草原旅行照片/, "V15 dropped V13 example placeholder")
   assert.match(SOURCE, /没找到相关文件。可以换个时间、来源或内容再试。/)
 })
 
@@ -180,12 +185,13 @@ test("file manager does not show duplicate warning callouts in the file flow", (
   assert.doesNotMatch(SOURCE, /便于后台清理/)
 })
 
-test("V14 editorial: source uses serif/italic editorial markers (no v0 demo flavor)", () => {
+test("V15 editorial: source uses serif/italic editorial markers (no v0 demo flavor)", () => {
   // editorial design tokens
   assert.match(SOURCE, /var\(--font-display\)/, "must reference serif display font")
-  assert.match(SOURCE, /File Center/, "italic English subtitle in eyebrow")
-  // 已替换的旧 v0 / V13 文案不复活
+  assert.match(SOURCE, /File Center/, "italic English subtitle in top eyebrow")
+  // 已替换的旧 v0 / V13 / V14 文案不复活
   assert.doesNotMatch(SOURCE, /commandSurface/, "V13 dropped commandSurface wrapper class")
   assert.doesNotMatch(SOURCE, /AI 文件系统/, "V13/14 hero never used 'AI 文件系统' eyebrow")
-  assert.doesNotMatch(SOURCE, /想找哪份文件？/, "V14 dropped V13 hero question; new hero is 我是小迪")
+  assert.doesNotMatch(SOURCE, /想找哪份文件？/, "V14 dropped V13 hero question")
+  assert.doesNotMatch(SOURCE, /我是小迪，/, "V15 dropped V14 hero — search tier now uses small label only")
 })

@@ -30,36 +30,36 @@ function isValidReport(report: AnyReport | null, type: ReportType): boolean {
   if (type === "wrong-questions") {
     const r = report as WrongQuestionReport
     return (
-      typeof r.topPattern === "string" &&
-      !!r.hero &&
-      typeof r.hero === "object" &&
-      Array.isArray(r.backups) &&
-      !!r.weeklyTrend &&
-      Array.isArray(r.weeklyTrend.series) &&
-      Array.isArray(r.weeklyTrend.seriesBySubject) &&
-      typeof r.weeklyTrend.summary === "string" &&
-      Array.isArray(r.weakPoints)
+      !!r.errorAnalysis &&
+      Array.isArray(r.errorAnalysis.todayWins) &&
+      !!r.errorAnalysis.keyError &&
+      !!r.learningGuidance &&
+      typeof r.learningGuidance.unawareGap === "string" &&
+      Array.isArray(r.learningGuidance.studyMethods) &&
+      !!r.studentObservation &&
+      Array.isArray(r.studentObservation.moments) &&
+      typeof r.studentObservation.closingLine === "string"
     )
   }
   const r = report as GrowthReport
+  const ca = r.recommendation?.communicationApproach
   return (
-    typeof r.topInsight === "string" &&
-    typeof r.thisWeekAction === "string" &&
-    typeof r.focusSubject === "string" &&
-    !!r.trajectory &&
-    Array.isArray(r.scores) &&
-    r.scores.every(
-      (s) =>
-        Array.isArray(s.weeklyHomeworkAvg) &&
-        s.weeklyHomeworkAvg.length === 4 &&
-        Array.isArray(s.weeklyExamAvg) &&
-        s.weeklyExamAvg.length === 4 &&
-        Array.isArray(s.weeklyErrorCount) &&
-        s.weeklyErrorCount.length === 4,
-    ) &&
-    Array.isArray(r.emotionTrend) &&
-    Array.isArray(r.highlights) &&
-    !!r.parentAdvice
+    !!r.weekWork &&
+    typeof r.weekWork.filesIngested === "number" &&
+    Array.isArray(r.weekWork.knowledgePointsResolved) &&
+    !!r.progressAssessment &&
+    Array.isArray(r.progressAssessment.bySubject) &&
+    !!r.recommendation &&
+    !!r.recommendation.studyAdvice &&
+    typeof r.recommendation.studyAdvice.action === "string" &&
+    !!ca &&
+    !!ca.childEmotion &&
+    Array.isArray(ca.childEmotion.evidence) &&
+    !!ca.alphaGenContext &&
+    Array.isArray(ca.alphaGenContext.traits) &&
+    !!ca.developmentalStrategy &&
+    Array.isArray(ca.developmentalStrategy.ageBrackets) &&
+    Array.isArray(ca.developmentalStrategy.tonightLines)
   )
 }
 

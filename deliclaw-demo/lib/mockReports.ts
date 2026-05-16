@@ -1,156 +1,222 @@
-import {
-  aggregateScores,
-  aggregateWeeklyErrorsBySubject,
-  buildEmotionTrendSkeleton,
-  pickFocusSubject,
-  type WeekRange,
-} from "./reportAggregation.ts"
-import { getScoresForWindow, MOCK_EMOTION_HISTORY } from "./mockScores.ts"
 import { MOCK_QUESTION_BANK } from "./mockQuestionBank.ts"
 import { selectFocusPicks } from "./focusPickSelector.ts"
 import type { GrowthReport, WrongQuestionReport } from "./reportTypes.ts"
 
-// 学生侧周界（"今天" = 2026-05-08）：
-//   W1: 04-13 — 04-19   W2: 04-20 — 04-26   W3: 04-27 — 05-03   W4: 05-04 — 05-08
-export const MOCK_WEEK_RANGES: WeekRange[] = [
-  { week: 1, from: "2026-04-13", to: "2026-04-19" },
-  { week: 2, from: "2026-04-20", to: "2026-04-26" },
-  { week: 3, from: "2026-04-27", to: "2026-05-03" },
-  { week: 4, from: "2026-05-04", to: "2026-05-08" },
-]
-
-function todayIso(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
+// ─────────────────────────────────────────────────────────
+// 学生侧（V19 · 1 页 A4 · 重体验/学习）
+// 结构 = 错题翻一遍 → 下一阶段目标 → 我的观察
+// ─────────────────────────────────────────────────────────
 
 export function buildMockWrongQuestionReport(): WrongQuestionReport {
-  // 1) selector 直接吐分层结构，hero / backups 在数据上区分
-  const { hero, backups } = selectFocusPicks(MOCK_QUESTION_BANK)
-  if (!hero) throw new Error("Mock 题库必须至少有一道错题作 hero")
-
-  // 2) 用题库的实际日期推趋势（共享 aggregateWeeklyErrorsBySubject — 与成长报告同源）
-  const { perWeek, perSubject } = aggregateWeeklyErrorsBySubject(MOCK_QUESTION_BANK, MOCK_WEEK_RANGES)
-  const series = MOCK_WEEK_RANGES.map((r, i) => ({ week: r.week, count: perWeek[i] }))
-  const seriesBySubject = Object.entries(perSubject)
-    .map(([subject, counts]) => ({ subject, counts }))
-    .sort((a, b) => {
-      const totalA = a.counts.reduce((s, n) => s + n, 0)
-      const totalB = b.counts.reduce((s, n) => s + n, 0)
-      return totalB - totalA
-    })
+  const { hero } = selectFocusPicks(MOCK_QUESTION_BANK)
+  if (!hero) throw new Error("Mock 题库必须至少有一道错题作 keyError")
 
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    topPattern: "小迪帮你看了一下：你这周才错 1 道，是这个月最少的。物理单位换算又栽了，第 3 次。",
-    hero,
-    backups,
-    weeklyTrend: {
-      series,
-      seriesBySubject,
-      summary: "你 W2 最多 5 道，这周只剩 1 道。W2 那周数学连错三天，后两周你追回来了。",
+
+    errorAnalysis: {
+      todayWins: [
+        "数学顶点公式那一类整张卷你全对，5 道一个没错",
+        "英语 affect / effect 这次终于不混了",
+        "物理那道电路题，前两步思路是对的",
+      ],
+      keyError: hero,
     },
-    weakPoints: [
-      {
-        knowledgePoint: "二次函数顶点式",
-        subject: "数学",
-        occurrences: 4,
-        diagnosis: "你顶点式的 h、k 符号容易写反，连带顶点坐标也跟着错。这一点我替你盯着。",
-      },
-      {
-        knowledgePoint: "串并联识别",
-        subject: "物理",
-        occurrences: 3,
-        diagnosis: "你串并联组合容易看错——电压表/电流表位置一忽略，整张图就读偏。",
-      },
-      {
-        knowledgePoint: "单位换算",
-        subject: "物理",
-        occurrences: 3,
-        diagnosis: "cm→m、g→kg 你常漏除幂次，结果偏差一个数量级。下次先把单位写两遍——换前一遍，换后一遍。",
-      },
-      {
-        knowledgePoint: "阅读题主旨判断",
-        subject: "英语",
-        occurrences: 2,
-        diagnosis: "你总盯细节句，忽略段落首尾的总结句，主旨题选项常被细节带跑。",
-      },
-      {
-        knowledgePoint: "化学方程式配平",
-        subject: "化学",
-        occurrences: 1,
-        diagnosis: "你原子守恒容易漏看，氧原子数最容易不平。",
-      },
-    ],
+
+    learningGuidance: {
+      unawareGap:
+        "考完你可能在想「我是不是真的不懂顶点公式了」。我看了你最近 4 次的步骤——你不是不懂，是带回原式时常漏一个负号。这次月考扣的 14 分也是同一个负号。",
+      studyMethods: [
+        {
+          name: "主动回忆",
+          researcher: "Roediger & Karpicke 2006 · 华盛顿大学",
+          finding: "合上书自己写一遍，2 周后能记住的内容比单纯重读多 50%。",
+          action:
+            "现在合上这页，自己写出顶点公式 h = -b/2a。写错的那部分，单独再写一遍。3 分钟够了。",
+        },
+        {
+          name: "自我解释",
+          researcher: "Chi 1989 · 卡内基梅隆",
+          finding: "解题时每一步在旁边写一句「为什么这样做」，理解深度比单纯刷题高 1 倍。",
+          action:
+            "做这一道：y = (x+3)² - 5 求顶点。每写一步，旁边写一句「因为…」。会发现卡点不在公式，在替换。",
+        },
+        {
+          name: "间隔练习",
+          researcher: "Cepeda et al. 2006 · 加州大学",
+          finding: "今天 1 题、明天 1 题、后天 2 题，长期记得比一次做 4 题久 2 倍。",
+          action:
+            "今天就这 1 道。明天小迪推一道变式给你；后天再推 2 道。你不用规划，跟我推就行。",
+        },
+      ],
+    },
+
+    studentObservation: {
+      moments: [
+        {
+          timestamp: "周二晚 23:47",
+          observation:
+            "你把数学练习册合上时，最后一道圆心题写到一半。不是放弃，是已经困了——所以我没在那时打扰你。",
+        },
+        {
+          timestamp: "周四上午 08:23",
+          observation:
+            "你拍上来那张物理电路题，是月考前一天。你写了「电压表？电流表？」两个问号——你是知道自己卡在哪的。",
+        },
+      ],
+      closingLine:
+        "你今晚不用解释这次的分数。我已经在家长那边说清楚了——他们不会先问数学，会先聊物理你做对的那一步。",
+    },
   }
 }
 
-// 情绪 → 原因 一一对应：每一周的小结都说清楚「为什么是这种情绪」。
-// 家长侧口径：用「小凯」指代凯伦；不出现「孩子」「他」；指家长时省略主语。
-//   好奇：小凯主动上传错题、跟着学下去
-//   沮丧：考试或作业成绩往下走
-//   平静：聊天里没什么起伏，按部就班
-//   开心：聊天情绪高 + 成绩/排名往上
-const EMOTION_SUMMARIES: Record<1 | 2 | 3 | 4, string> = {
-  1: "好奇：小凯连着上传了几张错题图，自己挑题做，对新知识点愿意花时间。",
-  2: "沮丧：W2 数学作业、小测都掉分，小凯私下讲过丢了名次，情绪低。",
-  3: "平静：小凯聊天里没什么起伏，按部就班把电路图和顶点式刷过去。",
-  4: "开心：数学回 90+，月考也排上来了，小凯主动讲过。",
-}
+// ─────────────────────────────────────────────────────────
+// 家长侧（V19 · 1 页 A4 · 重效率/成果，数据驱动）
+// 结构 = 小迪这周做了什么 → 小凯的进步 → 我的建议
+// 原则：结论必须有数据支撑，数据不足就不写
+// ─────────────────────────────────────────────────────────
 
 export function buildMockGrowthReport(): GrowthReport {
-  const today = todayIso()
-  const scoresWindow = getScoresForWindow(30)
-  const baseScores = aggregateScores(scoresWindow, today)
-  const { perSubject } = aggregateWeeklyErrorsBySubject(MOCK_QUESTION_BANK, MOCK_WEEK_RANGES)
-  const scores = baseScores.map((s) => ({
-    ...s,
-    weeklyErrorCount: perSubject[s.subject] ?? [0, 0, 0, 0],
-  }))
-  const focusSubject = pickFocusSubject(scores)
-  const skeleton = buildEmotionTrendSkeleton(MOCK_EMOTION_HISTORY)
-  const emotionTrend = skeleton.map((e) => ({
-    ...e,
-    summary: EMOTION_SUMMARIES[e.week],
-  }))
-
   return {
     generatedAt: new Date().toISOString(),
     windowDays: 30,
-    // V11: hero 两字段
-    topInsight: "小凯这个月数学回到 90+ 了。",
-    thisWeekAction: "这周陪小凯把数学最后一题写完——他容易做到一半放下，这次坚持写完一题，培养面对难题的习惯。",
-    focusSubject,
-    trajectory: {
-      filesUploaded: 12,
-      subjectsCovered: ["数学", "英语", "物理", "化学", "语文"],
-      activeDays: 22,
+
+    weekWork: {
+      filesIngested: 13,
+      knowledgePointsResolved: [
+        {
+          subject: "英语",
+          knowledgePoint: "affect / effect 词汇辨析",
+          resolvedHow:
+            "4/14 上传后整理了 3 道对照练习，小凯做完主动测了 1 次。这次月考英语 91，词汇辨析没扣分。",
+          errorCountBefore: 3,
+          errorCountAfter: 0,
+        },
+        {
+          subject: "物理",
+          knowledgePoint: "单位换算 km/h ↔ m/s",
+          resolvedHow:
+            "4/20 错题后让小凯口算「÷3.6」练 5 次，5/2 起再没错过同类题。",
+          errorCountBefore: 2,
+          errorCountAfter: 0,
+        },
+        {
+          subject: "数学",
+          knowledgePoint: "二次函数顶点公式",
+          resolvedHow:
+            "进展中：你 4/22 陪重做 3 道后近 14 天没再错同类题。这次月考扣的 14 分都在「带回原式漏负号」最后一步。",
+          errorCountBefore: 4,
+          errorCountAfter: 0,
+        },
+      ],
     },
-    scores,
-    emotionTrend,
-    highlights: [
-      "数学从月中的 70 分追回到 90+。中间那次低分后，小凯自己把二次函数错题整理了一遍。",
-      "英语全月在 88—94 分之间。波动不大，作业和小测的差距也不大。",
-      "语文从 87 分涨到 94 分，阅读理解和作文都比上个月写得好。",
-    ],
-    parentAdvice: {
-      // V11 dedup：「数学最后一题」那条已经抽到 thisWeekAction，这里去掉避免重复
-      strengthen: [
-        "物理电路图错过 3 次。可以周末挑两道串并联的题，让小凯专门做一遍。",
+
+    progressAssessment: {
+      bySubject: [
+        {
+          subject: "数学",
+          trend: "regressing",
+          dataObservation: "本周作业错题集中在「二次函数顶点公式」，4 道里错 3 道",
+          errorPattern: "3 次错的都是 h = -b/2a 的负号——把 -2 写成 2",
+          rootCause: "公式记忆缺位，不是理解问题",
+          scoreContext: "这次月考 92 → 78，扣的 14 分都集中在带回原式漏负号那一步",
+        },
+        {
+          subject: "物理",
+          trend: "improving",
+          dataObservation: "本月「电压表/电流表混用」错误次数 4 → 1",
+          errorPattern: "4/20 之后没再错过同类题",
+          rootCause: "",
+          scoreContext: "这一项是真在涨。",
+        },
+        {
+          subject: "英语",
+          trend: "insufficient-data",
+          insufficientNote: "本月只 2 次取样，数据不足以判断走向，跳过。",
+        },
       ],
-      remind: [
-        "W2 那周小凯明显焦虑过，主动讲过一句。可以多问一句，不必反复追问。",
-        "物理低分都在电路图上。这块不及时补，后面学电磁感应会更难。",
-      ],
-      encourage: [
-        "数学从 70 分追回到 90+，速度很快。这一段努力可以当面跟小凯说一声。",
-        "英语这个月没掉过 88，作业和小测都跟得上。这点可以让小凯知道。",
-        "语文作文这个月写得比上个月好。饭桌上可以挑一篇，具体说说哪里好。",
-      ],
+    },
+
+    recommendation: {
+      studyAdvice: {
+        action: "这周让小凯把数学顶点公式写 5 题，限时 8 分钟",
+        whyThisAction:
+          "Block 2 数学 4 次错 3 次都是 h = -b/2a 的负号——根因是公式记忆缺位，不是理解问题。补这一关比补全科更准。",
+        whyNotBroader:
+          "物理在涨，英语数据不足。这次月考的退步集中在 1 个 KP，不是全面退步——现在开始全科补习是过度反应。",
+      },
+
+      communicationApproach: {
+        // ① 小孩的情绪
+        childEmotion: {
+          summary:
+            "考完那晚小凯自评焦虑 4/5，比月初的 2/5 翻倍。他知道自己卡在哪——不是分数本身，是怕「我其实没真懂」。",
+          evidence: [
+            "本月 emotion 采样 7 次，4 次焦虑+疲惫，集中在月考前两天",
+            "周二晚 23:47 数学练习册被翻开 12 分钟，没动笔——是困了，不是放弃",
+            "物理电路题第三步反复擦掉 3 次后才继续往下写",
+            "他没主动跟你提分数——这是在自己消化，不是在回避",
+          ],
+        },
+
+        // ② Alpha 世代沟通方式 / 原因
+        alphaGenContext: {
+          bornRange: "2010 年后出生 · Alpha 世代",
+          traits: [
+            "屏幕原住民：习惯用搜索/AI 验证一切，不接受「因为我说了算」",
+            "情绪议题前置：自我觉察比上一代早，敏感词被识别得更快",
+            "真诚雷达极敏：表演性夸奖、空洞鼓励一秒识破",
+            "层级扁平：更接受合作者关系，对压制式权威反弹强",
+          ],
+          whyDifferent:
+            "对 80/90 后那套「我是为你好」「再不努力就晚了」式权威+督促，Alpha 一代会直接关上门——不是不听，是判断你没看证据。他们要的是被当成合作者：你看到了什么、为什么这么说、可以由我决定。",
+        },
+
+        // ③ 不同年龄段心理学沟通策略
+        developmentalStrategy: {
+          ageBrackets: [
+            {
+              range: "6-8 岁",
+              stageName: "学龄初期 · 勤奋 vs 自卑",
+              theorist: "Erikson 心理社会发展 (1959)",
+              strategy:
+                "夸具体动作（「你今天主动收书包」），别评价天赋（「真聪明」）。用看得见的成果——贴纸、记录本——让「勤奋感」被看见。",
+              isCurrent: false,
+            },
+            {
+              range: "9-11 岁",
+              stageName: "规则期 · 具体运算",
+              theorist: "Piaget 认知发展 (1952)",
+              strategy:
+                "讲清规则和为什么。他们能接受「先做完作业再玩」，前提是规则一致、不随你情绪变。说一句「今天我累了」会失效。",
+              isCurrent: false,
+            },
+            {
+              range: "12-14 岁",
+              stageName: "青春期早期 · 同一性萌芽",
+              theorist: "Carol Dweck 成长型思维 (Stanford 2006) · Erikson 第 5 阶段",
+              strategy:
+                "对事不对人，精确到「那一步」。Dweck 经典实验：被夸「你聪明」的学生遇到挫败更容易放弃；被夸「那一步思路对」的学生反而更敢再试。这个年龄正在搭「我是谁」的初稿——每句评价都被听进身份感。",
+              isCurrent: true,
+            },
+            {
+              range: "15-17 岁",
+              stageName: "青春期中后期 · 自主权敏感",
+              theorist: "Marcia 同一性状态 (1966)",
+              strategy:
+                "给信息、给选项，把选择权交给他。强行决定会被视为剥夺自主权。沟通从「你应该」切到「我看到的数据是…你怎么看」。",
+              isCurrent: false,
+            },
+          ],
+          tonightLines: [
+            "先聊物理那道电路题——「第三步思路是对的」。先肯定他做对的那一步，把安全感建起来。",
+            "再把邻居补习的事挑明：「我们家先看你卡在哪，不跟着别家走」。把房间里的大象清掉——不主动说，他会等着你说，整轮都不安。",
+            "最后引出数学：「你是从哪一步开始觉得卡的？」把判断权还给小凯——这一步问出来后，下面「学习建议」那 5 题才有人接。",
+          ],
+          keyword: "对事不对人——精确到一个动作",
+        },
+      },
     },
   }
 }

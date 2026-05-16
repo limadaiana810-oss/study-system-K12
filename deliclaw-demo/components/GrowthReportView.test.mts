@@ -12,76 +12,149 @@ test("GrowthReportView is a client component", () => {
   assert.match(SOURCE, /^["']use client["']/m)
 })
 
-test("V11: source defines TopInsight + HeroCard + ThisWeekAction + BackupSection", () => {
-  assert.match(SOURCE, /function TopInsight/)
-  assert.match(SOURCE, /function ThisWeekAction/)
-  assert.match(SOURCE, /function HeroCard/)
-  assert.match(SOURCE, /function BackupSection/)
-})
-
-test("V11: HeroCard wraps HomeworkExamErrorChart + ThisWeekAction", () => {
-  assert.match(SOURCE, /<HomeworkExamErrorChart/)
-  assert.match(SOURCE, /<ThisWeekAction/)
-})
-
-test("V11: ThisWeekAction renders the action block with 这周一件事 label", () => {
-  assert.match(SOURCE, /这周一件事/)
-})
-
-test("V11: source consumes report.topInsight + report.thisWeekAction", () => {
-  assert.match(SOURCE, /report\.topInsight/)
-  assert.match(SOURCE, /report\.thisWeekAction/)
-})
-
-test("V11: BackupSection uses native <details> for collapse", () => {
-  assert.match(SOURCE, /<details/)
-  assert.match(SOURCE, /<summary/)
-})
-
-test("V11: ParentAdviceCard renames 心理辅导重点 → 沟通重点", () => {
-  assert.match(SOURCE, /沟通重点/)
-  assert.doesNotMatch(SOURCE, /心理辅导重点/, "V11 must drop 心理辅导重点 — clinical")
-})
-
-test("V13: 沟通重点 uses info-tone (var(--teal)) instead of amber alert", () => {
-  // V13 editorial: 第二列「沟通重点」配色用 var(--teal) 远山青信息色，而非 amber 警示
-  assert.match(SOURCE, /var\(--teal\)/, "ParentAdvice 沟通重点 column should use var(--teal) info tone")
-})
-
-test("V14: BackupSection titles use noun-style chrome with 小凯 only on 情绪 + 沟通", () => {
-  // V14 backup titles — 名词短标题 + 小凯 仅出现在情绪 / 沟通条目
-  assert.match(SOURCE, /小凯的情绪/, "Emotion title carries 小凯 (warm rail)")
-  assert.match(SOURCE, /月度学习记录/, "Trajectory uses neutral noun phrase (cold rail)")
-  assert.match(SOURCE, /本月亮点/, "Highlights uses neutral noun phrase (cold rail)")
-  assert.match(SOURCE, /与小凯沟通/, "Advice title carries 小凯 (warm rail)")
-  // V10 portal-style titles must be gone
-  assert.doesNotMatch(SOURCE, /给家长的建议/, "V12 wraps advice in BackupSection — no 给家长的建议 h3")
-  // V11 旧标题（用「他」指代）必须替换
-  assert.doesNotMatch(SOURCE, /看他这个月情绪/, "V12 must drop 看他 — use 看小凯")
-  assert.doesNotMatch(SOURCE, /这个月他做了多少/, "V12 must drop 这个月他 — use 小凯这个月")
-  assert.doesNotMatch(SOURCE, /陪他这么聊/, "V12 must drop 陪他 — use 陪小凯")
-  // V14: 旧 V12 长标题不能复活
-  assert.doesNotMatch(SOURCE, /看小凯这个月情绪怎么走的/, "V14 dropped V12 long-form Emotion title")
-  assert.doesNotMatch(SOURCE, /其余可以陪小凯这么聊/, "V14 dropped V12 long-form Advice title")
-})
-
-test("V12: chrome 永不出现「孩子」+ 短语级 banlist 排除「他」机构口径", () => {
-  // V12 doctrine #5 镜像（家长侧）：永不机构口径
-  assert.doesNotMatch(SOURCE, /孩子/, "V12 chrome must not contain 孩子 — clinical")
-  for (const phrase of ["陪他", "他这个月", "看他"]) {
-    assert.doesNotMatch(SOURCE, new RegExp(phrase), `V12 chrome must not contain "${phrase}" — use 小凯`)
+test("V19: source consumes the data-driven 3-block contract", () => {
+  assert.match(SOURCE, /report\.weekWork/)
+  assert.match(SOURCE, /report\.progressAssessment/)
+  assert.match(SOURCE, /report\.recommendation/)
+  for (const old of [
+    "informationOrganized",
+    "interestingQuestions",
+    "emotionalState",
+    "metaCognition",
+    "topInsight",
+    "trajectory",
+    "scores",
+    "highlights",
+    "parentAdvice",
+    "dataSource",
+    "relaxBriefing",
+    "tutoringDecision",
+    "parentCommunication",
+    "learningAbility",
+    "tonightDosLines",
+    "tonightDontsLines",
+    "relaxReason",
+  ]) {
+    assert.doesNotMatch(SOURCE, new RegExp(`report\\.${old}|\\b${old}\\b`), `V19 dropped ${old}`)
   }
 })
 
-test("V11: chrome contains no doctrine-banned signals", () => {
-  // Doctrine #1: no rank/percentile language
-  assert.doesNotMatch(SOURCE, /排名/)
-  assert.doesNotMatch(SOURCE, /百分位/)
-  // Doctrine #3: no countdown/streak/push language
-  assert.doesNotMatch(SOURCE, /倒计时/)
-  assert.doesNotMatch(SOURCE, /连续打卡/)
-  // V4 chrome banned (carry-over from wrong-q tests)
-  for (const word of ["稳", "节奏", "拆", "提升", "持续", "立即", "马上"]) {
-    assert.doesNotMatch(SOURCE, new RegExp(word), `growth view chrome should not contain "${word}"`)
+test("V19: 3 个 block 标题（用户视角，新版）", () => {
+  assert.match(SOURCE, /小迪这周做了什么/)
+  assert.match(SOURCE, /小凯的进步/)
+  assert.match(SOURCE, /我的建议/)
+  // 旧标题清退
+  assert.doesNotMatch(SOURCE, /小凯这一阶段在涨什么/)
+  assert.doesNotMatch(SOURCE, /今晚怎么和小凯开口/)
+})
+
+test("V19: Block 2/3 子卡组件（数据驱动）", () => {
+  // Block 1 (保留)
+  assert.match(SOURCE, /function KnowledgePointsResolvedCard/)
+  // Block 2 (替换)
+  assert.match(SOURCE, /function SubjectProgressCard/)
+  // Block 3 (新两件)
+  assert.match(SOURCE, /function StudyAdviceCard/)
+  assert.match(SOURCE, /function CommunicationApproachCard/)
+})
+
+test("V19: 砍掉的子卡组件不再存在", () => {
+  for (const dropped of [
+    "InformationOrganizedCard",
+    "InterestingQuestionsCard",
+    "ProgressDimensionList",
+    "TopInsight",
+    "HeroCard",
+    "BackupSection",
+    "HomeworkExamErrorChart",
+    "ScoreErrorChart",
+    "EmotionTrendCard",
+    "TrajectoryCard",
+    "HighlightsCard",
+    "ParentAdviceCard",
+    "DataSourceLine",
+    "RelaxBriefing",
+    "TutoringDecision",
+    "LearningAbilityCard",
+    "RelaxReasonCard",
+    "ThisWeekActionCard",
+    "TonightScriptCard",
+  ]) {
+    const re = new RegExp(`function ${dropped}\\b`)
+    assert.doesNotMatch(SOURCE, re, `V19 dropped function ${dropped}`)
+  }
+})
+
+test("V19: 子卡 chrome（用户视角）", () => {
+  assert.match(SOURCE, /这周帮小凯过的几道关/)
+  assert.match(SOURCE, /按学科看走向/)
+  assert.match(SOURCE, /学习建议/)
+  assert.match(SOURCE, /沟通方式/)
+})
+
+test("V21: 沟通方式 三段结构 chrome = 小孩的情绪 / Alpha 世代 / 不同年龄段", () => {
+  // ① 小孩的情绪 / ② Alpha 世代沟通 / ③ 不同年龄段沟通策略
+  assert.match(SOURCE, /小孩的情绪/)
+  assert.match(SOURCE, /Alpha 世代沟通/)
+  assert.match(SOURCE, /不同年龄段沟通策略/)
+  // 今晚台词附在 ③ 内
+  assert.match(SOURCE, /今晚怎么开口/)
+  // V20 旧标题已退役
+  assert.doesNotMatch(SOURCE, /小凯的情况/)
+  assert.doesNotMatch(SOURCE, /沟通原则/)
+  assert.doesNotMatch(SOURCE, /今晚的策略/)
+  assert.doesNotMatch(SOURCE, /为什么这样沟通/)
+})
+
+test("V21: 沟通方式 字段绑定 = childEmotion / alphaGenContext / developmentalStrategy", () => {
+  assert.match(SOURCE, /childEmotion/)
+  assert.match(SOURCE, /alphaGenContext/)
+  assert.match(SOURCE, /developmentalStrategy/)
+  assert.match(SOURCE, /ageBrackets/)
+  assert.match(SOURCE, /tonightLines/)
+  assert.match(SOURCE, /isCurrent/)
+  // 旧绑定退役
+  assert.doesNotMatch(SOURCE, /approach\.situation/)
+  assert.doesNotMatch(SOURCE, /approach\.theory/)
+  assert.doesNotMatch(SOURCE, /approach\.strategy\b/)
+})
+
+test("V19: SubjectProgressCard 渲染数据驱动四件 + insufficient 容错", () => {
+  // 四件数据线必须被引用
+  assert.match(SOURCE, /dataObservation/)
+  assert.match(SOURCE, /errorPattern/)
+  assert.match(SOURCE, /rootCause/)
+  assert.match(SOURCE, /scoreContext/)
+  // insufficient 容错路径
+  assert.match(SOURCE, /insufficient-data/)
+  assert.match(SOURCE, /insufficientNote/)
+})
+
+test("V19: BlockHeading + SubCard 仍然存在", () => {
+  assert.match(SOURCE, /function BlockHeading/)
+  assert.match(SOURCE, /function SubCard/)
+})
+
+test("V19: italic English subtitles 用 design tokens", () => {
+  assert.match(SOURCE, /var\(--font-display\)/)
+  assert.match(SOURCE, /what i did this week|his progress|my recommendation/)
+})
+
+test("V19: chrome banlist — 不含 V4 报告腔", () => {
+  for (const word of ["节奏", "提升", "持续", "立即", "马上"]) {
+    assert.doesNotMatch(SOURCE, new RegExp(word))
+  }
+})
+
+test("V19: chrome 完全不含「孩子」+ 短语级机构口径", () => {
+  assert.doesNotMatch(SOURCE, /孩子/)
+  for (const phrase of ["陪他", "他这个月", "看他"]) {
+    assert.doesNotMatch(SOURCE, new RegExp(phrase))
+  }
+})
+
+test("V19: chrome banlist — 不含 AI 鼓励废话", () => {
+  for (const phrase of ["建议鼓励", "适当补习", "孩子需要", "不必担心"]) {
+    assert.doesNotMatch(SOURCE, new RegExp(phrase))
   }
 })

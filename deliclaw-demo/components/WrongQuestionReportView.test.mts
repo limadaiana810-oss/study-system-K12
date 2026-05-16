@@ -5,262 +5,144 @@ import path from "node:path"
 
 const SOURCE = fs.readFileSync(
   path.join(process.cwd(), "components", "WrongQuestionReportView.tsx"),
-  "utf8"
+  "utf8",
 )
 
 test("WrongQuestionReportView is a client component", () => {
   assert.match(SOURCE, /^["']use client["']/m)
 })
 
-test("V11: WrongQuestionReportView formal section titles (drop 本周聚焦, keep 本月错题分布 + 次要错题)", () => {
-  // V11: topPattern 一句话承担标题角色，不再有 本周聚焦 h2
-  assert.doesNotMatch(SOURCE, /本周聚焦/, "V11 dropped 本周聚焦 h2 — topPattern is the title")
-  assert.match(SOURCE, /本月错题分布/) // V10: 趋势 + 占比 → 分布
-  assert.match(SOURCE, /次要错题/) // V10: collapsible footer of breakdown card
-  assert.doesNotMatch(SOURCE, /本月错题趋势/, "V10 must drop 本月错题趋势 (merged into 分布)")
-  assert.doesNotMatch(SOURCE, /学科占比/, "V10 must drop 学科占比 (now stacked into bar)")
+test("V19: source consumes the new 3-block contract", () => {
+  // top-level
+  assert.match(SOURCE, /report\.errorAnalysis/)
+  assert.match(SOURCE, /report\.learningGuidance/)
+  assert.match(SOURCE, /report\.studentObservation/)
+  // V18 / 旧版字段彻底退役
+  for (const old of [
+    "studentCommunication",
+    "moreErrors",
+    "patterns",
+    "weeklyHint",
+    "weekTotal",
+    "bySubject",
+    "transferDrill",
+    "youAreNotScore",
+    "parentSeesWhat",
+    "keptPrivate",
+    "weeklyTrend",
+    "weakPoints",
+  ]) {
+    assert.doesNotMatch(SOURCE, new RegExp(`\\b${old}\\b`), `V19 dropped binding ${old}`)
+  }
 })
 
-test("V11: TopPattern replaces FocusHeader; one line at top", () => {
-  assert.match(SOURCE, /<TopPattern/)
-  assert.match(SOURCE, /report\.topPattern/)
-  assert.doesNotMatch(SOURCE, /report\.progressSignal/, "V8+ must not reference progressSignal")
-  assert.doesNotMatch(SOURCE, /report\.progressHeadline/, "V11 must drop progressHeadline binding")
-  assert.doesNotMatch(SOURCE, /report\.progressReason/, "V11 must drop progressReason binding")
-  assert.doesNotMatch(SOURCE, /report\.gapSignal/, "V11 must drop gapSignal binding")
-  assert.doesNotMatch(SOURCE, /HeroSignalsBar/, "must drop HeroSignalsBar")
-  assert.doesNotMatch(SOURCE, /<HeroBanner/, "V9+ must drop HeroBanner")
-  assert.doesNotMatch(SOURCE, /<FocusHeader/, "V11 must drop FocusHeader")
+test("V19: 3 个 block 标题（用户视角）", () => {
+  assert.match(SOURCE, /错题翻一遍/)
+  assert.match(SOURCE, /下一阶段目标/)
+  assert.match(SOURCE, /我的观察/)
+  // 旧标题不能残留
+  assert.doesNotMatch(SOURCE, /今晚怎么和爸妈说/)
 })
 
-test("V13 editorial: monthly breakdown uses inline custom SVG (no recharts)", () => {
-  // V13: dropped recharts in favor of paper-feel hand-drawn SVG charts.
-  assert.doesNotMatch(SOURCE, /from ["']recharts["']/, "V13 must not import recharts")
-  assert.doesNotMatch(SOURCE, /<BarChart/, "V13 dropped recharts BarChart")
-  assert.doesNotMatch(SOURCE, /<LineChart/)
-  assert.doesNotMatch(SOURCE, /<PieChart/)
-  // Inline SVG with stacked rects fills the role
-  assert.match(SOURCE, /function MonthlyChart/, "V13 needs inline MonthlyChart SVG")
-  assert.match(SOURCE, /<svg/, "V13 chart is rendered as inline <svg>")
-  assert.match(SOURCE, /<rect/, "V13 stacked bars are <rect> segments")
+test("V19: Block 3 子卡组件 = ObservationMomentsCard（替代 SayingCard）", () => {
+  assert.match(SOURCE, /function ObservationMomentsCard/)
+  // V18 SayingCard 已退役
+  assert.doesNotMatch(SOURCE, /function SayingCard/)
 })
 
-test("V13 editorial: source uses design tokens + serif italic English subtitles", () => {
-  assert.match(SOURCE, /var\(--paper\)|var\(--ink-1\)|var\(--brand\)/, "V13 must use design tokens")
-  assert.match(SOURCE, /var\(--font-display\)/, "V13 must reference serif display font token")
-  assert.match(SOURCE, /Today's one thing|Today&apos;s one thing/, "hero ribbon italic English subtitle")
-  assert.match(SOURCE, /and the rest/, "minor errors collapsible italic label")
-  assert.match(SOURCE, /Wrong Question Report/, "eyebrow italic English subtitle")
+test("V20: 5 个子卡组件总览（PracticeOptionsCard → StudyMethodsCard）", () => {
+  assert.match(SOURCE, /function TodayWinsCard/)
+  assert.match(SOURCE, /function KeyErrorCard/)
+  assert.match(SOURCE, /function UnawareGapCard/)
+  assert.match(SOURCE, /function StudyMethodsCard/)
+  assert.match(SOURCE, /function ObservationMomentsCard/)
+  // V19 的假选项卡退役
+  assert.doesNotMatch(SOURCE, /function PracticeOptionsCard/)
 })
 
-test("V11: WrongQuestionReportView consumes hero/backups/topPattern", () => {
-  assert.match(SOURCE, /report\.hero/)
-  assert.match(SOURCE, /report\.backups/)
-  assert.match(SOURCE, /report\.topPattern/)
-  assert.match(SOURCE, /report\.weeklyTrend/)
-  assert.match(SOURCE, /report\.weakPoints/)
-  assert.doesNotMatch(SOURCE, /report\.focusPicks/, "V11 must drop focusPicks")
-  assert.doesNotMatch(SOURCE, /report\.overview/)
-  assert.doesNotMatch(SOURCE, /report\.errorPatterns/)
-  assert.doesNotMatch(SOURCE, /report\.actionPlan/)
+test("V20: StudyMethodsCard 渲染 name + researcher + finding + action", () => {
+  assert.match(SOURCE, /m\.name|method.*name/s)
+  assert.match(SOURCE, /m\.researcher|method.*researcher/s)
+  assert.match(SOURCE, /m\.finding|method.*finding/s)
+  assert.match(SOURCE, /m\.action|method.*action/s)
 })
 
-test("FocusCard shows goal/stepDiagnosis/closingLine + ⏱ duration (V9: in-card CTA dropped)", () => {
-  assert.match(SOURCE, /pick\.goal/)
-  assert.match(SOURCE, /pick\.stepDiagnosis/)
-  assert.match(SOURCE, /pick\.closingLine/)
-  assert.match(SOURCE, /durationMinutes/)
-  assert.match(SOURCE, /分钟/)
-  assert.match(SOURCE, /错因回顾/)
-  assert.match(SOURCE, /解题要点/)
-  // V9: tasks ARE the action surface — no redundant 现在就做 button inside FocusCard
-  assert.doesNotMatch(SOURCE, /现在就做/, "V9 must drop the redundant 现在就做 button")
+test("V20: chrome 含「学习方法」", () => {
+  assert.match(SOURCE, /学习方法/)
+  // 旧 chrome 退役
+  assert.doesNotMatch(SOURCE, /今天的选项/)
+  assert.doesNotMatch(SOURCE, /your call/)
 })
 
-test("V9: QuestionBlock renders excerpt + image preview prominently", () => {
-  assert.match(SOURCE, /function QuestionBlock/)
-  assert.match(SOURCE, /pick\.excerpt/)
-  assert.match(SOURCE, /pick\.questionDate/)
-  // 题目 label appears as the QuestionBlock heading
-  assert.match(SOURCE, /题目/)
+test("V20: 砍掉的子卡组件不再存在", () => {
+  for (const dropped of [
+    "WeekStatsRow",
+    "MoreErrorsCard",
+    "PatternsCard",
+    "TransferDrillCard",
+    "YouAreNotScoreCard",
+    "ParentSeesWhatCard",
+    "KeptPrivateCard",
+    "QuestionEvidence",
+    "LightboxModal",
+    "SayingCard",
+    "PracticeOptionsCard",
+  ]) {
+    assert.doesNotMatch(SOURCE, new RegExp(`function ${dropped}\\b`), `V20 dropped function ${dropped}`)
+  }
 })
 
-test("V11: FocusCard collapses 错因回顾 + 解题要点 into one Diagnosis block", () => {
-  // Diagnosis component exists and consumes both fields
-  assert.match(SOURCE, /function Diagnosis/)
-  assert.match(SOURCE, /<Diagnosis /)
-  // pick.goal is rendered as italic subtitle (still referenced)
-  assert.match(SOURCE, /pick\.goal/)
-  // V11: pick.whyPicked is NO LONGER bound (moved out of view entirely)
-  assert.doesNotMatch(SOURCE, /pick\.whyPicked/, "V11 dropped whyPicked binding")
+test("V19: ObservationMomentsCard 渲染 timestamp + observation + closingLine", () => {
+  // 必须读这三个字段
+  assert.match(SOURCE, /m\.timestamp|moments.*timestamp/s)
+  assert.match(SOURCE, /m\.observation|moments.*observation/s)
+  assert.match(SOURCE, /closingLine/)
 })
 
-test("WrongQuestionReportView wires task checkbox state through reportTaskState", () => {
-  assert.match(SOURCE, /from ["']@\/lib\/reportTaskState["']/)
-  assert.match(SOURCE, /readTaskState/)
-  assert.match(SOURCE, /setTaskDone/)
+test("V19: KeyErrorCard 渲染 goal/excerpt/diagnosis/closing（去掉了图片+任务清单，留下学习核心）", () => {
+  assert.match(SOURCE, /keyError\.goal/)
+  assert.match(SOURCE, /keyError\.excerpt/)
+  assert.match(SOURCE, /keyError\.stepDiagnosis/)
+  assert.match(SOURCE, /keyError\.closingLine/)
+  // 砍掉的：图片预览 + 任务清单
+  assert.doesNotMatch(SOURCE, /\/api\/uploads\//, "V19 KeyErrorCard 不再渲染图片")
+  assert.doesNotMatch(SOURCE, /keyError\.tasks/, "V19 KeyErrorCard 不再渲染任务清单")
+  assert.doesNotMatch(SOURCE, /keyError\.fileRefs/, "V19 KeyErrorCard 不再使用 fileRefs")
 })
 
-test("WrongQuestionReportView no longer renders V2 OverviewStripCard / 学科分布", () => {
-  // V10 reclaims 错题分布 as the new merged-card label, so it's no longer banned.
-  assert.doesNotMatch(SOURCE, /OverviewStripCard/)
-  assert.doesNotMatch(SOURCE, /学科分布/)
+test("V19: BlockHeading + SubCard 仍然存在（共用布局原语）", () => {
+  assert.match(SOURCE, /function BlockHeading/)
+  assert.match(SOURCE, /function SubCard/)
 })
 
-test("V10: WrongQuestionReportView renders MonthlyErrorBreakdownCard (replaces 趋势 + 占比 + 次要)", () => {
-  assert.match(SOURCE, /function MonthlyErrorBreakdownCard/)
-  assert.match(SOURCE, /<MonthlyErrorBreakdownCard/)
-  assert.doesNotMatch(SOURCE, /SubjectShareCard/, "V10 dropped SubjectShareCard")
-  assert.doesNotMatch(SOURCE, /WeeklyTrendCard/, "V10 dropped WeeklyTrendCard")
-  assert.doesNotMatch(SOURCE, /MoreToPracticeCard/, "V10 inlined the collapsible into the breakdown card")
+test("V19: italic English subtitles 用 design tokens", () => {
+  assert.match(SOURCE, /var\(--font-display\)/)
+  assert.match(SOURCE, /what went wrong|what's next|what i'm seeing/)
 })
 
-test("WrongQuestionReportView accepts a typed `report` prop", () => {
-  assert.match(SOURCE, /report: WrongQuestionReport/)
-})
-
-test("WrongQuestionReportView contains no banned diagnostic-report words (V3 student-voice)", () => {
-  // Banned words from V3 design — view chrome (labels/headings) must not smuggle them back in.
-  // (Mock data is checked separately in lib/mockReports.test.mts.)
-  const bannedInChrome = ["症结", "优先级", "弱科", "薄弱知识点"]
-  for (const word of bannedInChrome) {
+test("V19: chrome banlist — 不含 V4 报告腔", () => {
+  for (const word of ["稳", "节奏", "提升", "持续", "立即", "马上"]) {
     assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should not contain "${word}"`)
   }
 })
 
-// ── V11 hero/backup/tail layout (FocusHeader removed; hero solo + BackupCard collapsibles) ──
-
-test("V11: source defines TopPattern component (replaces FocusHeader)", () => {
-  assert.match(SOURCE, /function TopPattern/)
-  assert.doesNotMatch(SOURCE, /function FocusHeader/, "V11 must drop FocusHeader")
-})
-
-test("V11: source defines BackupCard component using <details> for collapse", () => {
-  assert.match(SOURCE, /function BackupCard/)
-  assert.match(SOURCE, /<details/)
-})
-
-test("V11: source extracts FocusCardBody for shared body between FocusCard and BackupCard", () => {
-  assert.match(SOURCE, /function FocusCardBody/)
-})
-
-test("V11: source no longer binds pick.whyPicked / ❶/❷/❸ / ℹ tooltip", () => {
-  // pick.whyPicked must not be referenced in the rendered view (data field stays)
-  assert.doesNotMatch(SOURCE, /pick\.whyPicked/, "V11 view must not bind whyPicked")
-  // ❶/❷/❸ number labels gone from UI
-  assert.doesNotMatch(SOURCE, /❶/)
-  assert.doesNotMatch(SOURCE, /❷/)
-  assert.doesNotMatch(SOURCE, /❸/)
-  // ℹ tooltip component gone
-  assert.doesNotMatch(SOURCE, /function IconInfo/, "V11 dropped IconInfo")
-})
-
-test("V11: source carries '做完上面那道再翻这两张' deferral hint below backups", () => {
-  assert.match(SOURCE, /做完上面那道再翻这两张/)
-})
-
-test("V11: source no longer renders apologetic footer", () => {
-  assert.doesNotMatch(SOURCE, /下次错题进来，会自动加进这份报告/)
-})
-
-test("V6: source no longer defines TodayPickCard (deleted, hero now hero)", () => {
-  assert.doesNotMatch(SOURCE, /TodayPickCard/)
-})
-
-test("V4: source does NOT contain ProgressSignalBar (replaced by HeroSignalsBar)", () => {
-  assert.doesNotMatch(SOURCE, /ProgressSignalBar/)
-})
-
-test("V6: source no longer references todayPick (field deleted from contract)", () => {
-  assert.doesNotMatch(SOURCE, /todayPick/)
-})
-
-test("V11: task element ids preserved (id={`task-${...}`}) for any future scroll-into-view", () => {
-  assert.match(SOURCE, /`#task-\$\{|'task-' \+|"task-" \+|task-\$\{/)
-})
-
-test("V6: FocusCard renders '先做这件' flag for hero card", () => {
-  assert.match(SOURCE, /先做这件/)
-  // hero visual: border-2 distinguishes hero from regular cards
-  assert.match(SOURCE, /border-2/)
-})
-
-test("V5: FocusCard renders errorCount + examWeightLabel meta badge", () => {
-  assert.match(SOURCE, /pick\.errorCount/)
-  assert.match(SOURCE, /pick\.examWeightLabel/)
-  // amber-styled meta badge
-  assert.match(SOURCE, /amber/)
-})
-
-test("V11: FocusCard meta references knowledgePoints count without rendering chips/tooltips", () => {
-  assert.match(SOURCE, /pick\.knowledgePoints/)
-  // V11 dropped 「为什么先做这道」 tooltip — not in chrome
-  assert.doesNotMatch(SOURCE, /为什么先做这道/, "V11 dropped 为什么先做这道 tooltip")
-  // meta strip still mentions 涵盖 N 个知识点
-  assert.match(SOURCE, /涵盖.*知识点/)
-})
-
-test("V5: original-question evidence renders as image thumbnails via /api/uploads/", () => {
-  assert.match(SOURCE, /\/api\/uploads\//)
-  assert.match(SOURCE, /<img/)
-})
-
-test("V5: source includes a Lightbox component for image preview", () => {
-  assert.match(SOURCE, /Lightbox/i)
-})
-
-test("V10: 次要错题 label survives as the inline collapsible inside MonthlyErrorBreakdownCard", () => {
-  assert.match(SOURCE, /次要错题/)
-  // 旧名 (V5 之前) 仍然不能回潮
-  assert.doesNotMatch(SOURCE, /其他薄弱点/)
-})
-
-test("V4 chrome banned-words: source does not contain V4 banned words", () => {
-  // These must not appear in view chrome (labels/headings/button text).
-  // Variable names or comments that incidentally contain substrings are acceptable —
-  // the test checks the raw source; identifiers like 'instability' are not in this codebase.
-  const banned = [
-    "稳", "节奏", "拆", "提升", "持续", "立即", "马上",
-    "今日任务", "立即行动", "本日推荐", "了解更多", "展开查看",
-  ]
-  for (const word of banned) {
-    assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should not contain banned word "${word}"`)
+test("V19: chrome banlist — 不含「症结/优先级/弱科/薄弱知识点」诊断腔", () => {
+  for (const word of ["症结", "优先级", "弱科", "薄弱知识点"]) {
+    assert.doesNotMatch(SOURCE, new RegExp(word))
   }
 })
 
-// ── Page footer ──
-
-test("V11: page no longer renders apologetic footer; aggregate counts still threaded", () => {
-  // V11 dropped "下次错题进来…" apologetic line
-  assert.doesNotMatch(SOURCE, /下次错题进来，会自动加进这份报告/)
-  // counts still computed and threaded into the breakdown card subtitle
-  assert.match(SOURCE, /totalErrorCount/)
-  assert.match(SOURCE, /subjectsCount/)
-})
-
-// ── Removed casual titles (chrome 已转为正式口吻) ──
-
-test("chrome banned: removed casual section titles (formal pass)", () => {
-  const removed = [
-    "现在做这一件",          // V3
-    "今天这件做完了",        // V3
-    "本日重点",              // V4 → 本周重点 (V5) → deleted (V6)
-    "本日已完成",            // V4 → 本周已完成 (V5) → deleted (V6)
-    "本周重点",              // V5 → deleted (V6: TodayPickCard removed)
-    "本周已完成",            // V5 → deleted (V6)
-    "其他薄弱点",            // V4 → 次要错题 (V5)
-    "这周先把这两道拿下",    // V3
-    "做完这两道",            // V3
-    "本月错题，一周一根",    // V3
-    "其他还在冒头的",        // V3
-    "想看完整本周计划",      // V3
-    "上次卡在哪",            // V3
-    "这周怎么补",            // V3
-    "下次再遇到",            // V3
-    "这周先拿下这道",        // V3
-    "还可以再练这些",        // V3
-  ]
-  for (const word of removed) {
-    assert.doesNotMatch(SOURCE, new RegExp(word), `view chrome should no longer contain "${word}"`)
+test("V19: chrome banlist — 不含旧版章节名", () => {
+  for (const word of [
+    "本周聚焦",
+    "本月错题分布",
+    "次要错题",
+    "本日重点",
+    "本日已完成",
+    "做完上面那道再翻这两张",
+    "今晚怎么和爸妈说",
+    "今晚被问起",
+  ]) {
+    assert.doesNotMatch(SOURCE, new RegExp(word))
   }
 })

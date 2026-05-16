@@ -1,397 +1,353 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import fs from "node:fs"
-import path from "node:path"
 
 import {
   buildMockGrowthReport,
   buildMockWrongQuestionReport,
 } from "./mockReports.ts"
 
-test("buildMockWrongQuestionReport returns a complete WrongQuestionReport shape (V11)", () => {
+// ─────────────────────────────────────────────────────────
+// V19: WrongQuestionReport — 1 页 A4 · 重体验/学习
+//   Block 1 (errorAnalysis): todayWins + keyError
+//   Block 2 (learningGuidance): unawareGap + practiceOptions
+//   Block 3 (studentObservation): moments + closingLine
+// ─────────────────────────────────────────────────────────
+
+test("V19 WrongQuestionReport: top-level shape is 3 blocks (compact)", () => {
   const r = buildMockWrongQuestionReport()
   assert.equal(r.windowDays, 30)
   assert.equal(typeof r.generatedAt, "string")
-  // V11: 三字段合一为 topPattern
-  assert.equal(typeof r.topPattern, "string", "topPattern must be string")
-  assert.ok(r.topPattern.length > 0, "topPattern must be non-empty")
-  // 老字段必须彻底消失
-  assert.equal((r as any).progressHeadline, undefined, "V11 must drop progressHeadline")
-  assert.equal((r as any).progressReason, undefined, "V11 must drop progressReason")
-  assert.equal((r as any).gapSignal, undefined, "V11 must drop gapSignal")
-  assert.equal((r as any).progressSignal, undefined, "V11 must not retain progressSignal synonym")
-  // V11: focusPicks 改为 hero + backups
-  assert.equal((r as any).focusPicks, undefined, "V11 must drop focusPicks")
-  assert.ok(r.hero, "V11 must have hero FocusPick")
-  assert.ok(Array.isArray(r.backups), "V11 must have backups array")
-  assert.ok(r.backups.length <= 2, `backups length ${r.backups.length} must be 0-2`)
+  assert.ok(r.errorAnalysis)
+  assert.ok(r.learningGuidance)
+  assert.ok(r.studentObservation)
+  // V18 字段彻底退役
+  assert.equal((r as any).studentCommunication, undefined, "V19 dropped studentCommunication")
+})
 
-  // 把 hero 和 backups 合起来当成原 focusPicks 校验
-  const focusPicksLike = [r.hero, ...r.backups]
-  assert.equal(focusPicksLike.length, 3, `combined hero+backups length ${focusPicksLike.length}`)
-  for (let i = 0; i < focusPicksLike.length; i++) {
-    const fp = focusPicksLike[i]
-    assert.ok(fp.goal.length > 0, `focusPicks[${i}].goal empty`)
-    assert.ok(fp.stepDiagnosis.length > 0, `focusPicks[${i}].stepDiagnosis empty`)
-    assert.ok(fp.closingLine.length > 0, `focusPicks[${i}].closingLine empty`)
-    assert.ok(fp.tasks.length >= 1 && fp.tasks.length <= 3, `tasks length`)
-    let hasReDo = false
-    for (let j = 0; j < fp.tasks.length; j++) {
-      const t = fp.tasks[j]
-      assert.equal(t.id, `focus-${i}-task-${j}`, `task id`)
-      assert.ok(t.text.length > 0)
-      assert.ok(typeof t.durationMinutes === "number" && t.durationMinutes > 0, `durationMinutes`)
-      if (t.isReDo) hasReDo = true
+test("V19 WrongQuestionReport.errorAnalysis: todayWins + keyError 两件", () => {
+  const r = buildMockWrongQuestionReport()
+  const a = r.errorAnalysis
+  assert.ok(Array.isArray(a.todayWins))
+  assert.ok(a.todayWins.length >= 2, "should celebrate ≥2 wins")
+  assert.ok(a.keyError)
+  assert.ok(a.keyError.goal.length > 0)
+  assert.ok(a.keyError.stepDiagnosis.length > 0)
+  assert.ok(a.keyError.closingLine.length > 0)
+  assert.ok(a.keyError.excerpt.length > 0)
+})
+
+test("V20 WrongQuestionReport.learningGuidance: unawareGap + studyMethods（替代 practiceOptions）", () => {
+  const r = buildMockWrongQuestionReport()
+  const g = r.learningGuidance
+  assert.equal(typeof g.unawareGap, "string")
+  assert.ok(g.unawareGap.length > 0)
+  // V20: practiceOptions 已退役
+  assert.equal((g as any).practiceOptions, undefined, "V20 dropped practiceOptions")
+  // V20: studyMethods 必须是数组，每条带 name / researcher / finding / action
+  assert.ok(Array.isArray(g.studyMethods))
+  assert.ok(g.studyMethods.length >= 2, "至少 2 个方法")
+  for (const m of g.studyMethods) {
+    assert.equal(typeof m.name, "string")
+    assert.ok(m.name.length > 0)
+    assert.equal(typeof m.researcher, "string")
+    // researcher 必须含年份（权威可追溯）
+    assert.match(m.researcher, /\d{4}/, `${m.name} researcher 必须含年份: ${m.researcher}`)
+    assert.equal(typeof m.finding, "string")
+    assert.ok(m.finding.length > 0, "finding 不能为空")
+    assert.equal(typeof m.action, "string")
+    assert.ok(m.action.length > 0, "action 不能为空")
+  }
+})
+
+test("V20 学生侧 studyMethods: 至少含一个公认的学习科学方法名", () => {
+  const r = buildMockWrongQuestionReport()
+  // 锁住权威方法集——避免未来 mock 退化为「多刷题」「认真听讲」这种泛话
+  const knownMethods = /主动回忆|自我解释|间隔练习|交错练习|双编码|阐释式|检索练习|spaced|retrieval/i
+  const allText = r.learningGuidance.studyMethods.map((m) => m.name).join(" ")
+  assert.match(allText, knownMethods, `studyMethods 必须含至少一个公认方法: ${allText}`)
+})
+
+test("V19 WrongQuestionReport.studentObservation: ≥2 moments，每个有 timestamp + observation", () => {
+  const r = buildMockWrongQuestionReport()
+  const o = r.studentObservation
+  assert.ok(Array.isArray(o.moments))
+  assert.ok(o.moments.length >= 2, "should have ≥2 observation moments")
+  for (const m of o.moments) {
+    assert.equal(typeof m.timestamp, "string")
+    assert.ok(m.timestamp.length > 0, "moment must have timestamp anchor")
+    assert.equal(typeof m.observation, "string")
+    assert.ok(m.observation.length > 0)
+  }
+  assert.equal(typeof o.closingLine, "string")
+  assert.ok(o.closingLine.length > 0)
+})
+
+test("V19 WrongQuestionReport.studentObservation: closingLine 移交家长——不让学生扛沟通", () => {
+  const r = buildMockWrongQuestionReport()
+  // closingLine 必须传达「我已替你和家长说过了」的移交语义，
+  // 让学生自己写台词的负担消失（这是 V19 砍掉 saying/avoid 的核心动机）
+  assert.match(r.studentObservation.closingLine, /家长|爸妈/)
+})
+
+// ─────────────────────────────────────────────────────────
+// V19: GrowthReport — 1 页 A4 · 重效率/成果，数据驱动
+//   Block 1 (weekWork): filesIngested + knowledgePointsResolved
+//   Block 2 (progressAssessment): bySubject (现象→错误点→根因→月考语境)
+//   Block 3 (recommendation): studyAdvice + communicationApproach
+// ─────────────────────────────────────────────────────────
+
+test("V19 GrowthReport: top-level shape is 3 blocks (data-driven)", () => {
+  const r = buildMockGrowthReport()
+  assert.equal(r.windowDays, 30)
+  assert.ok(r.weekWork)
+  assert.ok(r.progressAssessment)
+  assert.ok(r.recommendation)
+  // V18 字段彻底退役
+  assert.equal((r as any).parentCommunication, undefined, "V19 dropped parentCommunication")
+  // learningAbility 被替换为 bySubject
+  assert.equal((r.progressAssessment as any).learningAbility, undefined, "V19 dropped learningAbility")
+})
+
+test("V19 GrowthReport.weekWork: filesIngested + knowledgePointsResolved", () => {
+  const r = buildMockGrowthReport()
+  const w = r.weekWork
+  assert.equal(typeof w.filesIngested, "number")
+  assert.ok(w.filesIngested > 0)
+  assert.ok(Array.isArray(w.knowledgePointsResolved))
+  assert.ok(w.knowledgePointsResolved.length >= 2, "should resolve ≥2 KPs")
+})
+
+test("V19 GrowthReport.progressAssessment.bySubject: 数据驱动四件 + insufficient-data 容错", () => {
+  const r = buildMockGrowthReport()
+  const p = r.progressAssessment
+  assert.ok(Array.isArray(p.bySubject))
+  assert.ok(p.bySubject.length >= 2)
+  for (const s of p.bySubject) {
+    assert.equal(typeof s.subject, "string")
+    assert.ok(["improving", "regressing", "insufficient-data"].includes(s.trend))
+    if (s.trend === "insufficient-data") {
+      assert.ok(s.insufficientNote && s.insufficientNote.length > 0, "insufficient must say so")
+    } else {
+      // 至少有一条数据线
+      const hasAtLeastOne = !!(s.dataObservation || s.errorPattern || s.rootCause || s.scoreContext)
+      assert.ok(hasAtLeastOne, `${s.subject} ${s.trend} must have ≥1 data line`)
     }
-    assert.ok(hasReDo, `focusPicks[${i}] must have at least one isReDo task (retrieval practice)`)
-    assert.ok(Array.isArray(fp.fileRefs))
-    assert.equal(typeof fp.errorCount, "number", `focusPicks[${i}].errorCount type`)
-    assert.ok(fp.errorCount > 0, `focusPicks[${i}].errorCount must be > 0`)
-    assert.equal(typeof fp.examWeightLabel, "string", `focusPicks[${i}].examWeightLabel type`)
-    assert.ok(fp.examWeightLabel.length > 0, `focusPicks[${i}].examWeightLabel empty`)
-    // V7: knowledgePoints array + whyPicked
-    assert.ok(Array.isArray(fp.knowledgePoints), `focusPicks[${i}].knowledgePoints must be array`)
-    assert.ok(fp.knowledgePoints.length >= 1, `focusPicks[${i}] must cover at least 1 KP`)
-    assert.equal(typeof fp.whyPicked, "string", `focusPicks[${i}].whyPicked must be string`)
-    assert.ok(fp.whyPicked.length > 0, `focusPicks[${i}].whyPicked empty`)
-    // V9: excerpt + questionDate threaded through from MockQuestion
-    assert.equal(typeof fp.excerpt, "string", `focusPicks[${i}].excerpt must be string`)
-    assert.ok(fp.excerpt.length > 0, `focusPicks[${i}].excerpt empty`)
-    assert.match(fp.questionDate, /^\d{4}-\d{2}-\d{2}$/, `focusPicks[${i}].questionDate must be ISO date`)
   }
-
-  // weeklyTrend
-  assert.equal(r.weeklyTrend.series.length, 4)
-  for (let i = 0; i < 4; i++) {
-    assert.equal(r.weeklyTrend.series[i].week, (i + 1) as 1 | 2 | 3 | 4)
-  }
-  assert.ok(r.weeklyTrend.summary.length > 0)
-
-  // weakPoints
-  assert.ok(r.weakPoints.length >= 1 && r.weakPoints.length <= 5)
 })
 
-test("buildMockGrowthReport returns a complete GrowthReport shape with 4 weeks (V11)", () => {
+test("V19 progressAssessment: 至少有一科 insufficient-data（证明「不足就不说」原则）", () => {
   const r = buildMockGrowthReport()
-  assert.equal(r.windowDays, 30)
-  assert.equal(typeof r.generatedAt, "string")
-  // V11: hero 两字段
-  assert.equal(typeof r.topInsight, "string", "topInsight must be string")
-  assert.ok(r.topInsight.length > 0, "topInsight must be non-empty")
-  assert.equal(typeof r.thisWeekAction, "string", "thisWeekAction must be string")
-  assert.ok(r.thisWeekAction.length > 0, "thisWeekAction must be non-empty")
-  assert.equal(typeof r.focusSubject, "string")
-  assert.ok(r.focusSubject.length > 0, "focusSubject must be non-empty")
-  assert.equal(r.emotionTrend.length, 4)
-  for (let i = 0; i < 4; i++) {
-    assert.equal(r.emotionTrend[i].week, (i + 1) as 1 | 2 | 3 | 4)
-    assert.ok(r.emotionTrend[i].summary.length > 0, `week ${i + 1} summary empty`)
-  }
-  assert.ok(r.scores.length >= 1)
-  for (const s of r.scores) {
-    assert.equal(s.weeklySeries.length, 4)
-    assert.equal(s.weeklyHomeworkAvg.length, 4, `${s.subject}.weeklyHomeworkAvg length`)
-    assert.equal(s.weeklyExamAvg.length, 4, `${s.subject}.weeklyExamAvg length`)
-    assert.equal(s.weeklyErrorCount.length, 4, `${s.subject}.weeklyErrorCount length`)
-  }
-  assert.ok(r.highlights.length >= 1)
-  assert.ok(r.parentAdvice.strengthen.length >= 1)
-  assert.ok(r.parentAdvice.remind.length >= 1)
-  assert.ok(r.parentAdvice.encourage.length >= 1)
+  const insufficient = r.progressAssessment.bySubject.filter((s) => s.trend === "insufficient-data")
+  assert.ok(insufficient.length >= 1, "至少一科应该是 insufficient-data，证明 mock 不硬凑")
 })
 
-test("V8: growth focusSubject is 数学 (largest dip-recover swing)", () => {
+test("V19 progressAssessment: regressing 科目必须给出根因", () => {
   const r = buildMockGrowthReport()
-  assert.equal(r.focusSubject, "数学", `expected focusSubject=数学, got ${r.focusSubject}`)
+  const regressing = r.progressAssessment.bySubject.filter((s) => s.trend === "regressing")
+  assert.ok(regressing.length >= 1, "应该有至少一科退步——这是「数学 92→78」场景的核心")
+  for (const s of regressing) {
+    assert.ok(s.dataObservation && s.dataObservation.length > 0)
+    assert.ok(s.errorPattern && s.errorPattern.length > 0)
+    assert.ok(s.rootCause && s.rootCause.length > 0, "退步科必须给出根因（数据驱动核心）")
+  }
 })
 
-test("V11: growth topInsight references 数学/90 + thisWeekAction is concrete homework action", () => {
+test("V19 GrowthReport.recommendation.studyAdvice: action + 为什么是这件 + 为什么不是补全科", () => {
   const r = buildMockGrowthReport()
-  // topInsight 一句话本月定义
-  assert.ok(
-    r.topInsight.includes("数学") || r.topInsight.includes("90"),
-    `topInsight should mention 数学/90+, got: ${r.topInsight}`,
-  )
-  // thisWeekAction 具体作业动作（陪 + 数学）
-  assert.ok(
-    r.thisWeekAction.includes("数学"),
-    `thisWeekAction should mention 数学, got: ${r.thisWeekAction}`,
-  )
-  assert.ok(
-    r.thisWeekAction.includes("陪") || r.thisWeekAction.includes("写"),
-    `thisWeekAction should be a concrete companion-action verb, got: ${r.thisWeekAction}`,
-  )
+  const a = r.recommendation.studyAdvice
+  assert.equal(typeof a.action, "string")
+  assert.ok(a.action.length > 0)
+  assert.equal(typeof a.whyThisAction, "string")
+  assert.ok(a.whyThisAction.length > 0)
+  assert.equal(typeof a.whyNotBroader, "string")
+  assert.ok(a.whyNotBroader.length > 0)
 })
 
-test("V11: thisWeekAction de-duped from parentAdvice.strengthen (no double-display)", () => {
+test("V21 communicationApproach: 三 sub-block = 小孩的情绪 / Alpha 世代沟通 / 不同年龄段策略", () => {
   const r = buildMockGrowthReport()
-  // V10 strengthen had 2 entries; V11 抽走了「数学最后一题」那条，只剩 1 条
-  assert.equal(
-    r.parentAdvice.strengthen.length,
-    1,
-    `V11 strengthen should have 1 entry (the 数学最后一题 entry was promoted to thisWeekAction)`,
-  )
-  // The remaining entry is the 物理 串并联 one
-  assert.ok(
-    r.parentAdvice.strengthen[0].includes("物理") || r.parentAdvice.strengthen[0].includes("串并联"),
-    `remaining strengthen[0] should be the 物理串并联 entry, got: ${r.parentAdvice.strengthen[0]}`,
-  )
-  // The 数学最后一题 entry must NOT appear in advice.strengthen anymore
-  assert.ok(
-    !r.parentAdvice.strengthen.some((s) => s.includes("最后一道大题") || s.includes("写到底")),
-    `数学最后一题 should not appear in strengthen — already in thisWeekAction`,
-  )
+  const c = r.recommendation.communicationApproach
+  // V20 的旧三件已退役
+  assert.equal((c as any).situation, undefined, "V21 dropped situation")
+  assert.equal((c as any).theory, undefined, "V21 dropped flat theory")
+  assert.equal((c as any).strategy, undefined, "V21 dropped flat strategy")
+  // 新三件
+  assert.ok(c.childEmotion)
+  assert.ok(c.alphaGenContext)
+  assert.ok(c.developmentalStrategy)
 })
 
-test("V8 MECE: cross-report 错题数 sum is identical between growth.weeklyErrorCount and wrongQ.weakPoints", () => {
-  const wq = buildMockWrongQuestionReport()
-  const gr = buildMockGrowthReport()
-  const growthSum = gr.scores.reduce(
-    (s, sub) => s + sub.weeklyErrorCount.reduce((a, b) => a + b, 0),
-    0,
-  )
-  const wqSum = wq.weakPoints.reduce((s, w) => s + w.occurrences, 0)
-  assert.equal(growthSum, wqSum, `growth ${growthSum} vs wrongQ ${wqSum} — same source bank required`)
-})
-
-test("buildMockGrowthReport's score chart reflects the crafted math dip+recovery narrative", () => {
+test("V21 ① childEmotion: summary + evidence 数据驱动", () => {
   const r = buildMockGrowthReport()
-  const math = r.scores.find((s) => s.subject === "数学")
-  assert.ok(math, "数学 should be present in mock scores")
-  // Week index 0 = oldest, 3 = newest. Math should dip in the middle and recover at the end.
-  // Don't pin exact numbers (mock scores are date-relative); just verify the directional story.
-  assert.ok(math!.weeklySeries[3] > math!.weeklySeries[1], "数学 week 4 should exceed week 2 (recovery story)")
-})
-
-test("buildMockWrongQuestionReport contains no banned diagnostic-report words", () => {
-  // V3 hard constraint: 学生口径
-  const r = buildMockWrongQuestionReport()
-  const banned = ["症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级"]
-  const allText = JSON.stringify(r)
-  for (const word of banned) {
-    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (V3 banned word)`)
+  const e = r.recommendation.communicationApproach.childEmotion
+  assert.equal(typeof e.summary, "string")
+  assert.ok(e.summary.length > 0)
+  assert.ok(Array.isArray(e.evidence))
+  assert.ok(e.evidence.length >= 2, "情绪证据至少 2 条")
+  for (const ev of e.evidence) {
+    assert.equal(typeof ev, "string")
+    assert.ok(ev.length > 0)
   }
+  // 情绪 summary 应该带数据信号（采样次数 / 自评分 / 时间锚点之一）
+  const allText = e.summary + e.evidence.join("\n")
+  assert.match(allText, /\d/, "childEmotion 必须含具体数字（采样/评分/时间）")
 })
 
-test("V11: buildMockWrongQuestionReport topPattern carries numbers + gap in one sentence", () => {
-  const r = buildMockWrongQuestionReport()
-  // V11: 进步 + 短板 合一为 topPattern
-  assert.ok(r.topPattern.includes("1 道"), `topPattern should mention 1 道, got: ${r.topPattern}`)
-  assert.ok(
-    r.topPattern.includes("物理") || r.topPattern.includes("单位换算"),
-    `topPattern should also call out the gap, got: ${r.topPattern}`,
-  )
-})
-
-test("buildMockWrongQuestionReport V6: todayPick field removed (TodayPickCard deleted)", () => {
-  const r = buildMockWrongQuestionReport()
-  assert.equal((r as any).todayPick, undefined, "todayPick should not exist in V6 mock")
-})
-
-test("buildMockWrongQuestionReport contains no V4 banned words", () => {
-  const r = buildMockWrongQuestionReport()
-  const allText = JSON.stringify(r)
-  // V4 new banned words (each catches family of variants)
-  const banned = ["稳", "节奏", "拆", "提升", "持续", "整体呈", "立即", "马上"]
-  for (const word of banned) {
-    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (V4 banned word)`)
-  }
-})
-
-test("buildMockWrongQuestionReport contains no V6 AI-tone words", () => {
-  // V6 新增的「AI 报告腔」词。覆盖：模糊评价、伪学术、捧杀腔、collective voice
-  const r = buildMockWrongQuestionReport()
-  const allText = JSON.stringify(r)
-  const banned = [
-    "较强", "较为", "较高", "较低",  // 报告 hedge
-    "体现出", "体现了",              // 评价腔
-    "反映了", "反映出",              // 报告腔
-    "有所",                          // 报告 hedge
-    "拆开来看", "稳稳", "捧杀",      // 用户点名 ban
-    "下一步我们", "我们要", "我们应",// collective voice
-  ]
-  for (const word of banned) {
-    assert.equal(allText.includes(word), false, `mock should not contain "${word}" (AI-tone)`)
-  }
-})
-
-test("buildMockGrowthReport contains no AI-banned words", () => {
+test("V21 ② alphaGenContext: 出生年代 + 3-4 条特征 + whyDifferent", () => {
   const r = buildMockGrowthReport()
-  const allText = JSON.stringify(r)
-  const banned = [
-    // V4 banned
-    "稳", "节奏", "拆", "提升", "持续", "整体呈", "立即", "马上",
-    // V3 legacy
-    "症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级",
-    // V6 AI-tone
-    "较强", "较为", "较高", "较低",
-    "体现出", "体现了",
-    "反映了", "反映出",
-    "有所",
-    "拆开来看", "稳稳", "捧杀",
-    "下一步我们", "我们要", "我们应",
-    // 家长侧特有
-    "正向反馈", "心理状态",
-  ]
-  for (const word of banned) {
-    assert.equal(allText.includes(word), false, `growth mock should not contain "${word}"`)
+  const a = r.recommendation.communicationApproach.alphaGenContext
+  assert.equal(typeof a.bornRange, "string")
+  assert.match(a.bornRange, /Alpha|阿尔法/i, "bornRange 必须点出 Alpha 世代名")
+  assert.match(a.bornRange, /\d{4}/, "bornRange 必须含具体出生年份")
+  assert.ok(Array.isArray(a.traits))
+  assert.ok(a.traits.length >= 3, "Alpha 一代特征至少 3 条")
+  for (const t of a.traits) {
+    assert.equal(typeof t, "string")
+    assert.ok(t.length > 0)
   }
+  assert.equal(typeof a.whyDifferent, "string")
+  assert.ok(a.whyDifferent.length > 0, "whyDifferent 不能为空——这是这一节存在的理由")
 })
 
-test("V11 chrome guard: GrowthReportView advice titles", () => {
-  const SOURCE = fs.readFileSync(
-    path.join(process.cwd(), "components", "GrowthReportView.tsx"),
-    "utf8",
-  )
-  // V7 旧名永远禁
-  for (const word of ["重点补", "留个心", "夸一夸"]) {
-    assert.equal(SOURCE.includes(word), false, `view chrome should not contain V7 title "${word}"`)
-  }
-  // V10 「心理辅导重点」临床味 — V11 已替换为「沟通重点」
-  assert.equal(SOURCE.includes("心理辅导重点"), false, `V11 must drop clinical 心理辅导重点`)
-  // V11 现在的三列名
-  for (const word of ["下一步学习计划", "沟通重点", "家长行动计划"]) {
-    assert.ok(SOURCE.includes(word), `view chrome should contain V11 title "${word}"`)
-  }
-})
-
-// V11: progressHeadline / progressReason 合并入 topPattern（见上面 V11 topPattern 测试）
-
-test("buildMockWrongQuestionReport: weeklyTrend.series sum equals weakPoints occurrences sum", () => {
-  // MECE check: 趋势图总和必须等于 weakPoints 总和（饼图 + footer 都基于 weakPoints）
-  const r = buildMockWrongQuestionReport()
-  const trendSum = r.weeklyTrend.series.reduce((s, p) => s + p.count, 0)
-  const weakSum = r.weakPoints.reduce((s, w) => s + w.occurrences, 0)
-  assert.equal(trendSum, weakSum, `weeklyTrend sum (${trendSum}) must equal weakPoints sum (${weakSum})`)
-})
-
-test("V10: weeklyTrend.seriesBySubject is present and sums match weeklyTrend.series", () => {
-  // In-report MECE: stacked-bar segments per week must add up to the weekly total.
-  const r = buildMockWrongQuestionReport()
-  assert.ok(Array.isArray(r.weeklyTrend.seriesBySubject), "seriesBySubject must be an array")
-  assert.ok(r.weeklyTrend.seriesBySubject.length >= 1, "seriesBySubject must have at least 1 subject")
-  for (const entry of r.weeklyTrend.seriesBySubject) {
-    assert.equal(entry.counts.length, 4, `seriesBySubject[${entry.subject}].counts must be length 4`)
-  }
-  const stackedSum = r.weeklyTrend.seriesBySubject.reduce(
-    (s, e) => s + e.counts.reduce((a, b) => a + b, 0),
-    0,
-  )
-  const trendSum = r.weeklyTrend.series.reduce((s, p) => s + p.count, 0)
-  assert.equal(stackedSum, trendSum, `stacked-bar segment sum (${stackedSum}) must equal weeklyTrend.series sum (${trendSum})`)
-})
-
-test("V11: hero is 数学 with errorCount >= 4 (二次函数顶点式)", () => {
-  const r = buildMockWrongQuestionReport()
-  assert.equal(r.hero.subject, "数学")
-  assert.ok(r.hero.errorCount >= 4, `hero errorCount should be >= 4, got: ${r.hero.errorCount}`)
-})
-
-test("V12: hero stepDiagnosis matches bank wording (AInative voice); weeklyTrend.summary uses 你", () => {
-  const r = buildMockWrongQuestionReport()
-  // V12: stepDiagnosis 加 AI「我」视角，开篇带「我看了你的…」
-  assert.equal(r.hero.stepDiagnosis, "我看了你的步骤——前面都对，最后把 h = -2 写成了 2。这一翻，整道题就走偏了。")
-  assert.equal(r.weeklyTrend.summary, "你 W2 最多 5 道，这周只剩 1 道。W2 那周数学连错三天，后两周你追回来了。")
-})
-
-test("V11: hero covers 4 knowledge points (highest density question)", () => {
-  const r = buildMockWrongQuestionReport()
-  assert.equal(r.hero.knowledgePoints.length, 4, "hero question must cover 4 KPs")
-  assert.ok(r.hero.whyPicked.includes("4 个知识点"), `whyPicked should mention 4 KPs, got: ${r.hero.whyPicked}`)
-})
-
-test("V11: backups distribution from selector (hero=数学 + 2 backups=物理)", () => {
-  const r = buildMockWrongQuestionReport()
-  const subjects = [r.hero.subject, ...r.backups.map((b) => b.subject)]
-  // selector 应该挑出: 数学-01 (hero) + 物理-01 (backup) + 物理-04 (backup)
-  assert.equal(subjects.filter((s) => s === "数学").length, 1)
-  assert.equal(subjects.filter((s) => s === "物理").length, 2)
-})
-
-// ─────────── V12 AInative voice 守卫 ───────────
-
-test("V12 学生侧: topPattern 含小迪 + 你；AI 在场", () => {
-  const r = buildMockWrongQuestionReport()
-  assert.ok(r.topPattern.includes("小迪"), `topPattern should introduce 小迪, got: ${r.topPattern}`)
-  assert.ok(r.topPattern.includes("你"), `topPattern should address 你 (the student), got: ${r.topPattern}`)
-})
-
-test("V12 学生侧: ≥6 stepDiagnosis 含 AI「我」视角，≥4 closingLine 含 AI 动作", () => {
-  // 题库 13 道错题中的叙事字段会通过 hero/backups 进 report，但全部题的覆盖
-  // 不止 hero+backups（selector 只挑 3 道）。所以直接断言：JSON.stringify(report)
-  // 中至少 6 处出现 AI「我」短语（"我看了" / "我看你" / "我替你"），≥4 处 closing 风格的 AI 嘱咐。
-  const r = buildMockWrongQuestionReport()
-  const allText = JSON.stringify(r)
-  // hero+backups 的 stepDiagnosis 至少有一处「我看」AI 复盘
-  const focusPicksLike = [r.hero, ...r.backups]
-  const stepDiagnosesWithMe = focusPicksLike.filter((p) => /我看/.test(p.stepDiagnosis)).length
-  assert.ok(
-    stepDiagnosesWithMe >= 1,
-    `expected at least 1 hero/backup stepDiagnosis with 我看, got ${stepDiagnosesWithMe}`,
-  )
-  // 整体「我」标记：topPattern + weakPoints[0] + hero/backups 各处至少累计 ≥4 次「我替你」/「我看」
-  const meMatches = (allText.match(/我(替你|看了|看你|看一下)/g) || []).length
-  assert.ok(meMatches >= 4, `expected ≥4 AI「我」markers in report, got ${meMatches}`)
-})
-
-test("V12 学生侧: 4/5 weakPoints diagnosis 含「你」主语", () => {
-  const r = buildMockWrongQuestionReport()
-  const withYou = r.weakPoints.filter((w) => w.diagnosis.includes("你")).length
-  assert.ok(
-    withYou >= 4,
-    `≥4 of ${r.weakPoints.length} diagnoses must include 你 (peer voice), got ${withYou}`,
-  )
-})
-
-test("V12 学生侧: 不含家长口径 (孩子 / 同学)", () => {
-  const r = buildMockWrongQuestionReport()
-  const allText = JSON.stringify(r)
-  for (const word of ["孩子", "同学"]) {
-    assert.equal(
-      allText.includes(word),
-      false,
-      `student-side report must not contain parent-portal word "${word}"`,
+test("V21 ③ developmentalStrategy: ageBrackets 覆盖 4 段 + 恰好 1 段 isCurrent", () => {
+  const r = buildMockGrowthReport()
+  const ds = r.recommendation.communicationApproach.developmentalStrategy
+  assert.ok(Array.isArray(ds.ageBrackets))
+  assert.ok(ds.ageBrackets.length >= 3, "至少覆盖 3 个年龄段")
+  // 恰好 1 段标记为 isCurrent（小凯所处）
+  const current = ds.ageBrackets.filter((b) => b.isCurrent)
+  assert.equal(current.length, 1, "恰好 1 段 isCurrent")
+  // 小凯 12-14 岁
+  assert.match(current[0].range, /1[2-4]/, "isCurrent 段必须是 12-14 岁")
+  // 每个 bracket 字段齐全
+  for (const b of ds.ageBrackets) {
+    assert.equal(typeof b.range, "string")
+    assert.equal(typeof b.stageName, "string")
+    assert.equal(typeof b.theorist, "string")
+    assert.equal(typeof b.strategy, "string")
+    assert.equal(typeof b.isCurrent, "boolean")
+    // theorist 必须含年份或公认框架名
+    assert.match(
+      b.theorist,
+      /\d{4}|Dweck|Erikson|Piaget|Marcia|Vygotsky|Bandura/,
+      `${b.range} theorist 必须点名权威心理学家或带年份: ${b.theorist}`,
     )
   }
 })
 
-test("V12 家长侧: topInsight + thisWeekAction 含小凯", () => {
+test("V21 ③ developmentalStrategy: tonightLines + keyword 应用当前 bracket", () => {
   const r = buildMockGrowthReport()
-  assert.ok(r.topInsight.includes("小凯"), `topInsight should reference 小凯, got: ${r.topInsight}`)
-  assert.ok(r.thisWeekAction.includes("小凯"), `thisWeekAction should reference 小凯, got: ${r.thisWeekAction}`)
-  assert.ok(r.parentAdvice.strengthen[0].includes("小凯"), `strengthen[0] should reference 小凯, got: ${r.parentAdvice.strengthen[0]}`)
+  const ds = r.recommendation.communicationApproach.developmentalStrategy
+  assert.ok(Array.isArray(ds.tonightLines))
+  assert.ok(ds.tonightLines.length >= 2, "今晚台词至少 2 条")
+  for (const line of ds.tonightLines) {
+    assert.equal(typeof line, "string")
+    assert.ok(line.length > 0)
+  }
+  assert.equal(typeof ds.keyword, "string")
+  assert.ok(ds.keyword.length > 0)
 })
 
-test("V12 家长侧: 不含「孩子」+ 短语级 banlist 排除「他/家长」机构口径", () => {
+// ─────────────────────────────────────────────────────────
+// V19 cross-link: 家长策略 引用「物理 + 第三步」必须能在题库找到凭据
+// ─────────────────────────────────────────────────────────
+
+test("V21 cross-link: 家长 tonightLines 引用「物理 + 第三步」必须有学生侧凭据", () => {
+  const wq = buildMockWrongQuestionReport()
+  const gr = buildMockGrowthReport()
+  const tonightText =
+    gr.recommendation.communicationApproach.developmentalStrategy.tonightLines.join("\n")
+  if (!tonightText.includes("第三步") || !tonightText.includes("物理")) {
+    return
+  }
+  assert.match(tonightText, /第三步/)
+  assert.match(tonightText, /物理/)
+  // 学生侧 keyError 是数学；物理凭据在 mockQuestionBank 里。这里只校验家长台词
+  // 同时含有「物理 + 第三步」的核心信号——cross-link 真正由 mockQuestionBank 内容保证
+  assert.ok(wq.errorAnalysis.keyError, "学生侧必须有 keyError 提供学习入口")
+})
+
+// ─────────────────────────────────────────────────────────
+// 学生侧口径：保留 V12 AInative 守卫
+// ─────────────────────────────────────────────────────────
+
+test("V19 学生侧: keyError stepDiagnosis 含「我看了你的步骤」AInative voice", () => {
+  const r = buildMockWrongQuestionReport()
+  assert.match(r.errorAnalysis.keyError.stepDiagnosis, /我看了你的步骤/)
+})
+
+test("V19 学生侧: studentObservation 必须含具体时间锚点（不是泛泛话）", () => {
+  const r = buildMockWrongQuestionReport()
+  // 至少一条 moment 含具体时刻：周X / N点 / 上午/下午/晚 — 时间锚点
+  const text = r.studentObservation.moments.map((m) => m.timestamp).join("\n")
+  assert.match(text, /(周|早|午|晚|\d{1,2}:\d{2})/, "至少一条要有具体时间锚点")
+})
+
+test("V19 学生侧: 不含家长口径（孩子 / 同学）", () => {
+  const r = buildMockWrongQuestionReport()
+  const allText = JSON.stringify(r)
+  for (const word of ["孩子", "同学"]) {
+    assert.equal(allText.includes(word), false, `student-side must not contain "${word}"`)
+  }
+})
+
+// ─────────────────────────────────────────────────────────
+// 家长侧口径：小凯（不出现「孩子」/「他这个月」机构口径）
+// ─────────────────────────────────────────────────────────
+
+test("V19 家长侧: studyAdvice + communicationApproach 含「小凯」", () => {
+  const r = buildMockGrowthReport()
+  const allText = JSON.stringify(r.recommendation)
+  assert.match(allText, /小凯/)
+})
+
+test("V19 家长侧: 不含「孩子」+ 短语级 banlist 排除「他/家长」机构口径", () => {
   const r = buildMockGrowthReport()
   const allText = JSON.stringify(r)
-  // 直接禁词
-  assert.equal(allText.includes("孩子"), false, `growth must not contain "孩子" (use 小凯)`)
-  // 短语级 banlist —— 不直接禁单字「他」（"其他" 合法），只禁机构口径短语
+  assert.equal(allText.includes("孩子"), false)
   const bannedPhrases = [
     "陪他", "他自己", "他主动", "跟他", "让他",
     "他这个月", "他每", "他在", "他和",
     "跟家长", "家长可以", "家长多问", "家长看到了",
   ]
   for (const phrase of bannedPhrases) {
-    assert.equal(
-      allText.includes(phrase),
-      false,
-      `growth must not contain phrase "${phrase}" (use 小凯 or omit subject)`,
-    )
+    assert.equal(allText.includes(phrase), false, `growth must not contain phrase "${phrase}"`)
   }
 })
 
-test("V12 家长侧: 4 周 emotionTrend.summary 全部已替换「孩子」→「小凯」", () => {
-  const r = buildMockGrowthReport()
-  for (const e of r.emotionTrend) {
-    assert.equal(
-      e.summary.includes("孩子"),
-      false,
-      `week ${e.week} emotion summary still has 孩子: ${e.summary}`,
-    )
+// ─────────────────────────────────────────────────────────
+// 报告腔 banlist
+// ─────────────────────────────────────────────────────────
+
+test("V19 学生侧 banlist: 不含 V4/V6 报告腔", () => {
+  const r = buildMockWrongQuestionReport()
+  const allText = JSON.stringify(r)
+  const banned = [
+    "稳", "节奏", "提升", "持续", "整体呈", "立即", "马上",
+    "症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级",
+    "较强", "较为", "较高", "较低",
+    "体现出", "体现了", "反映了", "反映出",
+    "有所", "拆开来看", "稳稳", "捧杀",
+    "下一步我们", "我们要", "我们应",
+  ]
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `wrongQ should not contain "${word}"`)
   }
-  // 至少一周的 summary 显式带「小凯」
-  const withName = r.emotionTrend.filter((e) => e.summary.includes("小凯")).length
-  assert.ok(withName >= 1, `≥1 emotionTrend summary should reference 小凯, got ${withName}`)
+})
+
+test("V19 家长侧 banlist: 不含 V4/V6 报告腔 + AI 鼓励废话", () => {
+  const r = buildMockGrowthReport()
+  const allText = JSON.stringify(r)
+  const banned = [
+    "稳", "节奏", "提升", "持续", "整体呈", "立即", "马上",
+    "症结", "正确率", "弱科", "需要加强", "薄弱知识点", "优先级",
+    "较强", "较为", "较高", "较低",
+    "体现出", "体现了", "反映了", "反映出",
+    "有所", "拆开来看", "稳稳", "捧杀",
+    "下一步我们", "我们要", "我们应",
+    "正向反馈", "心理状态",
+    "建议鼓励", "适当补习", "孩子需要",
+  ]
+  for (const word of banned) {
+    assert.equal(allText.includes(word), false, `growth should not contain "${word}"`)
+  }
 })

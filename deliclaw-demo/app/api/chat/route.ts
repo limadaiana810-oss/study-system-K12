@@ -1,31 +1,48 @@
 import { NextRequest, NextResponse } from "next/server"
 import { buildSystemPrompt } from "@/lib/prompts"
 
-export async function POST(req: NextRequest) {
-  const { messages, hasImage, memorySnapshot, pendingInferredSnapshot } = await req.json()
-
-  if (!process.env.OPENROUTER_API_KEY) {
-    return NextResponse.json({ error: "未配置 OPENROUTER_API_KEY" }, { status: 500 })
+// If the host has a system proxy set (HTTPS_PROXY / HTTP_PROXY — common when running
+// from networks that need ClashX / Surge / VPN to reach OpenRouter), Node's fetch
+// ignores those env vars by default, while curl picks them up automatically. This
+// produces the confusing "curl works, route 500" pattern. Hook a ProxyAgent so Node
+// fetch follows the same proxy curl uses.
+let _proxyDispatcherInstalled = false
+async function ensureProxyDispatcher() {
+  if (_proxyDispatcherInstalled) return
+  _proxyDispatcherInstalled = true
+  const proxyUrl =
+    process.env.OPENROUTER_PROXY ||
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy
+  if (!proxyUrl) return
+  try {
+    const undici = await import("undici")
+    undici.setGlobalDispatcher(new undici.ProxyAgent(proxyUrl))
+    console.error(`[chat] routing OpenRouter calls via proxy ${proxyUrl}`)
+  } catch (err) {
+    console.error("[chat] proxy setup failed", err)
   }
+}
 
-  // 模型可通过环境变量覆盖（默认值兼容当前实现）
-  // - OPENROUTER_CHAT_MODEL_VISION：多模态（带图片）
-  // - OPENROUTER_CHAT_MODEL_TEXT：纯文本
-  const model = hasImage
-    ? (process.env.OPENROUTER_CHAT_MODEL_VISION || "qwen/qwen2.5-vl-72b-instruct")
-    : (process.env.OPENROUTER_CHAT_MODEL_TEXT || "qwen/qwen-2.5-72b-instruct")
+export async function POST(req: NextRequest) {
+  try {
+    await ensureProxyDispatcher()
+    const { messages, hasImage, memorySnapshot, pendingInferredSnapshot } = await req.json()
 
-  const SYSTEM_PROMPT = buildSystemPrompt()
+    if (!process.env.OPENROUTER_API_KEY) {
+      return NextResponse.json({ error: "未配置 OPENROUTER_API_KEY" }, { status: 500 })
+    }
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "DeliClaw Demo",
-    },
-    body: JSON.stringify({
+    // 模型可通过环境变量覆盖（默认值兼容当前实现）
+    // - OPENROUTER_CHAT_MODEL_VISION：多模态（带图片）
+    // - OPENROUTER_CHAT_MODEL_TEXT：纯文本
+    const model = hasImage
+      ? (process.env.OPENROUTER_CHAT_MODEL_VISION || "qwen/qwen3-vl-8b-instruct")
+      : (process.env.OPENROUTER_CHAT_MODEL_TEXT || "qwen/qwen3.6-plus")
+
+    const payload = JSON.stringify({
       model,
       messages: [
         { role: "system", content: buildSystemPrompt() },
@@ -51,19 +68,47 @@ export async function POST(req: NextRequest) {
         ...messages,
       ],
       stream: true,
-    }),
-  })
+    })
 
-  if (!response.ok) {
-    const text = await response.text()
-    return NextResponse.json({ error: text }, { status: response.status })
+    // Retry once on 5xx — OpenRouter occasionally returns transient upstream-provider 500s.
+    let response: Response | null = null
+    let lastErrText = ""
+    for (let attempt = 0; attempt < 2; attempt++) {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "DeliClaw Demo",
+        },
+        body: payload,
+      })
+      if (response.ok) break
+      lastErrText = await response.text()
+      const isTransient = response.status >= 500 && response.status < 600
+      console.error(
+        `[chat] OpenRouter non-OK status=${response.status} attempt=${attempt + 1} body=${lastErrText.slice(0, 300)}`,
+      )
+      if (!isTransient || attempt === 1) {
+        return NextResponse.json({ error: lastErrText || "OpenRouter error" }, { status: response.status })
+      }
+      // brief backoff before retry
+      await new Promise((r) => setTimeout(r, 800))
+    }
+
+    return new Response(response!.body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
+    console.error("[chat] route threw", msg, stack)
+    return NextResponse.json({ error: `chat route exception: ${msg}` }, { status: 500 })
   }
-
-  return new Response(response.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  })
 }

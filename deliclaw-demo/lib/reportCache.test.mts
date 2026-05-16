@@ -24,7 +24,11 @@ test("REPORT_STORAGE_KEYS exposes both report keys", () => {
   assert.equal(REPORT_STORAGE_KEYS["growth"], "deliclaw_report_growth")
 })
 
-const VALID_HERO: any = {
+// ─────────────────────────────────────────────────────────
+// V19 valid fixtures
+// ─────────────────────────────────────────────────────────
+
+const VALID_FOCUS_PICK: any = {
   subject: "数学",
   goal: "g",
   stepDiagnosis: "s",
@@ -39,39 +43,77 @@ const VALID_HERO: any = {
   questionDate: "2026-01-01",
 }
 
-const VALID_WRONG_QUESTION_FIXTURE = {
-  generatedAt: "x",
+const VALID_V20_WRONG_QUESTION: any = {
+  generatedAt: "v20",
   windowDays: 30,
-  topPattern: "",
-  hero: VALID_HERO,
-  backups: [],
-  weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
-  weakPoints: [],
+  errorAnalysis: {
+    todayWins: [],
+    keyError: VALID_FOCUS_PICK,
+  },
+  learningGuidance: {
+    unawareGap: "",
+    studyMethods: [
+      { name: "主动回忆", researcher: "Roediger 2006", finding: "x", action: "x" },
+    ],
+  },
+  studentObservation: {
+    moments: [
+      { timestamp: "周二 23:47", observation: "..." },
+    ],
+    closingLine: "我已在家长那边说清楚",
+  },
 }
 
-const VALID_GROWTH_FIXTURE = {
-  generatedAt: "y",
+const VALID_V21_GROWTH: any = {
+  generatedAt: "v21",
   windowDays: 30,
-  topInsight: "",
-  thisWeekAction: "",
-  focusSubject: "",
-  trajectory: { filesUploaded: 0, subjectsCovered: [], activeDays: 0 },
-  scores: [],
-  emotionTrend: [],
-  highlights: [],
-  parentAdvice: { strengthen: [], remind: [], encourage: [] },
+  weekWork: {
+    filesIngested: 0,
+    knowledgePointsResolved: [],
+  },
+  progressAssessment: {
+    bySubject: [
+      { subject: "数学", trend: "regressing", dataObservation: "x" },
+      { subject: "英语", trend: "insufficient-data", insufficientNote: "x" },
+    ],
+  },
+  recommendation: {
+    studyAdvice: { action: "x", whyThisAction: "x", whyNotBroader: "x" },
+    communicationApproach: {
+      childEmotion: { summary: "x", evidence: ["x"] },
+      alphaGenContext: { bornRange: "2010 Alpha", traits: ["x"], whyDifferent: "x" },
+      developmentalStrategy: {
+        ageBrackets: [
+          { range: "12-14 岁", stageName: "x", theorist: "Dweck 2006", strategy: "x", isCurrent: true },
+        ],
+        tonightLines: ["x"],
+        keyword: "x",
+      },
+    },
+  },
 }
 
-test("writeCachedReport / readCachedReport round-trip a well-formed report", () => {
+// ─────────────────────────────────────────────────────────
+// Core round-trip
+// ─────────────────────────────────────────────────────────
+
+test("V20: writeCachedReport / readCachedReport round-trip valid wrong-questions report", () => {
   installShim()
-  writeCachedReport("wrong-questions", VALID_WRONG_QUESTION_FIXTURE as any)
+  writeCachedReport("wrong-questions", VALID_V20_WRONG_QUESTION)
   const back = readCachedReport("wrong-questions")
-  assert.equal((back as any).generatedAt, "x")
+  assert.equal((back as any).generatedAt, "v20")
+})
+
+test("V21: writeCachedReport / readCachedReport round-trip valid growth report", () => {
+  installShim()
+  writeCachedReport("growth", VALID_V21_GROWTH)
+  const back = readCachedReport("growth")
+  assert.equal((back as any).generatedAt, "v21")
 })
 
 test("clearCachedReport removes the key", () => {
   installShim()
-  writeCachedReport("growth", VALID_GROWTH_FIXTURE as any)
+  writeCachedReport("growth", VALID_V21_GROWTH)
   clearCachedReport("growth")
   assert.equal(readCachedReport("growth"), null)
 })
@@ -83,169 +125,176 @@ test("readCachedReport returns null when missing or invalid JSON", () => {
   assert.equal(readCachedReport("growth"), null)
 })
 
-test("V11: readCachedReport rejects V10 growth shape (no topInsight/thisWeekAction)", () => {
-  installShim()
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_growth",
-    JSON.stringify({
-      generatedAt: "v10",
-      windowDays: 30,
-      focusSubject: "数学",
-      trajectory: { filesUploaded: 0, subjectsCovered: [], activeDays: 0 },
-      scores: [],
-      emotionTrend: [],
-      highlights: [],
-      parentAdvice: { strengthen: [], remind: [], encourage: [] },
-      // missing topInsight + thisWeekAction
-    })
-  )
-  assert.equal(readCachedReport("growth"), null, "V10 growth shape must auto-evict under V11")
-})
+// ─────────────────────────────────────────────────────────
+// V19 evicts all pre-V19 cached shapes
+// ─────────────────────────────────────────────────────────
 
-test("readCachedReport discards a cached growth report missing trajectory", () => {
-  installShim()
-  // Simulates a stale entry from earlier code paths (e.g. an LLM-mode partial write).
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_growth",
-    JSON.stringify({ generatedAt: "z", windowDays: 30, highlights: ["x"] })
-  )
-  assert.equal(readCachedReport("growth"), null)
-  // And the bad entry should have been cleaned up.
-  assert.equal((globalThis as any).localStorage.getItem("deliclaw_report_growth"), null)
-})
-
-test("V11: readCachedReport rejects V10 shape (progressHeadline-style, no topPattern/hero/backups)", () => {
+test("V19: evicts V18 wrong-questions shape (studentCommunication.saying/avoid)", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
     JSON.stringify({
-      generatedAt: "v10",
+      generatedAt: "v18",
       windowDays: 30,
-      progressHeadline: "h",
-      progressReason: "r",
-      gapSignal: "g",
-      focusPicks: [],
-      weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
-      weakPoints: [],
-    })
+      errorAnalysis: { todayWins: [], keyError: VALID_FOCUS_PICK },
+      learningGuidance: {
+        unawareGap: "",
+        practiceOptions: { doIt: "x", reviewOnly: "x", skipToday: "x" },
+      },
+      studentCommunication: { saying: [], avoid: [] }, // V18 shape
+    }),
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "V10 shape must auto-evict under V11")
+  assert.equal(readCachedReport("wrong-questions"), null, "V18 shape must auto-evict under V19")
 })
 
-test("V10: readCachedReport rejects V9 weeklyTrend shape (no seriesBySubject)", () => {
+test("V19: evicts V18 growth shape (parentCommunication / learningAbility)", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify({
+      generatedAt: "v18",
+      windowDays: 30,
+      weekWork: { filesIngested: 0, knowledgePointsResolved: [] },
+      progressAssessment: { learningAbility: [] }, // V18 shape
+      parentCommunication: { // V18 shape
+        relaxReason: "",
+        thisWeekAction: "",
+        tonightDosLines: [],
+        tonightDontsLines: [],
+        reasonLine: "",
+      },
+    }),
+  )
+  assert.equal(readCachedReport("growth"), null, "V18 growth shape must auto-evict under V19")
+})
+
+test("V19: evicts V11 wrong-questions shape (hero / backups / weeklyTrend)", () => {
   installShim()
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
     JSON.stringify({
-      generatedAt: "v9",
+      generatedAt: "v11",
       windowDays: 30,
-      topPattern: "",
-      hero: VALID_HERO,
+      topPattern: "...",
+      hero: VALID_FOCUS_PICK,
       backups: [],
-      weeklyTrend: { series: [], summary: "" }, // missing seriesBySubject
-      weakPoints: [],
-    })
-  )
-  assert.equal(readCachedReport("wrong-questions"), null, "V9 weeklyTrend (no seriesBySubject) must auto-evict")
-})
-
-test("V8: readCachedReport rejects V7 shape with progressSignal", () => {
-  installShim()
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify({
-      generatedAt: "v7",
-      windowDays: 30,
-      progressSignal: "merged headline + reason in one line",
-      gapSignal: "x",
-      focusPicks: [],
       weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
       weakPoints: [],
-    })
-  )
-  assert.equal(readCachedReport("wrong-questions"), null, "V7 progressSignal must auto-evict")
-})
-
-test("readCachedReport discards a V2 cached wrong-questions report (overview shape)", () => {
-  installShim()
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify({
-      generatedAt: "v2",
-      windowDays: 30,
-      overview: { total: 12, bySubject: [], byQuestionType: [] },
-      focusPicks: [],
-      weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
-      weakPoints: [],
-    })
+    }),
   )
   assert.equal(readCachedReport("wrong-questions"), null)
 })
 
-const VALID_V11_WRONG_QUESTION_FIXTURE = {
-  generatedAt: "v11",
-  windowDays: 30,
-  topPattern: "这周 1 道错，月内最低。但物理单位换算又翻车，第 3 次了。",
-  hero: VALID_HERO,
-  backups: [],
-  weeklyTrend: { series: [], seriesBySubject: [], summary: "" },
-  weakPoints: [],
-}
-
-test("V11: readCachedReport accepts a well-formed V11 wrong-questions report", () => {
+test("V19: evicts a wrong-questions report missing studentObservation block", () => {
   installShim()
+  const bad = { ...VALID_V20_WRONG_QUESTION, studentObservation: undefined }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(VALID_V11_WRONG_QUESTION_FIXTURE)
+    JSON.stringify(bad),
   )
-  const result = readCachedReport("wrong-questions")
-  assert.notEqual(result, null, "V11 shape must be accepted")
-  assert.equal((result as any).generatedAt, "v11")
+  assert.equal(readCachedReport("wrong-questions"), null)
 })
 
-// hero-shape validation
-const V5_FOCUS_PICK = {
-  knowledgePoint: "二次函数顶点式",
-  subject: "数学",
-  goal: "g",
-  stepDiagnosis: "s",
-  tasks: [],
-  closingLine: "c",
-  fileRefs: [],
-  errorCount: 4,
-  examWeightLabel: "期中压轴 18 分",
-  // missing: knowledgePoints, whyPicked, excerpt, questionDate
-}
-
-test("V11: readCachedReport rejects when hero misses knowledgePoints/whyPicked/excerpt", () => {
-  installShim()
-  const bad = { ...VALID_V11_WRONG_QUESTION_FIXTURE, hero: V5_FOCUS_PICK }
-  ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(bad)
-  )
-  assert.equal(readCachedReport("wrong-questions"), null, "old FocusPick shape must be rejected")
-})
-
-test("V11: readCachedReport rejects when hero.knowledgePoints is not an array", () => {
+test("V19: evicts a wrong-questions report whose moment is missing timestamp", () => {
   installShim()
   const bad = {
-    ...VALID_V11_WRONG_QUESTION_FIXTURE,
-    hero: { ...VALID_HERO, knowledgePoints: "not an array" },
+    ...VALID_V20_WRONG_QUESTION,
+    studentObservation: {
+      ...VALID_V20_WRONG_QUESTION.studentObservation,
+      moments: [{ observation: "x" }], // missing timestamp
+    },
   }
   ;(globalThis as any).localStorage.setItem(
     "deliclaw_report_wrong-questions",
-    JSON.stringify(bad)
+    JSON.stringify(bad),
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "knowledgePoints as string must be rejected")
+  assert.equal(readCachedReport("wrong-questions"), null)
 })
 
-test("V11: readCachedReport rejects when backups is not an array", () => {
+test("V19: evicts a growth report missing recommendation block", () => {
   installShim()
-  const bad = { ...VALID_V11_WRONG_QUESTION_FIXTURE, backups: "not an array" }
+  const bad = { ...VALID_V21_GROWTH, recommendation: undefined }
   ;(globalThis as any).localStorage.setItem(
-    "deliclaw_report_wrong-questions",
-    JSON.stringify(bad)
+    "deliclaw_report_growth",
+    JSON.stringify(bad),
   )
-  assert.equal(readCachedReport("wrong-questions"), null, "backups must be an array")
+  assert.equal(readCachedReport("growth"), null)
+})
+
+test("V19: evicts a growth report whose bySubject has invalid trend", () => {
+  installShim()
+  const bad = {
+    ...VALID_V21_GROWTH,
+    progressAssessment: {
+      bySubject: [{ subject: "数学", trend: "totally-up" }], // invalid trend
+    },
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify(bad),
+  )
+  assert.equal(readCachedReport("growth"), null)
+})
+
+test("V21: evicts a growth report missing alphaGenContext", () => {
+  installShim()
+  const bad = {
+    ...VALID_V21_GROWTH,
+    recommendation: {
+      ...VALID_V21_GROWTH.recommendation,
+      communicationApproach: {
+        ...VALID_V21_GROWTH.recommendation.communicationApproach,
+        alphaGenContext: undefined,
+      },
+    },
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify(bad),
+  )
+  assert.equal(readCachedReport("growth"), null)
+})
+
+test("V21: evicts a growth report whose ageBracket is missing isCurrent", () => {
+  installShim()
+  const bad = {
+    ...VALID_V21_GROWTH,
+    recommendation: {
+      ...VALID_V21_GROWTH.recommendation,
+      communicationApproach: {
+        ...VALID_V21_GROWTH.recommendation.communicationApproach,
+        developmentalStrategy: {
+          ...VALID_V21_GROWTH.recommendation.communicationApproach.developmentalStrategy,
+          ageBrackets: [{ range: "12-14 岁", stageName: "x", theorist: "x", strategy: "x" }], // missing isCurrent
+        },
+      },
+    },
+  }
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify(bad),
+  )
+  assert.equal(readCachedReport("growth"), null)
+})
+
+test("V21: evicts V20 growth shape (situation / theory / strategy)", () => {
+  installShim()
+  ;(globalThis as any).localStorage.setItem(
+    "deliclaw_report_growth",
+    JSON.stringify({
+      generatedAt: "v20",
+      windowDays: 30,
+      weekWork: { filesIngested: 0, knowledgePointsResolved: [] },
+      progressAssessment: { bySubject: [] },
+      recommendation: {
+        studyAdvice: { action: "x", whyThisAction: "x", whyNotBroader: "x" },
+        communicationApproach: {
+          situation: ["x"],
+          theory: { ageBracket: "12-14 岁", framework: "Dweck", bullets: ["x"], keyword: "x" },
+          strategy: [{ step: "x", reason: "x" }],
+        },
+      },
+    }),
+  )
+  assert.equal(readCachedReport("growth"), null, "V20 communicationApproach 必须被 V21 evict")
 })
