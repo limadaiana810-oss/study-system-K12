@@ -1,4 +1,4 @@
-# DeliClaw Demo
+# StudyClaw Demo
 
 本地优先（local-first）的 AI 文件管理助手 Web Demo。基于 Next.js 构建，演示一个能够实时"理解"用户意图、管理学习文件、并生成错题/成长报告的 AI 智能体。
 
